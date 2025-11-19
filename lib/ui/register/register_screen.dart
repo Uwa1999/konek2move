@@ -5,8 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
+import 'package:konek2move/core/services/api_services.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
-import 'package:konek2move/ui/login/verification_screen.dart';
 import 'package:konek2move/ui/register/register_success_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -22,7 +22,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _mnameController = TextEditingController();
   final TextEditingController _lnameController = TextEditingController();
   final TextEditingController _suffixController = TextEditingController();
-  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _genderController = TextEditingController();
 
   // Contact Info
   final TextEditingController _mobileController = TextEditingController();
@@ -33,7 +33,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _vehicleController = TextEditingController();
   final TextEditingController _licenseController = TextEditingController();
 
+  // Set-up Password
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
+
   bool isMobileValid = false;
+  bool isPasswordVisible = false;
   String? selectedGender;
   String? selectedSuffix;
   String? selectedVehicle;
@@ -43,11 +49,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   final List<String> genderOptions = ["Male", "Female"];
   final List<String> suffixOptions = ["Jr.", "Sr.", "III"];
-  final List<String> vehicleOptions = [
-    "Bicycle",
-    "Motorcycle / Scooter",
-    "Pickup Truck",
-  ];
+  List<String> vehicleOptions = [];
 
   File? _drivingLicenseFront;
   File? _drivingLicenseBack;
@@ -155,12 +157,53 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _fnameController.addListener(_onFieldChanged);
     _mnameController.addListener(_onFieldChanged);
     _lnameController.addListener(_onFieldChanged);
+    _genderController.addListener(_onFieldChanged);
     _mobileController.addListener(_onFieldChanged);
     _vehicleController.addListener(_onFieldChanged);
     _licenseController.addListener(_onFieldChanged);
     _addressController.addListener(_onFieldChanged);
-    _usernameController.addListener(_onFieldChanged);
     _emailController.addListener(_onFieldChanged);
+    _passwordController.addListener(_onFieldChanged);
+    _confirmPasswordController.addListener(_onFieldChanged);
+    _loadDropdownOptions();
+  }
+
+  bool _isFormValid() {
+    return isMobileValid &&
+        _fnameController.text.isNotEmpty &&
+        _lnameController.text.isNotEmpty &&
+        selectedGender != null &&
+        selectedGender!.isNotEmpty &&
+        _vehicleController.text.isNotEmpty &&
+        _licenseController.text.isNotEmpty &&
+        _addressController.text.isNotEmpty &&
+        _emailController.text.isNotEmpty &&
+        _passwordController.text.isNotEmpty &&
+        _confirmPasswordController.text.isNotEmpty &&
+        _passwordController.text == _confirmPasswordController.text &&
+        _drivingLicenseFront != null &&
+        _drivingLicenseBack != null;
+  }
+
+  bool _isPersonalInfoValid() {
+    return _fnameController.text.isNotEmpty &&
+        _lnameController.text.isNotEmpty &&
+        selectedGender != null &&
+        selectedGender!.isNotEmpty;
+  }
+
+  bool _isContactInfoValid() {
+    return _mobileController.text.length == 11 &&
+        _mobileController.text.startsWith('09') &&
+        _emailController.text.endsWith('@gmail.com') &&
+        _addressController.text.isNotEmpty;
+  }
+
+  bool _isVehicleInfoValid() {
+    return _drivingLicenseFront != null &&
+        _drivingLicenseBack != null &&
+        _vehicleController.text.isNotEmpty &&
+        _licenseController.text.isNotEmpty;
   }
 
   void _onFieldChanged() {
@@ -170,18 +213,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() {
       isMobileValid = mobileValid;
     });
-  }
-
-  bool _isFormValid() {
-    return isMobileValid &&
-        _fnameController.text.isNotEmpty &&
-        _mnameController.text.isNotEmpty &&
-        _lnameController.text.isNotEmpty &&
-        _usernameController.text.isNotEmpty &&
-        _vehicleController.text.isNotEmpty &&
-        _licenseController.text.isNotEmpty &&
-        _addressController.text.isNotEmpty &&
-        _emailController.text.isNotEmpty;
   }
 
   void _onRegister() {
@@ -198,7 +229,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _mnameController.dispose();
     _lnameController.dispose();
     _suffixController.dispose();
-    _usernameController.dispose();
+    _genderController.dispose();
     _mobileController.dispose();
     _vehicleController.dispose();
     _licenseController.dispose();
@@ -206,6 +237,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController.dispose();
     _pageController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadDropdownOptions() async {
+    try {
+      final Map<String, List<String>> dropdowns = await ApiServices()
+          .fetchDropdownOptions();
+
+      // Capitalize first letter of each vehicle option
+      List<String> vehicles = (dropdowns['vehicle_type'] ?? [])
+          .map(
+            (e) => e.isNotEmpty
+                ? e[0].toUpperCase() + e.substring(1).toLowerCase()
+                : e,
+          )
+          .toList();
+
+      setState(() {
+        vehicleOptions = vehicles;
+      });
+    } catch (e) {
+      debugPrint("Error loading dropdowns: $e");
+    }
   }
 
   @override
@@ -225,6 +278,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 _buildPersonalInfoStep(),
                 _buildContactInfoStep(),
                 _buildVehicleInfoStep(),
+                _buildSetupPasswordStep(),
               ],
             ),
           ),
@@ -292,6 +346,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           _stepCircle("2", "Contact Details", _currentStep >= 1),
 
           _stepCircle("3", "Vehicle Details", _currentStep >= 2),
+
+          _stepCircle("4", "Set-up Password", _currentStep >= 3),
         ],
       ),
     );
@@ -307,8 +363,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 40,
-          height: 40,
+          width: 30,
+          height: 30,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: active
@@ -333,7 +389,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: Text(
             number,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 12,
               fontWeight: FontWeight.bold,
               color: active ? Colors.white : Colors.grey.shade700,
             ),
@@ -343,7 +399,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         Text(
           label,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 10,
             fontWeight: FontWeight.w600,
             color: active ? kPrimaryColor : Colors.grey.shade500,
           ),
@@ -352,7 +408,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           Container(
             margin: const EdgeInsets.only(top: 8),
             height: 2,
-            width: 40, // fixed width to match circle
+            width: 30,
             color: active ? kPrimaryColor : Colors.grey.shade300,
           ),
       ],
@@ -448,7 +504,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     (value) {
                       setState(() {
                         selectedGender = value;
-                        _usernameController.text = value ?? "";
                       });
                     },
                   ),
@@ -461,16 +516,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
           CustomButton(
             text: "Next",
             horizontalPadding: 0,
-            color: kPrimaryColor,
+            color: _isPersonalInfoValid() ? kPrimaryColor : Colors.grey,
             textColor: Colors.white,
-            onTap: () {
-              setState(() => _currentStep = 1);
-              _pageController.animateToPage(
-                1,
-                duration: Duration(milliseconds: 300),
-                curve: Curves.easeOut,
-              );
-            },
+            onTap: _isPersonalInfoValid()
+                ? () {
+                    setState(() => _currentStep = 1);
+                    _pageController.animateToPage(
+                      1,
+                      duration: Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
+                    );
+                  }
+                : null,
           ),
         ],
       ),
@@ -557,16 +614,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: CustomButton(
                   horizontalPadding: 0,
                   text: "Next",
-                  color: kPrimaryColor,
+                  color: _isContactInfoValid() ? kPrimaryColor : Colors.grey,
                   textColor: Colors.white,
-                  onTap: () {
-                    setState(() => _currentStep = 2);
-                    _pageController.animateToPage(
-                      2,
-                      duration: Duration(milliseconds: 300),
-                      curve: Curves.easeOut,
-                    );
-                  },
+                  onTap: _isContactInfoValid()
+                      ? () {
+                          setState(() => _currentStep = 2);
+                          _pageController.animateToPage(
+                            2,
+                            duration: Duration(milliseconds: 300),
+                            curve: Curves.easeOut,
+                          );
+                        }
+                      : null,
                 ),
               ),
             ],
@@ -579,6 +638,233 @@ class _RegisterScreenState extends State<RegisterScreen> {
   // ---------------------------------------------------------
   // STEP 3 — VEHICLE INFO
   // ---------------------------------------------------------
+  Widget _buildVehicleInfoStep() {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          // Scrollable content
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          "Please provide your vehicle details",
+                          style: TextStyle(
+                            color: kPrimaryColor,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      Image.asset(
+                        "assets/images/vehicle.png",
+                        height: 120,
+                        fit: BoxFit.contain,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 30),
+                  _buildDocumentUploadItem(
+                    title: "Driving License (Front)",
+                    subtitle:
+                        "Upload a clear photo of the front side of your vehicle’s license plate. Ensure the plate number is fully visible and legible, with no obstructions or glare.",
+                    imageFile: _drivingLicenseFront,
+                    onUploadTap: () {
+                      _pickImage((file) {
+                        setState(() {
+                          _drivingLicenseFront = file;
+                        });
+                      }, context);
+                    },
+                  ),
+
+                  _buildDocumentUploadItem(
+                    title: "Driving License (Back)",
+                    subtitle:
+                        "Upload a clear photo of the back side of your vehicle’s license plate. Make sure the plate number is fully visible and readable, with no obstructions or glare.",
+                    imageFile: _drivingLicenseBack,
+                    onUploadTap: () {
+                      _pickImage((file) {
+                        setState(() {
+                          _drivingLicenseBack = file;
+                        });
+                      }, context);
+                    },
+                  ),
+
+                  const SizedBox(height: 15),
+                  _buildSectionTitle("Vehicle Type", required: true),
+                  const SizedBox(height: 10),
+                  _buildDropdownFields(
+                    "Vehicle Type",
+                    vehicleOptions.isEmpty ? ["Loading..."] : vehicleOptions,
+                    selectedVehicle,
+                    (value) {
+                      setState(() {
+                        selectedVehicle = value;
+                        _vehicleController.text = value ?? "";
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 15),
+                  _buildSectionTitle("License Number", required: true),
+                  const SizedBox(height: 10),
+                  _buildTextField(
+                    _licenseController,
+                    "License Number",
+                    maxLength: 12,
+                  ),
+                  const SizedBox(height: 30),
+                  // -------------------------------------
+                ],
+              ),
+            ),
+          ),
+
+          // Buttons at the bottom
+          Row(
+            children: [
+              Expanded(
+                child: CustomButton(
+                  text: "Back",
+                  horizontalPadding: 0,
+                  color: Colors.grey,
+                  textColor: Colors.white,
+                  onTap: () {
+                    setState(() => _currentStep = 1);
+                    _pageController.animateToPage(
+                      1,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: CustomButton(
+                  horizontalPadding: 0,
+                  text: "Next",
+                  color: _isVehicleInfoValid() ? kPrimaryColor : Colors.grey,
+                  textColor: Colors.white,
+                  onTap: _isVehicleInfoValid()
+                      ? () {
+                          setState(() => _currentStep = 3);
+                          _pageController.animateToPage(
+                            3,
+                            duration: Duration(milliseconds: 300),
+                            curve: Curves.easeOut,
+                          );
+                        }
+                      : null,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------
+  // STEP 4 — SET-UP PASSWORD
+  // ---------------------------------------------------------
+  Widget _buildSetupPasswordStep() {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          // Scrollable content
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          "We’ll need to set-up your password",
+                          style: TextStyle(
+                            color: kPrimaryColor,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      Image.asset(
+                        "assets/images/password.png",
+                        height: 120,
+                        fit: BoxFit.contain,
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 30),
+                  _buildSectionTitle("Password", required: true),
+                  const SizedBox(height: 10),
+                  _buildTextField(
+                    _passwordController,
+                    "Enter your password",
+                    isPassword: true,
+                  ),
+                  const SizedBox(height: 15),
+                  _buildSectionTitle("Confirm Password", required: true),
+                  const SizedBox(height: 10),
+                  _buildTextField(
+                    _confirmPasswordController,
+                    "Enter your confirm password",
+                    isPassword: true,
+                  ),
+                  const SizedBox(height: 30),
+                ],
+              ),
+            ),
+          ),
+          // Buttons at the bottom
+          Row(
+            children: [
+              Expanded(
+                child: CustomButton(
+                  horizontalPadding: 0,
+                  text: "Back",
+                  color: Colors.grey,
+                  textColor: Colors.white,
+                  onTap: () {
+                    setState(() => _currentStep = 2);
+                    _pageController.animateToPage(
+                      2,
+                      duration: Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
+                    );
+                  },
+                ),
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: CustomButton(
+                  text: "Register",
+                  horizontalPadding: 0,
+                  color: _isFormValid() ? kPrimaryColor : Colors.grey,
+                  textColor: Colors.white,
+                  onTap: _isFormValid() ? _onRegister : null,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------
+  // REUSABLE WIDGETS
+  // ---------------------------------------------------------
+
   Widget _buildDocumentUploadItem({
     required String title,
     required String subtitle,
@@ -663,134 +949,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildVehicleInfoStep() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        children: [
-          // Scrollable content
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          "Please provide your vehicle details",
-                          style: TextStyle(
-                            color: kPrimaryColor,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      Image.asset(
-                        "assets/images/vehicle.png",
-                        height: 120,
-                        fit: BoxFit.contain,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 30),
-                  _buildDocumentUploadItem(
-                    title: "Driving License (Front)",
-                    subtitle:
-                        "Upload a clear photo of the front side of your vehicle’s license plate. Ensure the plate number is fully visible and legible, with no obstructions or glare.",
-                    imageFile: _drivingLicenseFront,
-                    onUploadTap: () {
-                      _pickImage((file) {
-                        setState(() {
-                          _drivingLicenseFront = file;
-                        });
-                      }, context);
-                    },
-                  ),
-
-                  _buildDocumentUploadItem(
-                    title: "Driving License (Back)",
-                    subtitle:
-                        "Upload a clear photo of the back side of your vehicle’s license plate. Make sure the plate number is fully visible and readable, with no obstructions or glare.",
-                    imageFile: _drivingLicenseBack,
-                    onUploadTap: () {
-                      _pickImage((file) {
-                        setState(() {
-                          _drivingLicenseBack = file;
-                        });
-                      }, context);
-                    },
-                  ),
-
-                  const SizedBox(height: 15),
-                  _buildSectionTitle("Vehicle Type", required: true),
-                  const SizedBox(height: 10),
-                  _buildDropdownField(
-                    "Vehicle Type",
-                    vehicleOptions,
-                    selectedVehicle,
-                    (value) {
-                      setState(() {
-                        selectedVehicle = value;
-                        _vehicleController.text = value ?? "";
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 15),
-                  _buildSectionTitle("License Number", required: true),
-                  const SizedBox(height: 10),
-                  _buildTextField(
-                    _licenseController,
-                    "License Number",
-                    maxLength: 12,
-                  ),
-                  const SizedBox(height: 30),
-                  // -------------------------------------
-                ],
-              ),
-            ),
-          ),
-
-          // Buttons at the bottom
-          Row(
-            children: [
-              Expanded(
-                child: CustomButton(
-                  text: "Back",
-                  horizontalPadding: 0,
-                  color: Colors.grey,
-                  textColor: Colors.white,
-                  onTap: () {
-                    setState(() => _currentStep = 1);
-                    _pageController.animateToPage(
-                      1,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOut,
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: CustomButton(
-                  text: "Register",
-                  horizontalPadding: 0,
-                  color: _isFormValid() ? kPrimaryColor : Colors.grey,
-                  textColor: Colors.white,
-                  onTap: _isFormValid() ? _onRegister : null,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------
-  // REUSABLE WIDGETS
-  // ---------------------------------------------------------
-
   Widget _buildSectionTitle(String title, {bool required = false}) {
     return RichText(
       text: TextSpan(
@@ -818,15 +976,53 @@ class _RegisterScreenState extends State<RegisterScreen> {
     TextInputType keyboardType = TextInputType.text,
     int? maxLength,
     List<TextInputFormatter>? inputFormatters,
+    bool isPassword = false,
   }) {
-    return TextField(
-      controller: controller,
-      keyboardType: keyboardType,
-      maxLength: maxLength,
-      inputFormatters: inputFormatters,
+    bool obscureText = isPassword;
+
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          maxLength: maxLength,
+          inputFormatters: inputFormatters,
+          obscureText: obscureText,
+          decoration: InputDecoration(
+            counterText: "",
+            hintText: hintText,
+            filled: true,
+            fillColor: Colors.grey.shade100,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide.none,
+            ),
+            suffixIcon: isPassword
+                ? IconButton(
+                    icon: Icon(
+                      obscureText ? Icons.visibility_off : Icons.visibility,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        obscureText = !obscureText;
+                      });
+                    },
+                  )
+                : null,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDropdownField(
+    String hint,
+    List<String> options,
+    String? selectedValue,
+    Function(String?) onChanged,
+  ) {
+    return InputDecorator(
       decoration: InputDecoration(
-        counterText: "",
-        hintText: hintText,
         filled: true,
         fillColor: Colors.grey.shade100,
         border: OutlineInputBorder(
@@ -834,10 +1030,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
           borderSide: BorderSide.none,
         ),
       ),
+      child: DropdownButtonHideUnderline(
+        child: SizedBox(
+          height: 20,
+          child: DropdownButton<String>(
+            hint: Text(hint),
+            value: selectedValue,
+            isExpanded: true,
+            onChanged: onChanged,
+            items: options
+                .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                .toList(),
+          ),
+        ),
+      ),
     );
   }
 
-  Widget _buildDropdownField(
+  Widget _buildDropdownFields(
     String hint,
     List<String> options,
     String? selectedValue,

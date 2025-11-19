@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:konek2move/core/routes/app_routes.dart';
+import 'package:smooth_chucker/smooth_chucker.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,6 +29,7 @@ class MyApp extends StatelessWidget {
       ),
       initialRoute: AppRoutes.splash,
       routes: AppRoutes.routes,
+      // navigatorObservers: [SmoothChucker.navigatorObserver],
     );
   }
 }

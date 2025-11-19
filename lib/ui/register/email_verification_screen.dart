@@ -58,7 +58,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     setState(() => isOtpComplete = false);
 
     try {
-      final api = EmailVerification();
+      final api = ApiServices();
       final response = await api.emailOTPVerification(otp);
 
       if (!mounted) return;
@@ -110,7 +110,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
 
   Future<void> _resendOTP() async {
     try {
-      final EmailVerification api = EmailVerification();
+      final ApiServices api = ApiServices();
       final response = await api.emailVerification(widget.email);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${response.error}${response.message}')),

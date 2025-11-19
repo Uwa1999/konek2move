@@ -41,7 +41,7 @@ class _EmailScreenState extends State<EmailScreen> {
     });
 
     try {
-      final EmailVerification api = EmailVerification();
+      final ApiServices api = ApiServices();
       final response = await api.emailVerification(emailController.text.trim());
 
       if (!mounted) return;
