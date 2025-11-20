@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/services/api_services.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
+import 'package:konek2move/ui/register/register_screen.dart';
 import 'package:konek2move/ui/register/register_success_screen.dart';
 
 class EmailVerificationScreen extends StatefulWidget {
@@ -49,8 +51,10 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     final otp = _otpControllers.map((c) => c.text).join();
 
     if (otp.length < 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter complete OTP')),
+      _showTopMessage(
+        context,
+        message: 'Please enter complete OTP',
+        isError: true,
       );
       return;
     }
@@ -64,22 +68,53 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
       if (!mounted) return;
 
       if (response.retCode == '200') {
-        Navigator.pushReplacementNamed(context, '/register');
-      } else {
-        ScaffoldMessenger.of(
+        Navigator.push(
           context,
-        ).showSnackBar(SnackBar(content: Text(response.message)));
+          MaterialPageRoute(
+            builder: (_) => RegisterScreen(email: widget.email),
+          ),
+        );
+      } else {
+        _showTopMessage(
+          context,
+          message: response.error ?? response.message,
+          isError: true,
+        );
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
+
+      _showTopMessage(
         context,
-      ).showSnackBar(SnackBar(content: Text('Failed to verify OTP: $e')));
+        message: 'Failed to verify OTP: $e',
+        isError: true,
+      );
     } finally {
       setState(() {
         isOtpComplete = _otpControllers.every((c) => c.text.isNotEmpty);
       });
     }
+  }
+
+  // Reusable Top Flushbar function
+  void _showTopMessage(
+    BuildContext context, {
+    required String message,
+    bool isError = false,
+  }) {
+    final color = isError ? Colors.redAccent : Colors.green;
+    final icon = isError ? Icons.error_outline : Icons.check_circle_outline;
+
+    Flushbar(
+      margin: const EdgeInsets.all(16),
+      borderRadius: BorderRadius.circular(12),
+      backgroundColor: color,
+      icon: Icon(icon, color: Colors.white, size: 28),
+      message: message,
+      duration: const Duration(seconds: 3),
+      flushbarPosition: FlushbarPosition.TOP,
+      animationDuration: const Duration(milliseconds: 500),
+    ).show(context);
   }
 
   @override

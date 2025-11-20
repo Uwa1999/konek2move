@@ -8,7 +8,7 @@ class ApiServices {
   Future<Map<String, List<String>>> fetchDropdownOptions() async {
     try {
       final Uri url = Uri.parse(
-        '${GetDNS.getOttokonekHestia()}/api/public/v1/moveapp/dropdown/',
+        '${GetDNS.getOttokonekHestia()}/api/public/v1/moveapp/dropdown',
       );
       final http.Response response = await http.get(url);
 
@@ -91,6 +91,34 @@ class ApiServices {
     }
   }
 
+  Future<ModelResponse> signin(String email, String password) async {
+    try {
+      final Uri url = Uri.parse(
+        '${GetDNS.getOttokonekHestia()}/api/public/v1/moveapp/auth/signin',
+      );
+      final http.Response response = await http.post(
+        url,
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+        body: jsonEncode({"email": email, "password": password}),
+      );
+
+      print('Response Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> decodedData = jsonDecode(response.body);
+        return ModelResponse.fromJson(decodedData);
+      } else {
+        throw Exception(
+          'Server returned ${response.statusCode}: ${response.body}',
+        );
+      }
+    } catch (e) {
+      throw Exception('An error occurred: $e');
+    }
+  }
+
   Future<ModelResponse> signup({
     required String firstName,
     String? middleName,
@@ -125,13 +153,19 @@ class ApiServices {
       request.fields['password'] = password;
       request.fields['vehicle_type'] = vehicleType;
       request.fields['license_number'] = licenseNumber;
-
-      // Add files
       request.files.add(
-        await http.MultipartFile.fromPath('license_front', licenseFront.path),
+        await http.MultipartFile.fromPath(
+          'license_front',
+          licenseFront.path,
+          contentType: http.MediaType('image', 'jpeg'),
+        ),
       );
       request.files.add(
-        await http.MultipartFile.fromPath('license_back', licenseBack.path),
+        await http.MultipartFile.fromPath(
+          'license_back',
+          licenseBack.path,
+          contentType: http.MediaType('image', 'jpeg'),
+        ),
       );
 
       // Send request

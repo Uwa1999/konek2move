@@ -17,7 +17,7 @@ class _TermsAndConditionScreenState extends State<TermsAndConditionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: Colors.white,
       body: Column(
         children: [
           // Top AppBar
@@ -81,14 +81,14 @@ class _TermsAndConditionScreenState extends State<TermsAndConditionScreen> {
                       ],
                     ),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(24),
+                      borderRadius: BorderRadius.circular(20),
                       child: Image.asset(
                         "assets/images/terms.png",
                         fit: BoxFit.cover,
                       ),
                     ),
                   ),
-                  SizedBox(height: 30),
+                  SizedBox(height: 20),
                   _TermsSection(
                     title: "1. Introduction",
                     content:

@@ -1,3 +1,4 @@
+import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
@@ -32,25 +33,49 @@ class _SettingScreenState extends State<SettingScreen> {
   }
 
   Future<void> _toggleBiometric(bool value) async {
-    final canCheck = await auth.canCheckBiometrics;
-    final available = await auth.getAvailableBiometrics();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final canCheck = await auth.canCheckBiometrics;
+      final available = await auth.getAvailableBiometrics();
 
-    if (!canCheck || available.isEmpty) {
-      _showSnack("No biometrics available");
-      return;
-    }
+      if (!canCheck || available.isEmpty) {
+        _showTopMessage(
+          context,
+          message: "No biometrics available on this device",
+          isError: true,
+        );
+        return;
+      }
 
-    bool didAuthenticate = await auth.authenticate(
-      localizedReason: 'Confirm to enable biometric login',
-    );
+      try {
+        bool didAuthenticate = await auth.authenticate(
+          localizedReason: 'Confirm to enable biometric login',
+          biometricOnly: true,
+        );
 
-    if (didAuthenticate) {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setBool("biometric_enabled", value);
-      setState(() {
-        _isBiometricEnabled = value;
-      });
-    }
+        if (didAuthenticate) {
+          SharedPreferences prefs = await SharedPreferences.getInstance();
+          await prefs.setBool("biometric_enabled", value);
+          setState(() {
+            _isBiometricEnabled = value;
+          });
+
+          _showTopMessage(
+            context,
+            message: value
+                ? "Biometric login enabled"
+                : "Biometric login disabled",
+            isError: false,
+          );
+        }
+      } on Exception catch (e) {
+        _showTopMessage(
+          context,
+          message: "Biometric error: ${e.toString()}",
+          isError: true,
+        );
+        print(e.toString());
+      }
+    });
   }
 
   Future<void> _toggleDriverStatus(bool value) async {
@@ -59,13 +84,33 @@ class _SettingScreenState extends State<SettingScreen> {
     setState(() {
       _isDriverActive = value;
     });
-    _showSnack(value ? "You are ONLINE" : "You are OFFLINE");
+
+    _showTopMessage(
+      context,
+      message: value ? "You are ONLINE" : "You are OFFLINE",
+      isError: false,
+    );
   }
 
-  void _showSnack(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+  // Modern Top Flushbar function (reusable)
+  void _showTopMessage(
+    BuildContext context, {
+    required String message,
+    bool isError = false,
+  }) {
+    final color = isError ? Colors.redAccent : Colors.green;
+    final icon = isError ? Icons.error_outline : Icons.check_circle_outline;
+
+    Flushbar(
+      margin: const EdgeInsets.all(16),
+      borderRadius: BorderRadius.circular(12),
+      backgroundColor: color,
+      icon: Icon(icon, color: Colors.white, size: 28),
+      message: message,
+      duration: const Duration(seconds: 3),
+      flushbarPosition: FlushbarPosition.TOP,
+      animationDuration: const Duration(milliseconds: 500),
+    ).show(context);
   }
 
   @override

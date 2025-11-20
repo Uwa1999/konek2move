@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/svg.dart';
@@ -10,7 +11,8 @@ import 'package:konek2move/core/widgets/custom_button.dart';
 import 'package:konek2move/ui/register/register_success_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  final String email;
+  const RegisterScreen({super.key, required this.email});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -30,6 +32,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _addressController = TextEditingController();
 
   // Vehicle Info
+  File? _drivingLicenseFront;
+  File? _drivingLicenseBack;
   final TextEditingController _vehicleController = TextEditingController();
   final TextEditingController _licenseController = TextEditingController();
 
@@ -40,19 +44,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   bool isMobileValid = false;
   bool isPasswordVisible = false;
-  String? selectedGender;
   String? selectedSuffix;
+  String? selectedGender;
   String? selectedVehicle;
 
   int _currentStep = 0; // 0 = personal, 1 = contact, 2 = vehicle
   final PageController _pageController = PageController();
 
-  final List<String> genderOptions = ["Male", "Female"];
-  final List<String> suffixOptions = ["Jr.", "Sr.", "III"];
+  List<String> suffixOptions = [];
+  List<String> genderOptions = [];
   List<String> vehicleOptions = [];
-
-  File? _drivingLicenseFront;
-  File? _drivingLicenseBack;
 
   Future<void> _pickImage(
     Function(File) onImagePicked,
@@ -162,7 +163,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _vehicleController.addListener(_onFieldChanged);
     _licenseController.addListener(_onFieldChanged);
     _addressController.addListener(_onFieldChanged);
-    _emailController.addListener(_onFieldChanged);
+    _emailController.text = widget.email;
     _passwordController.addListener(_onFieldChanged);
     _confirmPasswordController.addListener(_onFieldChanged);
     _loadDropdownOptions();
@@ -215,12 +216,95 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
   }
 
-  void _onRegister() {
+  void _onRegister() async {
     if (!_isFormValid()) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => RegisterSuccessScreen()),
+
+    // Print all input data for debugging
+    print('--- Registration Data ---');
+    print('First Name: ${_fnameController.text.trim()}');
+    print('Middle Name: ${_mnameController.text.trim()}');
+    print('Last Name: ${_lnameController.text.trim()}');
+    print('Suffix: $selectedSuffix');
+    print('Gender: $selectedGender');
+    print('Email: ${_emailController.text.trim()}');
+    print('Phone: ${_mobileController.text.trim()}');
+    print('Address: ${_addressController.text.trim()}');
+    print('Password: ${_passwordController.text}');
+    print('Vehicle Type: ${_vehicleController.text.trim()}');
+    print('License Number: ${_licenseController.text.trim()}');
+    print('License Front File Path: ${_drivingLicenseFront?.path}');
+    print('License Back File Path: ${_drivingLicenseBack?.path}');
+    print('-------------------------');
+
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
     );
+
+    try {
+      final response = await ApiServices().signup(
+        firstName: _fnameController.text.trim(),
+        middleName: _mnameController.text.trim().isEmpty
+            ? null
+            : _mnameController.text.trim(),
+        lastName: _lnameController.text.trim(),
+        suffix: selectedSuffix,
+        gender: selectedGender!,
+        email: _emailController.text.trim(),
+        phone: _mobileController.text.trim(),
+        address: _addressController.text.trim(),
+        password: _passwordController.text,
+        vehicleType: _vehicleController.text.trim(),
+        licenseNumber: _licenseController.text.trim(),
+        licenseFront: _drivingLicenseFront!,
+        licenseBack: _drivingLicenseBack!,
+      );
+
+      Navigator.pop(context); // Close loading dialog
+
+      if (response.retCode == '200') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => RegisterSuccessScreen()),
+        );
+      } else {
+        _showTopMessage(
+          context,
+          message: response.error ?? response.message,
+          isError: true,
+        );
+      }
+    } catch (e) {
+      Navigator.pop(context); // Close loading dialog
+      _showTopMessage(
+        context,
+        message: 'Registration failed: $e',
+        isError: true,
+      );
+    }
+  }
+
+  // Modern Top Flushbar function
+  void _showTopMessage(
+    BuildContext context, {
+    required String message,
+    bool isError = false,
+  }) {
+    final color = isError ? Colors.redAccent : Colors.green;
+    final icon = isError ? Icons.error_outline : Icons.check_circle_outline;
+
+    Flushbar(
+      margin: const EdgeInsets.all(16),
+      borderRadius: BorderRadius.circular(12),
+      backgroundColor: color,
+      icon: Icon(icon, color: Colors.white, size: 28),
+      message: message,
+      duration: const Duration(seconds: 3),
+      flushbarPosition: FlushbarPosition.TOP,
+      animationDuration: const Duration(milliseconds: 500),
+    ).show(context);
   }
 
   @override
@@ -245,15 +329,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
           .fetchDropdownOptions();
 
       // Capitalize first letter of each vehicle option
-      List<String> vehicles = (dropdowns['vehicle_type'] ?? [])
-          .map(
-            (e) => e.isNotEmpty
-                ? e[0].toUpperCase() + e.substring(1).toLowerCase()
-                : e,
-          )
-          .toList();
+      List<String> suffix = (dropdowns['suffix'] ?? []).toList();
+      List<String> gender = (dropdowns['gender'] ?? []).toList();
+      List<String> vehicles = (dropdowns['vehicle_type'] ?? []).toList();
+
+      //  List<String> vehicles = (dropdowns['vehicle_type'] ?? []).toList();
 
       setState(() {
+        suffixOptions = suffix;
+        genderOptions = gender;
         vehicleOptions = vehicles;
       });
     } catch (e) {
@@ -478,9 +562,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           children: [
                             _buildSectionTitle("Suffix"),
                             const SizedBox(height: 10),
-                            _buildDropdownField(
+                            _buildDropdownFields(
                               "Suffix",
-                              suffixOptions,
+                              suffixOptions.isEmpty
+                                  ? ["Loading..."]
+                                  : suffixOptions,
                               selectedSuffix,
                               (value) {
                                 setState(() {
@@ -489,6 +575,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 });
                               },
                             ),
+                            // _buildDropdownFields(
+                            //   context,
+                            //   "Suffix",
+                            //   suffixOptions.isEmpty
+                            //       ? ["Loading..."]
+                            //       : suffixOptions,
+                            //   selectedSuffix,
+                            //   (value) {
+                            //     setState(() {
+                            //       selectedSuffix = value;
+                            //       _suffixController.text = value ?? "";
+                            //     });
+                            //   },
+                            // ),
                           ],
                         ),
                       ),
@@ -497,16 +597,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 15),
                   _buildSectionTitle("Gender", required: true),
                   const SizedBox(height: 10),
-                  _buildDropdownField(
+                  _buildDropdownFields(
                     "Select Gender",
-                    genderOptions,
+                    genderOptions.isEmpty ? ["Loading..."] : genderOptions,
                     selectedGender,
                     (value) {
                       setState(() {
                         selectedGender = value;
+                        _genderController.text = value ?? "";
                       });
                     },
                   ),
+
+                  // _buildDropdownFields(
+                  //   context,
+                  //   "Select Gender",
+                  //   genderOptions.isEmpty ? ["Loading..."] : genderOptions,
+                  //   selectedGender,
+                  //   (value) {
+                  //     setState(() {
+                  //       selectedGender = value;
+                  //       _genderController.text = value ?? "";
+                  //     });
+                  //   },
+                  // ),
                   const SizedBox(height: 30),
                 ],
               ),
@@ -572,7 +686,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 10),
                   _buildTextField(
                     _mobileController,
-                    "e.g. 09XXXXXXXXX",
+                    "e.g., 09123456789",
                     keyboardType: TextInputType.number,
                     maxLength: 11,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -580,11 +694,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 15),
                   _buildSectionTitle("Email Address", required: true),
                   const SizedBox(height: 10),
-                  _buildTextField(_emailController, "@gmail.com"),
+                  _buildTextField(_emailController, "e.g., name@example.com"),
                   const SizedBox(height: 15),
-                  _buildSectionTitle("Address", required: true),
+                  _buildSectionTitle("Complete Address", required: true),
                   const SizedBox(height: 10),
-                  _buildTextField(_addressController, "Current Address"),
+                  _buildTextField(
+                    _addressController,
+                    "House No., Street, Barangay, City",
+                  ),
                   const SizedBox(height: 30),
                 ],
               ),
@@ -696,12 +813,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       }, context);
                     },
                   ),
-
+                  const SizedBox(height: 15),
+                  _buildSectionTitle("Driver’s License Number", required: true),
+                  const SizedBox(height: 10),
+                  _buildTextField(
+                    _licenseController,
+                    "Driver’s License Number",
+                    maxLength: 12,
+                  ),
                   const SizedBox(height: 15),
                   _buildSectionTitle("Vehicle Type", required: true),
                   const SizedBox(height: 10),
                   _buildDropdownFields(
-                    "Vehicle Type",
+                    "Select Vehicle Type",
                     vehicleOptions.isEmpty ? ["Loading..."] : vehicleOptions,
                     selectedVehicle,
                     (value) {
@@ -711,14 +835,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       });
                     },
                   ),
-                  const SizedBox(height: 15),
-                  _buildSectionTitle("License Number", required: true),
-                  const SizedBox(height: 10),
-                  _buildTextField(
-                    _licenseController,
-                    "License Number",
-                    maxLength: 12,
-                  ),
+                  // _buildDropdownFields(
+                  //   context,
+                  //   "Select Vehicle Type",
+                  //   vehicleOptions.isEmpty ? ["Loading..."] : vehicleOptions,
+                  //   selectedVehicle,
+                  //   (value) {
+                  //     setState(() {
+                  //       selectedVehicle = value;
+                  //       _vehicleController.text = value ?? "";
+                  //     });
+                  //   },
+                  // ),
                   const SizedBox(height: 30),
                   // -------------------------------------
                 ],
@@ -1015,38 +1143,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildDropdownField(
-    String hint,
-    List<String> options,
-    String? selectedValue,
-    Function(String?) onChanged,
-  ) {
-    return InputDecorator(
-      decoration: InputDecoration(
-        filled: true,
-        fillColor: Colors.grey.shade100,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
-        ),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: SizedBox(
-          height: 20,
-          child: DropdownButton<String>(
-            hint: Text(hint),
-            value: selectedValue,
-            isExpanded: true,
-            onChanged: onChanged,
-            items: options
-                .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                .toList(),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildDropdownFields(
     String hint,
     List<String> options,
@@ -1061,19 +1157,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide.none,
         ),
+        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       ),
       child: DropdownButtonHideUnderline(
-        child: SizedBox(
-          height: 20,
-          child: DropdownButton<String>(
-            hint: Text(hint),
-            value: selectedValue,
-            isExpanded: true,
-            onChanged: onChanged,
-            items: options
-                .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                .toList(),
-          ),
+        child: DropdownButton<String>(
+          hint: Text(hint),
+          value: selectedValue,
+          isExpanded: true,
+          onChanged: onChanged,
+          items: options
+              .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+              .toList(),
         ),
       ),
     );

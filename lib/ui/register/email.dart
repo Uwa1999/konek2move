@@ -1,3 +1,4 @@
+import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/services/api_services.dart';
@@ -55,15 +56,20 @@ class _EmailScreenState extends State<EmailScreen> {
           ),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${response.error}${response.message}')),
+        _showTopMessage(
+          context,
+          message: response.error ?? response.message,
+          isError: true,
         );
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
+
+      _showTopMessage(
         context,
-      ).showSnackBar(SnackBar(content: Text('Failed to send OTP: $e')));
+        message: 'Failed to send OTP: $e',
+        isError: true,
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -71,6 +77,26 @@ class _EmailScreenState extends State<EmailScreen> {
         });
       }
     }
+  }
+
+  void _showTopMessage(
+    BuildContext context, {
+    required String message,
+    bool isError = false,
+  }) {
+    final color = isError ? Colors.redAccent : Colors.green;
+    final icon = isError ? Icons.error_outline : Icons.check_circle_outline;
+
+    Flushbar(
+      margin: const EdgeInsets.all(16),
+      borderRadius: BorderRadius.circular(12),
+      backgroundColor: color,
+      icon: Icon(icon, color: Colors.white, size: 28),
+      message: message,
+      duration: const Duration(seconds: 3),
+      flushbarPosition: FlushbarPosition.TOP,
+      animationDuration: const Duration(milliseconds: 500),
+    ).show(context);
   }
 
   @override

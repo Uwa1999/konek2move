@@ -12,7 +12,6 @@ import 'package:konek2move/ui/splash/splash_screen.dart';
 class AppRoutes {
   static const String splash = '/';
   static const String login = '/login';
-  static const String register = '/register';
   static const String email = '/email_verification';
   static const String terms = '/terms';
   static const String home = '/home';
@@ -23,7 +22,6 @@ class AppRoutes {
   static Map<String, WidgetBuilder> routes = {
     splash: (context) => const SplashScreen(),
     login: (context) => const LoginScreen(),
-    register: (context) => const RegisterScreen(),
     email: (context) => const EmailScreen(),
     terms: (context) => const TermsAndConditionScreen(),
     home: (context) => const HomeScreen(),
