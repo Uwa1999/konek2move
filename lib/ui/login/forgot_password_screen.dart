@@ -1,8 +1,10 @@
+import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
+import 'package:konek2move/core/services/api_services.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
-import 'package:konek2move/ui/login/verification_screen.dart';
+import 'package:konek2move/ui/login/forgot_password_verification_screen.dart';
+import 'package:konek2move/ui/register/email_verification_screen.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -12,41 +14,98 @@ class ForgotPasswordScreen extends StatefulWidget {
 }
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
-  final TextEditingController phoneController = TextEditingController();
-  bool isPhoneValid = false;
+  final TextEditingController forgotEmailController = TextEditingController();
+  bool isEmailValid = false;
+  bool isLoading = false; // Loading state
 
   @override
   void initState() {
     super.initState();
-    phoneController.addListener(_validatePhone);
+    forgotEmailController.addListener(_validateInputs);
   }
 
-  void _validatePhone() {
-    final text = phoneController.text;
-    final valid = text.length == 11 && text.startsWith('09');
+  void _validateInputs() {
+    final emailText = forgotEmailController.text.trim();
 
-    if (valid != isPhoneValid) {
-      setState(() {
-        isPhoneValid = valid;
-      });
+    final emailValid =
+        emailText.isNotEmpty && emailText.toLowerCase().endsWith('@gmail.com');
+
+    setState(() {
+      isEmailValid = emailValid;
+    });
+  }
+
+  Future<void> _onSendCode() async {
+    if (!isEmailValid) return;
+
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      final ApiServices api = ApiServices();
+      final response = await api.emailVerification(
+        forgotEmailController.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      if (response.retCode == '200') {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ForgotEmailVerificationScreen(
+              email: forgotEmailController.text.trim(),
+            ),
+          ),
+        );
+      } else {
+        _showTopMessage(
+          context,
+          message: response.error ?? response.message,
+          isError: true,
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      _showTopMessage(
+        context,
+        message: 'Failed to send OTP: $e',
+        isError: true,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
-  void _onSendCode() {
-    if (!isPhoneValid) return;
+  void _showTopMessage(
+    BuildContext context, {
+    required String message,
+    bool isError = false,
+  }) {
+    final color = isError ? Colors.redAccent : Colors.green;
+    final icon = isError ? Icons.error_outline : Icons.check_circle_outline;
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => VerificationScreen(phoneNumber: phoneController.text),
-      ),
-    );
+    Flushbar(
+      margin: const EdgeInsets.all(16),
+      borderRadius: BorderRadius.circular(12),
+      backgroundColor: color,
+      icon: Icon(icon, color: Colors.white, size: 28),
+      message: message,
+      duration: const Duration(seconds: 3),
+      flushbarPosition: FlushbarPosition.TOP,
+      animationDuration: const Duration(milliseconds: 500),
+    ).show(context);
   }
 
   @override
   void dispose() {
-    phoneController.removeListener(_validatePhone);
-    phoneController.dispose();
+    forgotEmailController.dispose();
     super.dispose();
   }
 
@@ -56,47 +115,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          Container(
-            height: 80,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(20),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Positioned(
-                  left: 16,
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.black),
-                    onPressed: () =>
-                        Navigator.pushReplacementNamed(context, '/'),
-                  ),
-                ),
-                const Center(
-                  child: Text(
-                    "Forgot Password",
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
+          _buildHeader(),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
@@ -113,24 +132,64 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     style: TextStyle(color: Colors.grey, fontSize: 15),
                   ),
                   const SizedBox(height: 40),
-                  _buildLabel("Mobile Number"),
+                  _buildLabel("Email Address"),
                   const SizedBox(height: 5),
-                  _buildPhoneField(),
+                  _buildEmailField(),
                   const SizedBox(height: 20), // Space before bottom button
                 ],
               ),
             ),
           ),
-          Spacer(),
-          // Bottom button
           Padding(
-            padding: const EdgeInsets.only(bottom: 24),
+            padding: const EdgeInsets.only(bottom: 24, left: 24, right: 24),
             child: CustomButton(
-              text: "Continue",
+              text: isLoading ? "Sending..." : "Continue",
               horizontalPadding: 0,
-              color: isPhoneValid ? kPrimaryColor : Colors.grey,
+              color: isEmailValid ? kPrimaryColor : Colors.grey,
               textColor: Colors.white,
-              onTap: isPhoneValid ? _onSendCode : null,
+              onTap: isEmailValid && !isLoading ? _onSendCode : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      height: 80,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(20),
+          bottomRight: Radius.circular(20),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned(
+            left: 16,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.black),
+              onPressed: () => Navigator.pushReplacementNamed(context, '/'),
+            ),
+          ),
+          const Center(
+            child: Text(
+              "Forgot Password",
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -145,17 +204,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     );
   }
 
-  Widget _buildPhoneField() {
+  Widget _buildEmailField() {
     return TextField(
-      controller: phoneController,
-      keyboardType: TextInputType.phone,
-      inputFormatters: [
-        FilteringTextInputFormatter.digitsOnly,
-        LengthLimitingTextInputFormatter(11),
-      ],
+      controller: forgotEmailController,
+      keyboardType: TextInputType.emailAddress,
       decoration: InputDecoration(
-        hintText: "e.g. 09XXXXXXXXX",
         hintStyle: TextStyle(color: Colors.grey.shade600),
+        hintText: "Enter your email",
         filled: true,
         fillColor: Colors.grey.shade100,
         contentPadding: const EdgeInsets.symmetric(

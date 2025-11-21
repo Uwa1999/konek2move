@@ -8,7 +8,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/services/api_services.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
+import 'package:konek2move/ui/login/progress_tracker_screen.dart';
 import 'package:konek2move/ui/register/register_success_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class RegisterScreen extends StatefulWidget {
   final String email;
@@ -44,6 +46,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   bool isMobileValid = false;
   bool isPasswordVisible = false;
+  bool _isPasswordVisible = false;
+  bool _isConfirmPasswordVisible = false;
   String? selectedSuffix;
   String? selectedGender;
   String? selectedVehicle;
@@ -194,8 +198,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   bool _isContactInfoValid() {
-    return _mobileController.text.length == 11 &&
-        _mobileController.text.startsWith('09') &&
+    return _mobileController.text.trim().length == 11 &&
+        _mobileController.text.trim().startsWith('09') &&
         _emailController.text.endsWith('@gmail.com') &&
         _addressController.text.isNotEmpty;
   }
@@ -236,7 +240,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     print('License Back File Path: ${_drivingLicenseBack?.path}');
     print('-------------------------');
 
-    // Show loading dialog
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -267,17 +270,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (response.retCode == '200') {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => RegisterSuccessScreen()),
+          MaterialPageRoute(builder: (_) => ProgressTrackerScreen()),
         );
       } else {
-        _showTopMessage(
-          context,
-          message: response.error ?? response.message,
-          isError: true,
-        );
+        _showTopMessage(context, message: response.error, isError: true);
       }
     } catch (e) {
-      Navigator.pop(context); // Close loading dialog
+      Navigator.pop(context);
       _showTopMessage(
         context,
         message: 'Registration failed: $e',
@@ -421,81 +420,84 @@ class _RegisterScreenState extends State<RegisterScreen> {
   // ---------------------------------------------------------
   Widget _buildProgressSteps() {
     return Padding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _stepCircle("1", "Personal Info", _currentStep >= 0),
-
-          _stepCircle("2", "Contact Details", _currentStep >= 1),
-
-          _stepCircle("3", "Vehicle Details", _currentStep >= 2),
-
-          _stepCircle("4", "Set-up Password", _currentStep >= 3),
+          _modernStep(0, "Personal Info"),
+          _stepConnector(0),
+          _modernStep(1, "Contact Details"),
+          _stepConnector(1),
+          _modernStep(2, "Vehicle Details"),
+          _stepConnector(2),
+          _modernStep(3, "Set-up Password"),
         ],
       ),
     );
   }
 
-  Widget _stepCircle(
-    String number,
-    String label,
-    bool active, {
-    bool isLast = false,
-  }) {
+  Widget _modernStep(int index, String label) {
+    bool isActive = _currentStep >= index;
+    bool isCurrent = _currentStep == index;
+
     return Column(
-      mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 30,
-          height: 30,
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          width: isCurrent ? 34 : 30,
+          height: isCurrent ? 34 : 30,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: active
-                ? LinearGradient(
-                    colors: [kPrimaryColor, kPrimaryColor.withOpacity(0.7)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  )
-                : null,
-            color: active ? null : Colors.grey.shade300,
-            boxShadow: active
+            color: isActive ? kPrimaryColor : Colors.grey.shade300,
+            boxShadow: isActive
                 ? [
                     BoxShadow(
                       color: kPrimaryColor.withOpacity(0.4),
-                      blurRadius: 6,
-                      offset: const Offset(0, 3),
+                      blurRadius: 8,
+                      offset: Offset(0, 3),
                     ),
                   ]
                 : [],
           ),
-          alignment: Alignment.center,
-          child: Text(
-            number,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: active ? Colors.white : Colors.grey.shade700,
+          child: Center(
+            child: AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 250),
+              style: TextStyle(
+                fontSize: isCurrent ? 14 : 12,
+                fontWeight: FontWeight.bold,
+                color: isActive ? Colors.white : Colors.grey.shade600,
+              ),
+              child: Text("${index + 1}"),
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Text(
           label,
+          textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w600,
-            color: active ? kPrimaryColor : Colors.grey.shade500,
+            color: isActive ? kPrimaryColor : Colors.grey.shade500,
           ),
         ),
-        if (!isLast)
-          Container(
-            margin: const EdgeInsets.only(top: 8),
-            height: 2,
-            width: 30,
-            color: active ? kPrimaryColor : Colors.grey.shade300,
-          ),
       ],
+    );
+  }
+
+  /// Horizontal line between circles
+  Widget _stepConnector(int index) {
+    bool isActive = _currentStep > index;
+
+    return Expanded(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        height: 3,
+        margin: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          color: isActive ? kPrimaryColor : Colors.grey.shade300,
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
     );
   }
 
@@ -562,21 +564,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           children: [
                             _buildSectionTitle("Suffix"),
                             const SizedBox(height: 10),
-                            _buildDropdownFields(
-                              "Suffix",
-                              suffixOptions.isEmpty
-                                  ? ["Loading..."]
-                                  : suffixOptions,
-                              selectedSuffix,
-                              (value) {
-                                setState(() {
-                                  selectedSuffix = value;
-                                  _suffixController.text = value ?? "";
-                                });
-                              },
-                            ),
                             // _buildDropdownFields(
-                            //   context,
                             //   "Suffix",
                             //   suffixOptions.isEmpty
                             //       ? ["Loading..."]
@@ -589,6 +577,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             //     });
                             //   },
                             // ),
+                            _buildDropdownFields(
+                              context,
+                              "Suffix",
+                              suffixOptions.isEmpty
+                                  ? ["Loading.."]
+                                  : suffixOptions,
+                              selectedSuffix,
+                              (value) {
+                                setState(() {
+                                  selectedSuffix = value;
+                                  _suffixController.text = value ?? "";
+                                });
+                              },
+                            ),
                           ],
                         ),
                       ),
@@ -597,20 +599,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 15),
                   _buildSectionTitle("Gender", required: true),
                   const SizedBox(height: 10),
-                  _buildDropdownFields(
-                    "Select Gender",
-                    genderOptions.isEmpty ? ["Loading..."] : genderOptions,
-                    selectedGender,
-                    (value) {
-                      setState(() {
-                        selectedGender = value;
-                        _genderController.text = value ?? "";
-                      });
-                    },
-                  ),
 
                   // _buildDropdownFields(
-                  //   context,
                   //   "Select Gender",
                   //   genderOptions.isEmpty ? ["Loading..."] : genderOptions,
                   //   selectedGender,
@@ -621,6 +611,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   //     });
                   //   },
                   // ),
+                  _buildDropdownFields(
+                    context,
+                    "Select Gender",
+                    genderOptions.isEmpty ? ["Loading..."] : genderOptions,
+                    selectedGender,
+                    (value) {
+                      setState(() {
+                        selectedGender = value;
+                        _genderController.text = value ?? "";
+                      });
+                    },
+                  ),
                   const SizedBox(height: 30),
                 ],
               ),
@@ -694,7 +696,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 15),
                   _buildSectionTitle("Email Address", required: true),
                   const SizedBox(height: 10),
-                  _buildTextField(_emailController, "e.g., name@example.com"),
+                  _buildTextField(
+                    _emailController,
+                    "e.g., name@example.com",
+                    keyboardType: TextInputType.emailAddress,
+                  ),
                   const SizedBox(height: 15),
                   _buildSectionTitle("Complete Address", required: true),
                   const SizedBox(height: 10),
@@ -824,19 +830,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 15),
                   _buildSectionTitle("Vehicle Type", required: true),
                   const SizedBox(height: 10),
-                  _buildDropdownFields(
-                    "Select Vehicle Type",
-                    vehicleOptions.isEmpty ? ["Loading..."] : vehicleOptions,
-                    selectedVehicle,
-                    (value) {
-                      setState(() {
-                        selectedVehicle = value;
-                        _vehicleController.text = value ?? "";
-                      });
-                    },
-                  ),
                   // _buildDropdownFields(
-                  //   context,
                   //   "Select Vehicle Type",
                   //   vehicleOptions.isEmpty ? ["Loading..."] : vehicleOptions,
                   //   selectedVehicle,
@@ -847,6 +841,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   //     });
                   //   },
                   // ),
+                  _buildDropdownFields(
+                    context,
+                    "Select Vehicle Type",
+                    vehicleOptions.isEmpty ? ["Loading..."] : vehicleOptions,
+                    selectedVehicle,
+                    (value) {
+                      setState(() {
+                        selectedVehicle = value;
+                        _vehicleController.text = value ?? "";
+                      });
+                    },
+                  ),
                   const SizedBox(height: 30),
                   // -------------------------------------
                 ],
@@ -945,8 +951,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 10),
                   _buildTextField(
                     _confirmPasswordController,
-                    "Enter your confirm password",
+                    "Enter confirm password",
                     isPassword: true,
+                    isConfirm: true,
                   ),
                   const SizedBox(height: 30),
                 ],
@@ -1105,69 +1112,119 @@ class _RegisterScreenState extends State<RegisterScreen> {
     int? maxLength,
     List<TextInputFormatter>? inputFormatters,
     bool isPassword = false,
+    bool isConfirm = false,
   }) {
-    bool obscureText = isPassword;
+    bool obscureText =
+        isPassword &&
+        !(isConfirm ? _isConfirmPasswordVisible : _isPasswordVisible);
 
-    return StatefulBuilder(
-      builder: (context, setState) {
-        return TextField(
-          controller: controller,
-          keyboardType: keyboardType,
-          maxLength: maxLength,
-          inputFormatters: inputFormatters,
-          obscureText: obscureText,
-          decoration: InputDecoration(
-            counterText: "",
-            hintText: hintText,
-            filled: true,
-            fillColor: Colors.grey.shade100,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide.none,
-            ),
-            suffixIcon: isPassword
-                ? IconButton(
-                    icon: Icon(
-                      obscureText ? Icons.visibility_off : Icons.visibility,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        obscureText = !obscureText;
-                      });
-                    },
-                  )
-                : null,
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildDropdownFields(
-    String hint,
-    List<String> options,
-    String? selectedValue,
-    Function(String?) onChanged,
-  ) {
-    return InputDecorator(
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      maxLength: maxLength,
+      obscureText: obscureText,
+      inputFormatters: inputFormatters,
       decoration: InputDecoration(
+        counterText: "",
+        hintText: hintText,
         filled: true,
         fillColor: Colors.grey.shade100,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide.none,
         ),
-        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        suffixIcon: isPassword
+            ? IconButton(
+                icon: Icon(
+                  obscureText ? Icons.visibility_off : Icons.visibility,
+                  color: Colors.grey,
+                ),
+                onPressed: () {
+                  setState(() {
+                    if (isConfirm) {
+                      _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                    } else {
+                      _isPasswordVisible = !_isPasswordVisible;
+                    }
+                  });
+                },
+              )
+            : null,
       ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          hint: Text(hint),
-          value: selectedValue,
-          isExpanded: true,
-          onChanged: onChanged,
-          items: options
-              .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-              .toList(),
+    );
+  }
+
+  Widget _buildDropdownFields(
+    BuildContext context,
+    String hint,
+    List<String> options,
+    String? selectedValue,
+    Function(String?) onChanged,
+  ) {
+    return GestureDetector(
+      onTap: () {
+        showModalBottomSheet(
+          context: context,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          builder: (_) {
+            return Container(
+              padding: EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    height: 5,
+                    width: 50,
+                    margin: EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  Text(
+                    hint,
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 10),
+                  ...options.map((e) {
+                    return ListTile(
+                      title: Text(e),
+                      onTap: () {
+                        Navigator.pop(context);
+                        onChanged(e);
+                      },
+                    );
+                  }),
+                ],
+              ),
+            );
+          },
+        );
+      },
+      child: InputDecorator(
+        decoration: InputDecoration(
+          filled: true,
+          fillColor: Colors.grey.shade100,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide.none,
+          ),
+          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 17),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              selectedValue ?? hint,
+              style: TextStyle(
+                fontSize: 16,
+                color: selectedValue == null ? Colors.black54 : Colors.black,
+              ),
+            ),
+            Icon(Icons.keyboard_arrow_down, color: Colors.grey),
+          ],
         ),
       ),
     );

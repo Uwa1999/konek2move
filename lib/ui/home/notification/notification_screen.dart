@@ -38,6 +38,66 @@ class _NotificationScreenState extends State<NotificationScreen> {
       "time": "1 hr ago",
       "isRead": true,
     },
+    {
+      "title": "New Promo",
+      "body": "Get 20% off on your next delivery!",
+      "time": "1 hr ago",
+      "isRead": true,
+    },
+    {
+      "title": "New Promo",
+      "body": "Get 20% off on your next delivery!",
+      "time": "1 hr ago",
+      "isRead": true,
+    },
+    {
+      "title": "New Promo",
+      "body": "Get 20% off on your next delivery!",
+      "time": "1 hr ago",
+      "isRead": true,
+    },
+    {
+      "title": "New Promo",
+      "body": "Get 20% off on your next delivery!",
+      "time": "1 hr ago",
+      "isRead": true,
+    },
+    {
+      "title": "New Promo",
+      "body": "Get 20% off on your next delivery!",
+      "time": "1 hr ago",
+      "isRead": true,
+    },
+    {
+      "title": "New Promo",
+      "body": "Get 20% off on your next delivery!",
+      "time": "1 hr ago",
+      "isRead": true,
+    },
+    {
+      "title": "New Promo",
+      "body": "Get 20% off on your next delivery!",
+      "time": "1 hr ago",
+      "isRead": true,
+    },
+    {
+      "title": "New Promo",
+      "body": "Get 20% off on your next delivery!",
+      "time": "1 hr ago",
+      "isRead": true,
+    },
+    {
+      "title": "New Promo",
+      "body": "Get 20% off on your next delivery!",
+      "time": "1 hr ago",
+      "isRead": true,
+    },
+    {
+      "title": "New Promo",
+      "body": "Get 20% off on your next delivery!",
+      "time": "1 hr ago",
+      "isRead": true,
+    },
   ];
 
   @override

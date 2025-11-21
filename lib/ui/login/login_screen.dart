@@ -31,16 +31,17 @@ class _LoginScreenState extends State<LoginScreen> {
     passwordController.addListener(_validateInputs);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkBiometricEnabled();
+      // _checkIfCompleted();
     });
   }
 
   Future<void> _checkBiometricEnabled() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    bool enabled = prefs.getBool("biometric_enabled") ?? false;
+    final prefs = await SharedPreferences.getInstance();
+    final enabled = prefs.getBool("biometric_enabled") ?? false;
 
-    setState(() {
-      showBiometric = enabled;
-    });
+    if (!mounted) return;
+
+    setState(() => showBiometric = enabled);
 
     if (enabled) {
       _biometricLogin();
@@ -49,20 +50,17 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _biometricLogin() async {
     final LocalAuthentication auth = LocalAuthentication();
-    try {
-      bool authenticated = await auth.authenticate(
-        localizedReason: 'Login using your biometrics',
-        biometricOnly: true,
-      );
 
-      if (authenticated) {
-        Navigator.pushReplacementNamed(context, "/home");
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error: $e")));
-    }
+    bool canCheckBiometrics = await auth.canCheckBiometrics;
+    bool isDeviceSupported = await auth.isDeviceSupported();
+
+    // Authenticate with biometrics or device PIN
+    bool authenticated = await auth.authenticate(
+      localizedReason: 'Login using your biometrics or device PIN',
+      biometricOnly: false, // allow PIN fallback
+    );
+
+    Navigator.pushReplacementNamed(context, "/home");
   }
 
   void _validateInputs() {
@@ -96,18 +94,14 @@ class _LoginScreenState extends State<LoginScreen> {
         passwordController.text.trim(),
       );
 
-      if (response.retCode == '200') {
+      if (response.retCode == '201') {
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString("email", emailController.text.trim());
         await prefs.setString("password", passwordController.text.trim());
 
         Navigator.pushReplacementNamed(context, "/home");
       } else {
-        _showTopMessage(
-          context,
-          message: response.error ?? response.message,
-          isError: true,
-        );
+        _showTopMessage(context, message: response.error, isError: true);
       }
     } catch (e) {
       _showTopMessage(context, message: "Error: $e", isError: true);
@@ -139,33 +133,6 @@ class _LoginScreenState extends State<LoginScreen> {
     ).show(context);
   }
 
-  // Modern SnackBar Function
-  void _showModernSnackBar(
-    BuildContext context, {
-    required String message,
-    bool isError = false,
-  }) {
-    final color = isError ? Colors.redAccent : Colors.green;
-    final icon = isError ? Icons.error_outline : Icons.check_circle_outline;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        margin: EdgeInsets.all(16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        backgroundColor: color,
-        duration: Duration(seconds: 3),
-        content: Row(
-          children: [
-            Icon(icon, color: Colors.white),
-            SizedBox(width: 12),
-            Expanded(child: Text(message, style: TextStyle(fontSize: 16))),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   void dispose() {
     emailController.dispose();
@@ -180,134 +147,138 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 20,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Image.asset("assets/images/login.png"),
-                      const SizedBox(height: 20),
-                      // Title
-                      Text(
-                        "Hello! Welcome to Konek2Move",
-                        style: TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
-                          color: kPrimaryColor,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        "Login to unlock your ride",
-                        style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 30),
-
-                      _buildLabel("Email"),
-                      const SizedBox(height: 5),
-                      _buildEmailField(),
-                      const SizedBox(height: 15),
-                      _buildLabel("Password"),
-                      const SizedBox(height: 5),
-                      _buildPasswordField(),
-                      const SizedBox(height: 10),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => ForgotPasswordScreen(),
-                              ),
-                            );
-                          },
-                          child: Text(
-                            'Forgot Password?',
-                            style: TextStyle(
-                              color: kPrimaryColor,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      if (showBiometric)
-                        TextButton.icon(
-                          onPressed: _biometricLogin,
-                          icon: Icon(
-                            Icons.fingerprint_rounded,
-                            color: kPrimaryColor,
-                          ),
-                          label: Text(
-                            'Login with Biometrics',
-                            style: TextStyle(
-                              color: kPrimaryColor,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                    ],
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center, // center content
+            children: [
+              // Top image
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Center(
+                  child: Image.asset(
+                    "assets/images/login.png",
+                    height: 180, // standard height for consistency
+                    fit: BoxFit.contain,
                   ),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                children: [
-                  CustomButton(
-                    text: isLoading ? "Logging in..." : "Login",
-                    horizontalPadding: 0,
-                    color: (isButtonEnabled && !isLoading)
-                        ? kPrimaryColor
-                        : Colors.grey,
-                    textColor: Colors.white,
-                    onTap: (isButtonEnabled && !isLoading) ? _onLogin : null,
+              const SizedBox(height: 25),
+
+              // Title
+              Text(
+                "Ready to Move with Konek2Move?",
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: kPrimaryColor,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "Login now and get your deliveries on the go!",
+                style: TextStyle(fontSize: 15, color: Colors.grey[700]),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 35),
+
+              // Email field
+              _buildLabel("Email"),
+              const SizedBox(height: 8),
+              _buildEmailField(),
+              const SizedBox(height: 20),
+
+              // Password field
+              _buildLabel("Password"),
+              const SizedBox(height: 8),
+              _buildPasswordField(),
+
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => ForgotPasswordScreen()),
+                    );
+                  },
+                  child: Text(
+                    'Forgot Password?',
+                    style: TextStyle(
+                      color: kPrimaryColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
                   ),
-                  const SizedBox(height: 15),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text(
-                        "Don't have an account? ",
-                        style: TextStyle(color: Colors.grey, fontSize: 15),
+                ),
+              ),
+
+              const SizedBox(height: 25),
+              if (showBiometric)
+                Center(
+                  child: TextButton.icon(
+                    onPressed: _biometricLogin,
+                    icon: Icon(Icons.fingerprint_rounded, color: kPrimaryColor),
+                    label: Text(
+                      'Login with Biometrics',
+                      style: TextStyle(
+                        color: kPrimaryColor,
+                        fontWeight: FontWeight.w600,
                       ),
-                      GestureDetector(
-                        onTap: () =>
-                            Navigator.pushReplacementNamed(context, '/terms'),
-                        child: Text(
-                          "Sign Up",
-                          style: TextStyle(
-                            color: kPrimaryColor,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                    ),
+                  ),
+                ),
+              if (showBiometric) const SizedBox(height: 25),
+
+              // Login button
+              CustomButton(
+                text: isLoading ? "Logging in..." : "Login",
+                horizontalPadding: 0,
+                color: (isButtonEnabled && !isLoading)
+                    ? kPrimaryColor
+                    : Colors.grey,
+                textColor: Colors.white,
+                onTap: (isButtonEnabled && !isLoading) ? _onLogin : null,
+              ),
+              const SizedBox(height: 20),
+
+              // Signup
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    "Don't have an account? ",
+                    style: TextStyle(color: Colors.grey, fontSize: 14),
+                  ),
+                  GestureDetector(
+                    onTap: () =>
+                        Navigator.pushReplacementNamed(context, '/terms'),
+                    child: Text(
+                      "Sign Up",
+                      style: TextStyle(
+                        color: kPrimaryColor,
+                        fontWeight: FontWeight.bold,
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildLabel(String text) => Text(
-    text,
-    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+  Widget _buildLabel(String text) => Row(
+    children: [
+      Text(
+        text,
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+      ),
+    ],
   );
 
   Widget _buildEmailField() => TextField(

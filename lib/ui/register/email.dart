@@ -56,11 +56,7 @@ class _EmailScreenState extends State<EmailScreen> {
           ),
         );
       } else {
-        _showTopMessage(
-          context,
-          message: response.error ?? response.message,
-          isError: true,
-        );
+        _showTopMessage(context, message: response.message, isError: true);
       }
     } catch (e) {
       if (!mounted) return;
@@ -118,7 +114,6 @@ class _EmailScreenState extends State<EmailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 24),
                   const Text(
                     "Email Verification",
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),

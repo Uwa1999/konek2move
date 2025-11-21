@@ -1,22 +1,26 @@
 import 'dart:async';
+import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
+import 'package:konek2move/core/services/api_services.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
-import 'package:konek2move/ui/login/login_success_screen.dart';
+import 'package:konek2move/ui/register/register_screen.dart';
 import 'package:konek2move/ui/register/register_success_screen.dart';
 
-class VerificationScreen extends StatefulWidget {
-  final String phoneNumber;
+class ForgotEmailVerificationScreen extends StatefulWidget {
+  final String email;
 
-  const VerificationScreen({super.key, required this.phoneNumber});
+  const ForgotEmailVerificationScreen({super.key, required this.email});
 
   @override
-  State<VerificationScreen> createState() => _VerificationScreenState();
+  State<ForgotEmailVerificationScreen> createState() =>
+      _ForgotEmailVerificationScreenState();
 }
 
-class _VerificationScreenState extends State<VerificationScreen> {
-  final List<TextEditingController> _controllers = List.generate(
+class _ForgotEmailVerificationScreenState
+    extends State<ForgotEmailVerificationScreen> {
+  final List<TextEditingController> _otpControllers = List.generate(
     6,
     (_) => TextEditingController(),
   );
@@ -24,16 +28,85 @@ class _VerificationScreenState extends State<VerificationScreen> {
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
   bool isOtpComplete = false;
+  bool isLoading = false;
   int currentIndex = 0;
-  int _secondsRemaining = 10;
+  int _secondsRemaining = 300;
   Timer? _timer;
 
-  String maskPhoneNumber(String phoneNumber) {
-    if (phoneNumber.length <= 4) return phoneNumber;
-    final prefix = phoneNumber.substring(0, 2);
-    final lastFour = phoneNumber.substring(phoneNumber.length - 10);
-    final middleMasked = '*' * (phoneNumber.length - 6);
-    return '$prefix$middleMasked$lastFour';
+  String maskEmailAddress(String email) {
+    if (!email.contains('@')) return email;
+
+    final parts = email.split('@');
+    final username = parts[0];
+    final domain = parts[1];
+
+    if (username.length <= 2) return '$username@$domain';
+
+    final prefix = username.substring(0, 2);
+    final middleMasked = '*' * (username.length - 2);
+
+    return '$prefix$middleMasked@$domain';
+  }
+
+  Future<void> _verifyOtp() async {
+    final otp = _otpControllers.map((c) => c.text).join();
+
+    if (otp.length < 6) {
+      _showTopMessage(
+        context,
+        message: 'Please enter complete OTP',
+        isError: true,
+      );
+      return;
+    }
+
+    setState(() => isOtpComplete = false);
+
+    try {
+      final api = ApiServices();
+      final response = await api.emailOTPVerification(otp);
+
+      if (!mounted) return;
+
+      if (response.retCode == '200') {
+        Navigator.pushReplacementNamed(context, '/login');
+      } else {
+        _showTopMessage(context, message: response.error, isError: true);
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      _showTopMessage(
+        context,
+        message: 'Failed to verify OTP: $e',
+        isError: true,
+      );
+    } finally {
+      setState(() {
+        isOtpComplete = _otpControllers.every((c) => c.text.isNotEmpty);
+      });
+    }
+  }
+
+  // Reusable Top Flushbar function
+  void _showTopMessage(
+    BuildContext context, {
+    required String message,
+    bool isError = false,
+  }) {
+    final color = isError ? Colors.redAccent : Colors.green;
+    final icon = isError ? Icons.error_outline : Icons.check_circle_outline;
+
+    Flushbar(
+      margin: const EdgeInsets.all(16),
+      borderRadius: BorderRadius.circular(12),
+      backgroundColor: color,
+      icon: Icon(icon, color: Colors.white, size: 28),
+      message: message,
+      duration: const Duration(seconds: 3),
+      flushbarPosition: FlushbarPosition.TOP,
+      animationDuration: const Duration(milliseconds: 500),
+    ).show(context);
   }
 
   @override
@@ -51,7 +124,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
   }
 
   void _startTimer() {
-    _secondsRemaining = 10;
+    _secondsRemaining = 300;
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_secondsRemaining == 0) {
@@ -60,6 +133,21 @@ class _VerificationScreenState extends State<VerificationScreen> {
         setState(() => _secondsRemaining--);
       }
     });
+  }
+
+  Future<void> _resendOTP() async {
+    try {
+      final ApiServices api = ApiServices();
+      final response = await api.emailVerification(widget.email);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${response.error}${response.message}')),
+      );
+      _startTimer();
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
   }
 
   Widget _otpBox(int index) {
@@ -75,7 +163,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: TextField(
-        controller: _controllers[index],
+        controller: _otpControllers[index],
         focusNode: _focusNodes[index],
         autofocus: index == 0,
         keyboardType: TextInputType.number,
@@ -92,8 +180,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
           } else if (value.isEmpty && index > 0) {
             FocusScope.of(context).previousFocus();
           }
+
           setState(() {
-            isOtpComplete = _controllers.every((c) => c.text.isNotEmpty);
+            isOtpComplete = _otpControllers.every((c) => c.text.isNotEmpty);
           });
         },
       ),
@@ -103,7 +192,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
   @override
   void dispose() {
     _timer?.cancel();
-    for (var c in _controllers) c.dispose();
+    for (var c in _otpControllers) c.dispose();
     for (var f in _focusNodes) f.dispose();
     super.dispose();
   }
@@ -165,11 +254,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                   const SizedBox(height: 24),
                   Text(
                     "Verification Email",
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -178,7 +263,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    maskPhoneNumber(widget.phoneNumber),
+                    maskEmailAddress(widget.email),
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 16,
@@ -205,7 +290,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                               style: TextStyle(color: Colors.grey.shade600),
                             ),
                             TextButton(
-                              onPressed: _startTimer,
+                              onPressed: () => _resendOTP(),
                               child: const Text(
                                 "Resend",
                                 style: TextStyle(color: kPrimaryColor),
@@ -227,18 +312,11 @@ class _VerificationScreenState extends State<VerificationScreen> {
           Padding(
             padding: const EdgeInsets.only(bottom: 24, left: 24, right: 24),
             child: CustomButton(
+              text: isLoading ? "Sending..." : "Continue",
               horizontalPadding: 0,
-              text: "Continue",
-              color: isOtpComplete ? kPrimaryColor : Colors.grey.shade300,
+              color: isOtpComplete ? kPrimaryColor : Colors.grey,
               textColor: isOtpComplete ? Colors.white : Colors.grey.shade600,
-              onTap: isOtpComplete
-                  ? () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => LoginSuccessScreen()),
-                      );
-                    }
-                  : null,
+              onTap: isOtpComplete && !isLoading ? _verifyOtp : null,
             ),
           ),
         ],
