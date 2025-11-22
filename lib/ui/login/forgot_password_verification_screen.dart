@@ -5,8 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/services/api_services.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
-import 'package:konek2move/ui/register/register_screen.dart';
-import 'package:konek2move/ui/register/register_success_screen.dart';
 
 class ForgotEmailVerificationScreen extends StatefulWidget {
   final String email;
@@ -192,8 +190,12 @@ class _ForgotEmailVerificationScreenState
   @override
   void dispose() {
     _timer?.cancel();
-    for (var c in _otpControllers) c.dispose();
-    for (var f in _focusNodes) f.dispose();
+    for (var c in _otpControllers) {
+      c.dispose();
+    }
+    for (var f in _focusNodes) {
+      f.dispose();
+    }
     super.dispose();
   }
 

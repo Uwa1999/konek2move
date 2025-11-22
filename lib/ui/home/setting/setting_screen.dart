@@ -115,84 +115,66 @@ class _SettingScreenState extends State<SettingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Scaffold(
-        body: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start, // Align left
-                  children: [
-                    // --- Profile Header ---
-                    Center(
-                      child: Column(
-                        children: const [
-                          CircleAvatar(
-                            radius: 40,
-                            backgroundColor: Colors.grey,
-                            child: Icon(
-                              Icons.person,
-                              size: 50,
-                              color: Colors.white,
-                            ),
-                          ),
-                          SizedBox(height: 10),
-                          Text(
-                            "Ottokonek Rider",
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                            ),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            "ottokonek@fortress-asya.com",
-                            style: TextStyle(color: Colors.grey),
-                          ),
-                        ],
-                      ),
+    return Scaffold(
+      backgroundColor: Colors.grey[100],
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "CONTENT",
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey,
                     ),
-                    const SizedBox(height: 20),
+                  ),
+                  const SizedBox(height: 12),
 
-                    // --- Section Title ---
-                    const Text(
-                      "CONTENT",
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
+                  // Change Password
+                  _buildActionTile(
+                    icon: Icons.lock_outline,
+                    title: "Change Password",
+                    subtitle: "Update your account password",
+                    onTap: () {
+                      Navigator.pushNamed(context, '/change_password');
+                    },
+                  ),
+                  const SizedBox(height: 5),
 
-                    // --- Driver Status ---
-                    _buildToggleTile(
-                      icon: CupertinoIcons.person_crop_circle_fill,
-                      title: "Go Online / Offline",
-                      subtitle: "Activate to receive new orders",
-                      value: _isDriverActive,
-                      onChanged: _toggleDriverStatus,
-                      activeColor: kPrimaryColor,
-                    ),
-                    const SizedBox(height: 10),
+                  // Driver Status
+                  _buildToggleTile(
+                    icon: CupertinoIcons.person_crop_circle_fill,
+                    title: "Go Online / Offline",
+                    subtitle: "Activate to receive new orders",
+                    value: _isDriverActive,
+                    onChanged: _toggleDriverStatus,
+                    activeColor: kPrimaryColor,
+                  ),
+                  const SizedBox(height: 5),
 
-                    // --- Biometric ---
-                    _buildToggleTile(
-                      icon: Icons.fingerprint_rounded,
-                      title: "Biometric Login",
-                      subtitle: "Use fingerprint or FaceID to login",
-                      value: _isBiometricEnabled,
-                      onChanged: _toggleBiometric,
-                    ),
-                  ],
-                ),
+                  // Biometric
+                  _buildToggleTile(
+                    icon: Icons.fingerprint_rounded,
+                    title: "Biometric Login",
+                    subtitle: "Use fingerprint or FaceID to login",
+                    value: _isBiometricEnabled,
+                    onChanged: _toggleBiometric,
+                  ),
+                  const SizedBox(height: 40),
+                ],
               ),
             ),
+          ),
 
-            // --- Logout at bottom ---
-            CustomButton(
+          // Logout Button
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            child: CustomButton(
               horizontalPadding: 0,
               text: "Log out",
               color: kPrimaryRedColor,
@@ -201,12 +183,13 @@ class _SettingScreenState extends State<SettingScreen> {
                 Navigator.pushReplacementNamed(context, '/login');
               },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
+  // Toggle Tile (with switch)
   Widget _buildToggleTile({
     required IconData icon,
     required String title,
@@ -217,35 +200,96 @@ class _SettingScreenState extends State<SettingScreen> {
   }) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
+            color: Colors.grey.withOpacity(0.15),
             spreadRadius: 2,
-            blurRadius: 6,
-            offset: const Offset(0, 3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: ListTile(
-        leading: SizedBox(
-          width: 40,
-          child: Center(child: Icon(icon, color: kPrimaryColor, size: 40)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+        leading: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: kPrimaryColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: kPrimaryColor, size: 32),
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+        ),
         subtitle: subtitle != null
             ? Text(
                 subtitle,
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                style: const TextStyle(color: Colors.grey, fontSize: 13),
               )
             : null,
         trailing: CupertinoSwitch(
           value: value,
           onChanged: onChanged,
-          activeTrackColor: activeColor ?? kPrimaryColor,
+          activeColor: activeColor ?? kPrimaryColor,
         ),
+      ),
+    );
+  }
+
+  // Action Tile (without switch, tappable)
+  Widget _buildActionTile({
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.15),
+            spreadRadius: 2,
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+        leading: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: kPrimaryColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: kPrimaryColor, size: 32),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+        ),
+        subtitle: subtitle != null
+            ? Text(
+                subtitle,
+                style: const TextStyle(color: Colors.grey, fontSize: 13),
+              )
+            : null,
+        trailing: const Icon(
+          Icons.arrow_forward_ios,
+          size: 18,
+          color: Colors.grey,
+        ),
+        onTap: onTap,
       ),
     );
   }

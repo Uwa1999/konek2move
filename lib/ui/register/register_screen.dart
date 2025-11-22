@@ -9,8 +9,6 @@ import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/services/api_services.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
 import 'package:konek2move/ui/login/progress_tracker_screen.dart';
-import 'package:konek2move/ui/register/register_success_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class RegisterScreen extends StatefulWidget {
   final String email;

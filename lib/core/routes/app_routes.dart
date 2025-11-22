@@ -5,7 +5,6 @@ import 'package:konek2move/ui/home/order/order_screen.dart';
 import 'package:konek2move/ui/home/setting/setting_screen.dart';
 import 'package:konek2move/ui/login/login_screen.dart';
 import 'package:konek2move/ui/register/email.dart';
-import 'package:konek2move/ui/register/register_screen.dart';
 import 'package:konek2move/ui/register/terms_and_condition_screen.dart';
 import 'package:konek2move/ui/splash/splash_screen.dart';
 

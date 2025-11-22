@@ -1,3 +1,4 @@
+import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:shimmer/shimmer.dart';
@@ -12,8 +13,20 @@ class OrderScreen extends StatefulWidget {
 class _OrderScreenState extends State<OrderScreen> {
   bool isLoading = true;
   String searchQuery = "";
+  String? selectedReason;
 
-  // Sample data
+  final List<String> cancelReasons = [
+    "Customer not answering",
+    "Incorrect address",
+    "Unable to locate customer",
+    "Traffic/delivery conditions too difficult",
+    "Item not ready for pickup",
+    "Health/emergency issue",
+    "Vehicle breakdown",
+    "Order cancelled by customer",
+    "Other reason",
+  ];
+
   List<Map<String, String>> deliveries = [
     {
       "title": "Parcel for John Doe",
@@ -52,6 +65,63 @@ class _OrderScreenState extends State<OrderScreen> {
     setState(() => isLoading = false);
   }
 
+  void _showCancelReasonSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) {
+        return Padding(
+          padding: MediaQuery.of(context).viewInsets,
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  height: 5,
+                  width: 50,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                const Text(
+                  "Select Cancel Reason",
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 10),
+                ...cancelReasons.map((reason) {
+                  return ListTile(
+                    title: Text(reason),
+                    onTap: () {
+                      setState(() {
+                        selectedReason = reason;
+                      });
+                      Navigator.pop(context);
+                      Flushbar(
+                        message: "Cancelled: $reason",
+                        backgroundColor: kPrimaryRedColor,
+                        margin: const EdgeInsets.all(16),
+                        borderRadius: BorderRadius.circular(12),
+                        duration: const Duration(seconds: 3),
+                        flushbarPosition: FlushbarPosition.TOP,
+                        icon: const Icon(Icons.cancel, color: Colors.white),
+                      ).show(context);
+                    },
+                  );
+                }).toList(),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final filteredDeliveries = deliveries
@@ -69,98 +139,85 @@ class _OrderScreenState extends State<OrderScreen> {
         )
         .toList();
 
-    // 1. Removed the unnecessary outer Padding widget here.
-    return RefreshIndicator(
-      onRefresh: _reload,
-      color: kPrimaryColor,
-      child: Column(
+    return Scaffold(
+      backgroundColor: Colors.grey[100],
+      body: Column(
         children: [
-          const SizedBox(height: 12),
-          Padding(
-            // Applying horizontal padding only to the search bar and list container
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.15),
-                    blurRadius: 8,
-                    spreadRadius: 2,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: TextField(
-                onChanged: (value) => setState(() => searchQuery = value),
-                decoration: InputDecoration(
-                  hintText: "Search orders",
-                  prefixIcon: const Icon(Icons.search, color: kPrimaryColor),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    vertical: 15,
-                    horizontal: 8,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 1),
-
-          // Orders List
+          // Search & Orders
           Expanded(
-            // 3. Removed the hardcoded bottom padding from here.
-            // The parent HomeScreen padding now handles the bottom spacing.
-            child: isLoading
-                ? ListView.builder(
-                    // Applying horizontal padding only to the list view
-                    padding: const EdgeInsets.only().copyWith(
-                      left: 16,
-                      right: 16,
+            child: RefreshIndicator(
+              color: kPrimaryColor,
+              onRefresh: _reload,
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  // Search Bar
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.15),
+                          blurRadius: 8,
+                          spreadRadius: 2,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    itemCount: 3,
-                    itemBuilder: (context, index) {
-                      return Shimmer.fromColors(
-                        baseColor: Colors.grey.shade300,
-                        highlightColor: Colors.grey.shade100,
-                        child: Card(
-                          margin: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                    child: TextField(
+                      onChanged: (value) => setState(() => searchQuery = value),
+                      decoration: InputDecoration(
+                        hintText: "Search orders",
+                        prefixIcon: const Icon(
+                          Icons.search,
+                          color: kPrimaryColor,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 15,
+                          horizontal: 8,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Orders List
+                  if (isLoading)
+                    ...List.generate(
+                      3,
+                      (index) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Shimmer.fromColors(
+                          baseColor: Colors.grey.shade300,
+                          highlightColor: Colors.grey.shade100,
                           child: Container(
                             height: 140,
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(24),
                             ),
                           ),
                         ),
-                      );
-                    },
-                  )
-                : filteredDeliveries.isEmpty
-                ? Center(
-                    child: Text(
-                      "No orders found",
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 16,
                       ),
-                    ),
-                  )
-                : ListView.builder(
-                    // Applying horizontal padding only to the list view
-                    padding: const EdgeInsets.only().copyWith(
-                      left: 16,
-                      right: 16,
-                    ),
-                    itemCount: filteredDeliveries.length,
-                    itemBuilder: (context, index) {
-                      final item = filteredDeliveries[index];
+                    )
+                  else if (filteredDeliveries.isEmpty)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 32),
+                        child: Text(
+                          "No orders found",
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    ...filteredDeliveries.map((item) {
                       Color statusColor;
-
                       switch (item['status']) {
                         case "Pending":
                           statusColor = Colors.orange;
@@ -175,18 +232,25 @@ class _OrderScreenState extends State<OrderScreen> {
                           statusColor = Colors.grey;
                       }
 
-                      return Card(
-                        margin: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        elevation: 2,
-                        shadowColor: kPrimaryColor.withOpacity(0.3),
-                        child: Padding(
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Container(
                           padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.shade200,
+                                blurRadius: 6,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              // Title & Status
                               Row(
                                 children: [
                                   const Icon(
@@ -224,6 +288,7 @@ class _OrderScreenState extends State<OrderScreen> {
                                 ],
                               ),
                               const SizedBox(height: 12),
+                              // Pickup
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -242,6 +307,7 @@ class _OrderScreenState extends State<OrderScreen> {
                                 ],
                               ),
                               const SizedBox(height: 5),
+                              // Drop-off
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -260,6 +326,7 @@ class _OrderScreenState extends State<OrderScreen> {
                                 ],
                               ),
                               const SizedBox(height: 5),
+                              // Time
                               Row(
                                 children: [
                                   const Icon(
@@ -275,6 +342,7 @@ class _OrderScreenState extends State<OrderScreen> {
                                 ],
                               ),
                               const SizedBox(height: 15),
+                              // Buttons
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.end,
                                 children: [
@@ -301,7 +369,8 @@ class _OrderScreenState extends State<OrderScreen> {
                                   ),
                                   const SizedBox(width: 12),
                                   ElevatedButton(
-                                    onPressed: () {},
+                                    onPressed: () =>
+                                        _showCancelReasonSheet(context),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: kPrimaryRedColor,
                                       padding: const EdgeInsets.symmetric(
@@ -323,12 +392,25 @@ class _OrderScreenState extends State<OrderScreen> {
                                   ),
                                 ],
                               ),
+                              if (selectedReason != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 12),
+                                  child: Text(
+                                    "Selected reason: $selectedReason",
+                                    style: const TextStyle(
+                                      fontStyle: FontStyle.italic,
+                                      color: Colors.red,
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
                         ),
                       );
-                    },
-                  ),
+                    }).toList(),
+                ],
+              ),
+            ),
           ),
         ],
       ),

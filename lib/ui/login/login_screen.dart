@@ -51,11 +51,11 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _biometricLogin() async {
     final LocalAuthentication auth = LocalAuthentication();
 
-    bool canCheckBiometrics = await auth.canCheckBiometrics;
-    bool isDeviceSupported = await auth.isDeviceSupported();
+    await auth.canCheckBiometrics;
+    await auth.isDeviceSupported();
 
     // Authenticate with biometrics or device PIN
-    bool authenticated = await auth.authenticate(
+    await auth.authenticate(
       localizedReason: 'Login using your biometrics or device PIN',
       biometricOnly: false, // allow PIN fallback
     );

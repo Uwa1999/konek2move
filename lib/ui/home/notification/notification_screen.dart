@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:shimmer/shimmer.dart';
 
@@ -163,6 +164,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                         Navigator.pushReplacementNamed(context, '/home'),
                   ),
                 ),
+
                 const Center(
                   child: Text(
                     "Notifications",
