@@ -21,18 +21,22 @@ class ModelResponse {
       message: json['message'] ?? '',
       error: json['error'] ?? '',
       retCode: json['retCode'] ?? '',
-      responseTime: json['responseTime'] as String?,
-      device: json['device'] as String?,
+      responseTime: json['responseTime'] ?? '',
+      device: json['device'] ?? '',
     );
   }
 }
 
 class OtpData {
   final String otpCode;
+  final String? jwtToken;
 
-  OtpData({this.otpCode = ''});
+  OtpData({this.otpCode = '', this.jwtToken = ''});
 
   factory OtpData.fromJson(Map<String, dynamic> json) {
-    return OtpData(otpCode: json['otp_code'] ?? '');
+    return OtpData(
+      otpCode: json['otp_code'] ?? '',
+      jwtToken: json['jwt_token'] ?? '',
+    );
   }
 }

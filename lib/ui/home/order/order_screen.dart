@@ -113,7 +113,7 @@ class _OrderScreenState extends State<OrderScreen> {
                       ).show(context);
                     },
                   );
-                }).toList(),
+                }),
               ],
             ),
           ),
@@ -407,7 +407,7 @@ class _OrderScreenState extends State<OrderScreen> {
                           ),
                         ),
                       );
-                    }).toList(),
+                    }),
                 ],
               ),
             ),

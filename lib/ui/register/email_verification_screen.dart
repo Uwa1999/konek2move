@@ -74,11 +74,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
           ),
         );
       } else {
-        _showTopMessage(
-          context,
-          message: response.error ?? response.message,
-          isError: true,
-        );
+        _showTopMessage(context, message: response.error, isError: true);
       }
     } catch (e) {
       if (!mounted) return;

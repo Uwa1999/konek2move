@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
+import 'package:konek2move/ui/home/setting/change_password_screen.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -141,7 +142,12 @@ class _SettingScreenState extends State<SettingScreen> {
                     title: "Change Password",
                     subtitle: "Update your account password",
                     onTap: () {
-                      Navigator.pushNamed(context, '/change_password');
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ChangePasswordScreen(),
+                        ),
+                      );
                     },
                   ),
                   const SizedBox(height: 5),
@@ -236,7 +242,7 @@ class _SettingScreenState extends State<SettingScreen> {
         trailing: CupertinoSwitch(
           value: value,
           onChanged: onChanged,
-          activeColor: activeColor ?? kPrimaryColor,
+          activeTrackColor: activeColor ?? kPrimaryColor,
         ),
       ),
     );

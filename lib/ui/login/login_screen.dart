@@ -95,10 +95,16 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (response.retCode == '201') {
+        final token = response.data.jwtToken;
+
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString("email", emailController.text.trim());
         await prefs.setString("password", passwordController.text.trim());
+        if (token != null) {
+          await prefs.setString("jwt_token", token);
+        }
 
+        _showTopMessage(context, message: "Login successful!");
         Navigator.pushReplacementNamed(context, "/home");
       } else {
         _showTopMessage(context, message: response.error, isError: true);
