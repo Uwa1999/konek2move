@@ -30,6 +30,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _mobileController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
+  // final TextEditingController _regionController = TextEditingController();
 
   // Vehicle Info
   File? _drivingLicenseFront;
@@ -49,6 +50,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? selectedSuffix;
   String? selectedGender;
   String? selectedVehicle;
+  // String? selectedRegion;
 
   int _currentStep = 0; // 0 = personal, 1 = contact, 2 = vehicle
   final PageController _pageController = PageController();
@@ -56,6 +58,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   List<String> suffixOptions = [];
   List<String> genderOptions = [];
   List<String> vehicleOptions = [];
+  // List<String> regionOptions = [];
 
   Future<void> _pickImage(
     Function(File) onImagePicked,
@@ -231,6 +234,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     print('Email: ${_emailController.text.trim()}');
     print('Phone: ${_mobileController.text.trim()}');
     print('Address: ${_addressController.text.trim()}');
+    // print('Region: ${_regionController.text.trim()}');
     print('Password: ${_passwordController.text}');
     print('Vehicle Type: ${_vehicleController.text.trim()}');
     print('License Number: ${_licenseController.text.trim()}');
@@ -256,6 +260,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         email: _emailController.text.trim(),
         phone: _mobileController.text.trim(),
         address: _addressController.text.trim(),
+        // region: selectedRegion,
         password: _passwordController.text,
         vehicleType: _vehicleController.text.trim(),
         licenseNumber: _licenseController.text.trim(),
@@ -315,6 +320,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _vehicleController.dispose();
     _licenseController.dispose();
     _addressController.dispose();
+    // _regionController.dispose();
     _emailController.dispose();
     _pageController.dispose();
     super.dispose();
@@ -329,8 +335,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       List<String> suffix = (dropdowns['suffix'] ?? []).toList();
       List<String> gender = (dropdowns['gender'] ?? []).toList();
       List<String> vehicles = (dropdowns['vehicle_type'] ?? []).toList();
-
-      //  List<String> vehicles = (dropdowns['vehicle_type'] ?? []).toList();
 
       setState(() {
         suffixOptions = suffix;
@@ -597,18 +601,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 15),
                   _buildSectionTitle("Gender", required: true),
                   const SizedBox(height: 10),
-
-                  // _buildDropdownFields(
-                  //   "Select Gender",
-                  //   genderOptions.isEmpty ? ["Loading..."] : genderOptions,
-                  //   selectedGender,
-                  //   (value) {
-                  //     setState(() {
-                  //       selectedGender = value;
-                  //       _genderController.text = value ?? "";
-                  //     });
-                  //   },
-                  // ),
                   _buildDropdownFields(
                     context,
                     "Select Gender",
@@ -707,6 +699,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     "House No., Street, Barangay, City",
                   ),
                   const SizedBox(height: 30),
+                  // _buildSectionTitle("Assign Location", required: true),
+                  // _buildDropdownFields(
+                  //   context,
+                  //   "Select Region",
+                  //   regionOptions.isEmpty ? ["Loading..."] : regionOptions,
+                  //   selectedRegion,
+                  //   (value) {
+                  //     setState(() {
+                  //       selectedRegion = value;
+                  //       _regionController.text = value ?? "";
+                  //     });
+                  //   },
+                  // ),
                 ],
               ),
             ),

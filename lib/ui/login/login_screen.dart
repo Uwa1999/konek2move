@@ -4,6 +4,7 @@ import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/services/api_services.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
 import 'package:konek2move/ui/login/forgot_password_screen.dart';
+import 'package:konek2move/ui/register/terms_and_condition_screen.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -48,19 +49,73 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  // Future<void> _biometricLogin() async {
+  //   final LocalAuthentication auth = LocalAuthentication();
+  //
+  //   await auth.canCheckBiometrics;
+  //   await auth.isDeviceSupported();
+  //
+  //   // Authenticate with biometrics or device PIN
+  //   await auth.authenticate(
+  //     localizedReason: 'Login using your biometrics or device PIN',
+  //     biometricOnly: false, // allow PIN fallback
+  //   );
+  //
+  //   Navigator.pushReplacementNamed(context, "/home");
+  // }
   Future<void> _biometricLogin() async {
     final LocalAuthentication auth = LocalAuthentication();
 
-    await auth.canCheckBiometrics;
-    await auth.isDeviceSupported();
+    try {
+      final bool didAuthenticate = await auth.authenticate(
+        localizedReason: 'Login using your biometrics or device PIN',
+        biometricOnly: false, // allow PIN fallback
+      );
 
-    // Authenticate with biometrics or device PIN
-    await auth.authenticate(
-      localizedReason: 'Login using your biometrics or device PIN',
-      biometricOnly: false, // allow PIN fallback
-    );
+      if (!didAuthenticate) return; // cancel if user fails
 
-    Navigator.pushReplacementNamed(context, "/home");
+      final prefs = await SharedPreferences.getInstance();
+      final email = prefs.getString("email");
+      final password = prefs.getString("password");
+
+      if (email == null || password == null) {
+        _showTopMessage(
+          context,
+          message: "No saved credentials for biometric login",
+          isError: true,
+        );
+        return;
+      }
+
+      setState(() => isLoading = true);
+
+      // Call your normal login API
+      final response = await ApiServices().signin(email, password);
+
+      if (response.retCode == '201') {
+        final token = response.data.jwtToken;
+        final driverCode = response.data.driver.driverCode;
+        final activeStatus = response.data.driver.active;
+
+        await prefs.setString("jwt_token", token);
+        await prefs.setString("driver_code", driverCode);
+        await prefs.setBool("active", activeStatus);
+
+        _showTopMessage(context, message: "Login successful!");
+
+        Navigator.pushReplacementNamed(context, "/home");
+      } else {
+        _showTopMessage(context, message: response.error, isError: true);
+      }
+    } catch (e) {
+      _showTopMessage(
+        context,
+        message: "Use fingerprint or FaceID to login",
+        isError: true,
+      );
+    } finally {
+      setState(() => isLoading = false);
+    }
   }
 
   void _validateInputs() {
@@ -96,13 +151,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (response.retCode == '201') {
         final token = response.data.jwtToken;
+        final driverCode = response.data.driver.driverCode;
+        final activeStatus = response.data.driver.active;
 
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString("email", emailController.text.trim());
         await prefs.setString("password", passwordController.text.trim());
-        if (token != null) {
-          await prefs.setString("jwt_token", token);
-        }
+        await prefs.setString("jwt_token", token);
+        await prefs.setString("driver_code", driverCode);
+        await prefs.setBool("active", activeStatus);
 
         _showTopMessage(context, message: "Login successful!");
         Navigator.pushReplacementNamed(context, "/home");
@@ -259,8 +316,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: TextStyle(color: Colors.grey, fontSize: 14),
                   ),
                   GestureDetector(
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/terms'),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => TermsAndConditionScreen(),
+                        ),
+                      );
+                    },
                     child: Text(
                       "Sign Up",
                       style: TextStyle(

@@ -2,7 +2,7 @@
 // import 'package:flutter/services.dart';
 // import 'package:google_maps_flutter/google_maps_flutter.dart';
 // import 'package:konek2move/core/routes/app_routes.dart';
-
+//
 // Future<void> main() async {
 //   WidgetsFlutterBinding.ensureInitialized();
 //   AndroidGoogleMapsFlutter.useAndroidViewSurface = true;
@@ -13,10 +13,10 @@
 //   ]);
 //   runApp(const MyApp());
 // }
-
+//
 // class MyApp extends StatelessWidget {
 //   const MyApp({super.key});
-
+//
 //   @override
 //   Widget build(BuildContext context) {
 //     return MaterialApp(
@@ -32,114 +32,52 @@
 //     );
 //   }
 // }
-
 import 'dart:async';
-import 'dart:developer' as developer;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:konek2move/core/routes/app_routes.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:konek2move/ui/splash/internet_connection_screen.dart';
+import 'package:provider/provider.dart';
+
+import 'core/services/provider_services.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Ensure this line is only used if you are targeting older Android versions,
+  // otherwise, it might be unnecessary with recent Flutter/Maps plugins.
   AndroidGoogleMapsFlutter.useAndroidViewSurface = true;
+
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
-  runApp(const MyApp());
+
+  runApp(
+    MultiProvider(
+      providers: [
+        // Initialize the provider correctly
+        ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
-class MyApp extends StatefulWidget {
+// ---
+
+// 📱 MyApp
+class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
-  State<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
-  final Connectivity _connectivity = Connectivity();
-  late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
-  bool _isDialogShown = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _initConnectivity();
-
-    // Listen to connectivity changes
-    _connectivitySubscription = _connectivity.onConnectivityChanged.listen(
-      _onConnectivityChanged,
-    );
-  }
-
-  @override
-  void dispose() {
-    _connectivitySubscription.cancel();
-    super.dispose();
-  }
-
-  // Initialize connectivity at startup
-  Future<void> _initConnectivity() async {
-    List<ConnectivityResult> results;
-    try {
-      results = await _connectivity.checkConnectivity();
-    } on PlatformException catch (e) {
-      developer.log('Couldn\'t check connectivity status', error: e);
-      return;
-    }
-
-    if (!mounted) return;
-
-    if (results.contains(ConnectivityResult.none)) {
-      _showNoInternetDialog();
-    }
-  }
-
-  // Handle connectivity changes
-  void _onConnectivityChanged(List<ConnectivityResult> results) {
-    if (results.contains(ConnectivityResult.none)) {
-      if (!_isDialogShown) _showNoInternetDialog();
-    } else {
-      if (_isDialogShown && Navigator.canPop(context)) {
-        _isDialogShown = false;
-        Navigator.pop(context);
-      }
-    }
-  }
-
-  // Show offline dialog
-  void _showNoInternetDialog() {
-    _isDialogShown = true;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('No Internet Connection'),
-        content: const Text('Please check your internet connection.'),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              final results = await _connectivity.checkConnectivity();
-              if (!results.contains(ConnectivityResult.none) &&
-                  Navigator.canPop(context)) {
-                _isDialogShown = false;
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Retry'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
   Widget build(BuildContext context) {
+    // Listen to the provider
+    final connectivityProvider = Provider.of<ConnectivityProvider>(context);
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Konek2Move',
@@ -149,6 +87,22 @@ class _MyAppState extends State<MyApp> {
       ),
       initialRoute: AppRoutes.splash,
       routes: AppRoutes.routes,
+      // The builder wraps the entire application widget tree
+      builder: (context, child) {
+        // Global connectivity banner using a Stack
+        return Stack(
+          children: [
+            // 1. The main content of the app
+            child!,
+            // 2. The overlay banner, visible only when not connected
+            if (!connectivityProvider.isChecking &&
+                !connectivityProvider.isConnected)
+              NoInternetScreen(),
+          ],
+        );
+      },
     );
   }
 }
+
+// ---

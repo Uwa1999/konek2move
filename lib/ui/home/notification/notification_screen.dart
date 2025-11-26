@@ -1,6 +1,235 @@
+// import 'dart:async';
+// import 'package:flutter/material.dart';
+// import 'package:konek2move/core/constants/app_colors.dart';
+// import 'package:konek2move/core/services/api_services.dart';
+// import 'package:shared_preferences/shared_preferences.dart';
+// import 'package:shimmer/shimmer.dart';
+// import 'package:intl/intl.dart';
+//
+// class NotificationScreen extends StatefulWidget {
+//   final String? driverCode;
+//   const NotificationScreen({super.key, this.driverCode});
+//
+//   @override
+//   State<NotificationScreen> createState() => _NotificationScreenState();
+// }
+//
+// class _NotificationScreenState extends State<NotificationScreen> {
+//   final ApiServices _api = ApiServices();
+//
+//   bool isLoading = true;
+//   List<Map<String, dynamic>> notifications = [];
+//
+//   StreamSubscription<Map<String, dynamic>>? _sseSub;
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//   }
+//
+//   @override
+//   void dispose() {
+//     _sseSub?.cancel();
+//     super.dispose();
+//   }
+//
+//   /// Convert ISO datetime string to "time ago" format
+//   String _timeAgo(String? rawTime) {
+//     if (rawTime == null || rawTime.isEmpty) return "";
+//
+//     try {
+//       final dateTime = DateTime.parse(rawTime).toLocal();
+//       final now = DateTime.now();
+//       final difference = now.difference(dateTime);
+//
+//       if (difference.inSeconds < 60) return 'Just now';
+//       if (difference.inMinutes < 60) return '${difference.inMinutes} min ago';
+//       if (difference.inHours < 24) return '${difference.inHours} h ago';
+//       if (difference.inDays == 1) return 'Yesterday';
+//       if (difference.inDays < 7) return '${difference.inDays} days ago';
+//
+//       return DateFormat('MMM d, yyyy').format(dateTime); // fallback
+//     } catch (e) {
+//       return rawTime;
+//     }
+//   }
+//
+//   Future<void> _refresh() async {
+//     setState(() => isLoading = true);
+//
+//     setState(() => isLoading = false);
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       backgroundColor: Colors.grey[100],
+//       body: Column(
+//         children: [
+//           _buildHeader(context),
+//           Expanded(
+//             child: RefreshIndicator(
+//               onRefresh: _refresh,
+//               child: isLoading
+//                   ? _buildShimmerList()
+//                   : notifications.isEmpty
+//                   ? _buildEmptyState()
+//                   : _buildNotificationList(),
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+//
+//   Widget _buildHeader(BuildContext context) {
+//     return Container(
+//       height: 80,
+//       decoration: BoxDecoration(
+//         color: Colors.white,
+//         borderRadius: const BorderRadius.only(
+//           bottomLeft: Radius.circular(20),
+//           bottomRight: Radius.circular(20),
+//         ),
+//         boxShadow: [
+//           BoxShadow(
+//             color: Colors.black12,
+//             blurRadius: 8,
+//             offset: const Offset(0, 3),
+//           ),
+//         ],
+//       ),
+//       child: Stack(
+//         alignment: Alignment.center,
+//         children: [
+//
+//             left: 16,
+//             child: IconButton(
+//               icon: const Icon(Icons.arrow_back, color: Colors.black),
+//               onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
+//             ),
+//           ),
+//           const Center(
+//             child: Text(
+//               "Notifications",
+//               style: TextStyle(
+//                 color: Colors.black,
+//                 fontSize: 20,
+//                 fontWeight: FontWeight.bold,
+//               ),
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+//
+//   Widget _buildShimmerList() {
+//     return ListView.builder(
+//       padding: const EdgeInsets.all(16),
+//       itemCount: 4,
+//       itemBuilder: (_, __) => Padding(
+//         padding: const EdgeInsets.only(bottom: 12),
+//         child: Shimmer.fromColors(
+//           baseColor: Colors.grey.shade300,
+//           highlightColor: Colors.grey.shade100,
+//           child: Container(
+//             height: 90,
+//             decoration: BoxDecoration(
+//               color: Colors.white,
+//               borderRadius: BorderRadius.circular(24),
+//             ),
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+//
+//   Widget _buildEmptyState() {
+//     return Center(
+//       child: Text(
+//         "No available notifications",
+//         style: TextStyle(color: Colors.grey, fontSize: 16),
+//       ),
+//     );
+//   }
+//
+//   Widget _buildNotificationList() {
+//     return ListView.separated(
+//       padding: const EdgeInsets.all(16),
+//       itemCount: notifications.length,
+//       separatorBuilder: (_, __) => const SizedBox(height: 12),
+//       itemBuilder: (context, index) {
+//         final n = notifications[index];
+//         final isRead = n["isRead"] == true;
+//
+//         return GestureDetector(
+//           onTap: () => setState(() => notifications[index]["isRead"] = true),
+//           child: AnimatedContainer(
+//             duration: const Duration(milliseconds: 200),
+//             padding: const EdgeInsets.all(16),
+//             decoration: BoxDecoration(
+//               color: isRead ? Colors.white : kPrimaryColor.withOpacity(0.1),
+//               borderRadius: BorderRadius.circular(24),
+//               border: Border.all(
+//                 color: isRead ? Colors.grey.shade300 : kPrimaryColor,
+//               ),
+//             ),
+//             child: Row(
+//               children: [
+//                 CircleAvatar(
+//                   backgroundColor: isRead ? Colors.grey : kPrimaryColor,
+//                   child: const Icon(Icons.notifications, color: Colors.white),
+//                 ),
+//                 const SizedBox(width: 16),
+//                 Expanded(
+//                   child: Column(
+//                     crossAxisAlignment: CrossAxisAlignment.start,
+//                     children: [
+//                       Text(
+//                         n["title"] ?? "",
+//                         style: TextStyle(
+//                           fontWeight: isRead
+//                               ? FontWeight.normal
+//                               : FontWeight.bold,
+//                           fontSize: 16,
+//                         ),
+//                       ),
+//                       const SizedBox(height: 4),
+//                       Text(
+//                         n["body"] ?? "",
+//                         style: const TextStyle(
+//                           color: Colors.black54,
+//                           fontSize: 14,
+//                         ),
+//                       ),
+//                       const SizedBox(height: 6),
+//                       Text(
+//                         n["time"] ?? "",
+//                         style: TextStyle(
+//                           color: Colors.grey.shade500,
+//                           fontSize: 12,
+//                         ),
+//                       ),
+//                     ],
+//                   ),
+//                 ),
+//               ],
+//             ),
+//           ),
+//         );
+//       },
+//     );
+//   }
+// }
 import 'package:flutter/material.dart';
-import 'package:konek2move/core/constants/app_colors.dart';
+import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:konek2move/core/constants/app_colors.dart';
+import 'package:konek2move/core/services/provider_services.dart';
+import 'package:konek2move/core/services/model_services.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -11,122 +240,67 @@ class NotificationScreen extends StatefulWidget {
 
 class _NotificationScreenState extends State<NotificationScreen> {
   bool isLoading = true;
-
-  // Sample notifications
-  final List<Map<String, dynamic>> notifications = [
-    {
-      "title": "Order Delivered",
-      "body": "Your order #1234 has been delivered successfully.",
-      "time": "2 min ago",
-      "isRead": false,
-    },
-    {
-      "title": "Order Picked Up",
-      "body": "Your delivery driver has picked up order #5678.",
-      "time": "10 min ago",
-      "isRead": false,
-    },
-    {
-      "title": "Order Cancelled",
-      "body": "Order #4321 has been cancelled by the restaurant.",
-      "time": "Yesterday",
-      "isRead": false,
-    },
-    {
-      "title": "New Promo",
-      "body": "Get 20% off on your next delivery!",
-      "time": "1 hr ago",
-      "isRead": true,
-    },
-    {
-      "title": "New Promo",
-      "body": "Get 20% off on your next delivery!",
-      "time": "1 hr ago",
-      "isRead": true,
-    },
-    {
-      "title": "New Promo",
-      "body": "Get 20% off on your next delivery!",
-      "time": "1 hr ago",
-      "isRead": true,
-    },
-    {
-      "title": "New Promo",
-      "body": "Get 20% off on your next delivery!",
-      "time": "1 hr ago",
-      "isRead": true,
-    },
-    {
-      "title": "New Promo",
-      "body": "Get 20% off on your next delivery!",
-      "time": "1 hr ago",
-      "isRead": true,
-    },
-    {
-      "title": "New Promo",
-      "body": "Get 20% off on your next delivery!",
-      "time": "1 hr ago",
-      "isRead": true,
-    },
-    {
-      "title": "New Promo",
-      "body": "Get 20% off on your next delivery!",
-      "time": "1 hr ago",
-      "isRead": true,
-    },
-    {
-      "title": "New Promo",
-      "body": "Get 20% off on your next delivery!",
-      "time": "1 hr ago",
-      "isRead": true,
-    },
-    {
-      "title": "New Promo",
-      "body": "Get 20% off on your next delivery!",
-      "time": "1 hr ago",
-      "isRead": true,
-    },
-    {
-      "title": "New Promo",
-      "body": "Get 20% off on your next delivery!",
-      "time": "1 hr ago",
-      "isRead": true,
-    },
-    {
-      "title": "New Promo",
-      "body": "Get 20% off on your next delivery!",
-      "time": "1 hr ago",
-      "isRead": true,
-    },
-  ];
+  String? driverCode;
 
   @override
   void initState() {
     super.initState();
-    // Simulate initial loading
-    Future.delayed(const Duration(seconds: 2), () {
-      setState(() => isLoading = false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initNotifications();
     });
   }
 
-  Future<void> _refreshNotifications() async {
+  Future<void> _initNotifications() async {
+    // Load driver code from SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    driverCode = prefs.getString('driver_code');
+
+    if (driverCode == null) return;
+
+    final provider = context.read<NotificationProvider>();
+
     setState(() => isLoading = true);
-    await Future.delayed(const Duration(seconds: 2));
+
+    // Fetch notifications
+    await provider.fetchNotifications(
+      userCode: driverCode!,
+      userType: "driver",
+    );
+
+    // Listen for live SSE updates
+    provider.listenLiveNotifications(userCode: driverCode!, userType: "driver");
+
     setState(() => isLoading = false);
   }
 
-  Future<void> _onNotificationTap(int index) async {
-    setState(() {
-      isLoading = true; // Show shimmer
-    });
+  Future<void> _refresh() async {
+    if (driverCode == null) return;
 
-    // Simulate API call or processing
-    await Future.delayed(const Duration(seconds: 1));
+    final provider = context.read<NotificationProvider>();
+    await provider.fetchNotifications(
+      userCode: driverCode!,
+      userType: "driver",
+    );
+  }
 
-    setState(() {
-      isLoading = false; // Hide shimmer
-      notifications[index]['isRead'] = true; // Mark as read
-    });
+  String _timeAgo(String? rawTime) {
+    if (rawTime == null || rawTime.isEmpty) return "";
+
+    try {
+      final dateTime = DateTime.parse(rawTime).toLocal();
+      final now = DateTime.now();
+      final difference = now.difference(dateTime);
+
+      if (difference.inSeconds < 60) return 'Just now';
+      if (difference.inMinutes < 60) return '${difference.inMinutes} min ago';
+      if (difference.inHours < 24) return '${difference.inHours} h ago';
+      if (difference.inDays == 1) return 'Yesterday';
+      if (difference.inDays < 7) return '${difference.inDays} days ago';
+
+      return DateFormat('MMM d, yyyy').format(dateTime);
+    } catch (e) {
+      return rawTime;
+    }
   }
 
   @override
@@ -135,169 +309,179 @@ class _NotificationScreenState extends State<NotificationScreen> {
       backgroundColor: Colors.grey[100],
       body: Column(
         children: [
-          // Modern AppBar
-          Container(
-            height: 80,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(20),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Positioned(
-                  left: 16,
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.black),
-                    onPressed: () =>
-                        Navigator.pushReplacementNamed(context, '/home'),
-                  ),
-                ),
-
-                const Center(
-                  child: Text(
-                    "Notifications",
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Notifications List
+          _buildHeader(),
           Expanded(
             child: RefreshIndicator(
-              color: kPrimaryColor,
-              onRefresh: _refreshNotifications,
+              onRefresh: _refresh,
               child: isLoading
-                  ? ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: 4,
-                      itemBuilder: (context, index) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Shimmer.fromColors(
-                          baseColor: Colors.grey.shade300,
-                          highlightColor: Colors.grey.shade100,
-                          child: Container(
-                            height: 90,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                          ),
-                        ),
-                      ),
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: notifications.length,
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        final notification = notifications[index];
-                        final isRead = notification['isRead'] as bool;
-
-                        return GestureDetector(
-                          onTap: () => _onNotificationTap(index),
-                          child: MouseRegion(
-                            cursor: SystemMouseCursors.click,
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: isRead
-                                    ? Colors.white
-                                    : kPrimaryColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(24),
-                                border: Border.all(
-                                  color: isRead
-                                      ? Colors.grey.shade300
-                                      : kPrimaryColor,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.grey.shade200,
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 3),
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: isRead
-                                          ? Colors.grey
-                                          : kPrimaryColor,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.notifications,
-                                      color: Colors.white,
-                                      size: 20,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          notification['title']!,
-                                          style: TextStyle(
-                                            fontWeight: isRead
-                                                ? FontWeight.normal
-                                                : FontWeight.bold,
-                                            fontSize: 16,
-                                            color: Colors.black87,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          notification['body']!,
-                                          style: const TextStyle(
-                                            color: Colors.black54,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          notification['time']!,
-                                          style: TextStyle(
-                                            color: Colors.grey.shade500,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
+                  ? _buildShimmerList()
+                  : Consumer<NotificationProvider>(
+                      builder: (_, provider, __) {
+                        final notifications = provider.notifications;
+                        if (notifications.isEmpty) return _buildEmptyState();
+                        return _buildNotificationList(notifications, provider);
                       },
                     ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      height: 80,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(20),
+          bottomRight: Radius.circular(20),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned(
+            left: 16,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.black),
+              onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
+            ),
+          ),
+          const Center(
+            child: Text(
+              "Notifications",
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShimmerList() {
+    final provider = context.read<NotificationProvider>();
+    // Use unread count if available, else default to 4
+    final shimmerCount = provider.unreadCount > 0 ? provider.unreadCount : 4;
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: shimmerCount,
+      itemBuilder: (_, __) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Shimmer.fromColors(
+          baseColor: Colors.grey.shade300,
+          highlightColor: Colors.grey.shade100,
+          child: Container(
+            height: 90,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return const Center(
+      child: Text(
+        "No available notifications",
+        style: TextStyle(color: Colors.grey, fontSize: 16),
+      ),
+    );
+  }
+
+  Widget _buildNotificationList(
+    List<NotificationModel> notifications,
+    NotificationProvider provider,
+  ) {
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: notifications.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final n = notifications[index];
+        final isRead = n.isRead;
+
+        return GestureDetector(
+          onTap: () async {
+            if (!isRead && driverCode != null) {
+              // Mark notification as read locally and on server
+              await provider.markAsRead(
+                notif: n,
+                userCode: driverCode!,
+                userType: "driver",
+              );
+            }
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isRead ? Colors.white : kPrimaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: isRead ? Colors.grey.shade300 : kPrimaryColor,
+              ),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: isRead ? Colors.grey : kPrimaryColor,
+                  child: const Icon(Icons.notifications, color: Colors.white),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        n.title,
+                        style: TextStyle(
+                          fontWeight: isRead
+                              ? FontWeight.normal
+                              : FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        n.body,
+                        style: const TextStyle(
+                          color: Colors.black54,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _timeAgo(n.createdAt.toString()),
+                        style: TextStyle(
+                          color: Colors.grey.shade500,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -29,7 +29,7 @@ class _SettingScreenState extends State<SettingScreen> {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
       _isBiometricEnabled = prefs.getBool("biometric_enabled") ?? false;
-      _isDriverActive = prefs.getBool("driver_active") ?? false;
+      _isDriverActive = prefs.getBool("active") ?? false;
     });
   }
 
@@ -71,17 +71,17 @@ class _SettingScreenState extends State<SettingScreen> {
       } on Exception catch (e) {
         _showTopMessage(
           context,
-          message: "Biometric error: ${e.toString()}",
+          message:
+              "You canceled the biometric setup. Biometric login remains disabled.",
           isError: true,
         );
-        print(e.toString());
       }
     });
   }
 
   Future<void> _toggleDriverStatus(bool value) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setBool("driver_active", value);
+    await prefs.setBool("active", value);
     setState(() {
       _isDriverActive = value;
     });
@@ -89,7 +89,7 @@ class _SettingScreenState extends State<SettingScreen> {
     _showTopMessage(
       context,
       message: value ? "You are ONLINE" : "You are OFFLINE",
-      isError: false,
+      isError: !value,
     );
   }
 
@@ -179,7 +179,7 @@ class _SettingScreenState extends State<SettingScreen> {
 
           // Logout Button
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 30),
             child: CustomButton(
               horizontalPadding: 0,
               text: "Log out",
