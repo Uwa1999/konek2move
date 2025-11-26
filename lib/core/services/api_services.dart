@@ -43,6 +43,41 @@ class ApiServices {
     }
   }
 
+  // Future<ModelResponse> refuseOrder({required String reason}) async {
+  //   try {
+  //     final prefs = await SharedPreferences.getInstance();
+  //     final token = prefs.getString("jwt_token") ?? "";
+  //     final driverId = prefs.getInt("id");
+  //
+  //     final Uri url = Uri.parse(
+  //       '${GetDNS.getOttokonekHestia()}/api/private/v1/moveapp/driver/task/$driverId/refuse',
+  //     );
+  //
+  //     var request = http.MultipartRequest('PUT', url);
+  //
+  //     request.fields['reason'] = reason;
+  //
+  //     // Add Authorization header with JWT token
+  //     request.headers['Authorization'] = 'Bearer $token';
+  //
+  //     // Send request
+  //     final streamedResponse = await request.send();
+  //     final response = await http.Response.fromStream(streamedResponse);
+  //
+  //     print(response.body);
+  //     if (response.statusCode == 200) {
+  //       final Map<String, dynamic> decodedData = jsonDecode(response.body);
+  //       return ModelResponse.fromJson(decodedData);
+  //     } else {
+  //       throw Exception(
+  //         'Server returned ${response.statusCode}: ${response.body}',
+  //       );
+  //     }
+  //   } catch (e) {
+  //     throw Exception('An error occurred: $e');
+  //   }
+  // }
+
   Future<List<NotificationModel>> getNotifications({
     required String userCode,
     required String userType,
@@ -63,45 +98,6 @@ class ApiServices {
     }
   }
 
-  // Stream<NotificationModel> listenNotifications({
-  //   required String userCode,
-  //   required String userType,
-  // }) async* {
-  //   final url = Uri.parse(
-  //     '${GetDNS.getNotifications()}/api/public/v1/moveapp/notification/listen?user_code=$userCode&user_type=$userType',
-  //   );
-  //
-  //   final request = http.Request('GET', url);
-  //   request.headers['X-API-KEY'] = GetKEY.getApiKey();
-  //   request.headers['Accept'] = 'text/event-stream';
-  //
-  //   final response = await request.send();
-  //
-  //   print(response.stream);
-  //   if (response.statusCode == 200) {
-  //     final stream = response.stream
-  //         .transform(utf8.decoder)
-  //         .transform(const LineSplitter());
-  //
-  //     await for (var line in stream) {
-  //       print('SSE line received: $line');
-  //       if (line.startsWith('data:')) {
-  //         final jsonData = line.substring(5).trim();
-  //         print('SSE data payload: $jsonData');
-  //         try {
-  //           final Map<String, dynamic> event = json.decode(jsonData);
-  //           final notification = NotificationModel.fromJson(event);
-  //           print('Parsed notification: ${notification.title}');
-  //           yield notification;
-  //         } catch (e) {
-  //           print('Error decoding SSE data: $e');
-  //         }
-  //       }
-  //     }
-  //   } else {
-  //     throw Exception('Failed to connect to SSE: ${response.statusCode}');
-  //   }
-  // }
   Stream<Map<String, dynamic>> listenNotifications({
     required String userCode,
     required String userType,

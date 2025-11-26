@@ -38,9 +38,57 @@ import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:konek2move/core/routes/app_routes.dart';
 import 'package:konek2move/ui/splash/internet_connection_screen.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 
 import 'core/services/provider_services.dart';
+
+Future<void> _initializePermissions() async {
+  // 1. Camera
+  if (await Permission.location.request().isDenied) {
+    debugPrint("Location permission denied");
+  }
+
+  // 2. Location (foreground)
+  if (await Permission.camera.request().isDenied) {
+    // Optionally show rationale
+    debugPrint("Camera permission denied");
+  }
+
+  // // 3. Location (background)
+  // if (await Permission.locationAlways.request().isDenied) {
+  //   debugPrint("Background location permission denied");
+  // }
+
+  // 4. Notifications (Android 13+)
+  if (await Permission.notification.request().isDenied) {
+    debugPrint("Notification permission denied");
+  }
+
+  // 5. Storage / Photos
+  if (await Permission.photos.request().isDenied) {
+    debugPrint("Photos permission denied");
+  }
+
+  if (await Permission.storage.request().isDenied) {
+    debugPrint("Storage permission denied");
+  }
+
+  // 6. Microphone
+  if (await Permission.microphone.request().isDenied) {
+    debugPrint("Microphone permission denied");
+  }
+
+  // 7. Bluetooth
+  if (await Permission.bluetooth.request().isDenied) {
+    debugPrint("Bluetooth permission denied");
+  }
+
+  // 8. Sensors
+  if (await Permission.sensors.request().isDenied) {
+    debugPrint("Sensors permission denied");
+  }
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -55,6 +103,8 @@ Future<void> main() async {
     DeviceOrientation.portraitDown,
   ]);
 
+  await _initializePermissions();
+
   runApp(
     MultiProvider(
       providers: [
@@ -67,9 +117,6 @@ Future<void> main() async {
   );
 }
 
-// ---
-
-// 📱 MyApp
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -104,5 +151,3 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-
-// ---

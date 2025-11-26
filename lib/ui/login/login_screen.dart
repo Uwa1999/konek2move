@@ -49,20 +49,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // Future<void> _biometricLogin() async {
-  //   final LocalAuthentication auth = LocalAuthentication();
-  //
-  //   await auth.canCheckBiometrics;
-  //   await auth.isDeviceSupported();
-  //
-  //   // Authenticate with biometrics or device PIN
-  //   await auth.authenticate(
-  //     localizedReason: 'Login using your biometrics or device PIN',
-  //     biometricOnly: false, // allow PIN fallback
-  //   );
-  //
-  //   Navigator.pushReplacementNamed(context, "/home");
-  // }
   Future<void> _biometricLogin() async {
     final LocalAuthentication auth = LocalAuthentication();
 
@@ -94,10 +80,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (response.retCode == '201') {
         final token = response.data.jwtToken;
+        final firstName = response.data.driver.firstName;
         final driverCode = response.data.driver.driverCode;
         final activeStatus = response.data.driver.active;
 
         await prefs.setString("jwt_token", token);
+        await prefs.setString("first_name", firstName);
         await prefs.setString("driver_code", driverCode);
         await prefs.setBool("active", activeStatus);
 
@@ -151,10 +139,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (response.retCode == '201') {
         final token = response.data.jwtToken;
+        final firstName = response.data.driver.firstName;
         final driverCode = response.data.driver.driverCode;
         final activeStatus = response.data.driver.active;
 
         SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setString("first_name", firstName);
         await prefs.setString("email", emailController.text.trim());
         await prefs.setString("password", passwordController.text.trim());
         await prefs.setString("jwt_token", token);

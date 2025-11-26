@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:konek2move/core/services/api_services.dart';
@@ -7,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class NotificationProvider extends ChangeNotifier {
   final ApiServices _api = ApiServices();
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   // Stored notifications
   final List<NotificationModel> _notifications = [];
@@ -89,16 +91,11 @@ class NotificationProvider extends ChangeNotifier {
     required String userCode,
     required String userType,
   }) async {
-    // Stop previous subscription
     _sseSubscription?.cancel();
-
-    print("🔌 Starting SSE for $userCode");
-
     _sseSubscription = _api
         .listenNotifications(userCode: userCode, userType: userType)
         .listen(
           (event) {
-            // event = Map<String, dynamic>
             final data = event["data"];
             if (data == null) {
               print("⚠️ SSE event missing data field");
@@ -110,10 +107,8 @@ class NotificationProvider extends ChangeNotifier {
 
             final notif = NotificationModel.fromJson(data);
 
-            // Skip empty or invalid notifications
             if (notif.id == 0 || notif.title.isEmpty) return;
 
-            // Deduplicate
             if (_notifications.any((n) => n.id == notif.id)) {
               print("⚠️ Duplicate notification ID ${notif.id} ignored");
               return;
@@ -121,9 +116,12 @@ class NotificationProvider extends ChangeNotifier {
 
             final isRead = _readIds.contains(notif.id);
 
-            // Insert newest on top
-            _notifications.insert(0, notif.copyWith(isRead: isRead));
+            // Play sounds for unread notifications
+            if (!isRead) {
+              _playNotificationSound();
+            }
 
+            _notifications.insert(0, notif.copyWith(isRead: isRead));
             notifyListeners();
           },
           onError: (error) async {
@@ -138,6 +136,56 @@ class NotificationProvider extends ChangeNotifier {
           },
           cancelOnError: false,
         );
+
+    // Stop previous subscription
+    // _sseSubscription?.cancel();
+    //
+    // print("🔌 Starting SSE for $userCode");
+    //
+    // _sseSubscription = _api
+    //     .listenNotifications(userCode: userCode, userType: userType)
+    //     .listen(
+    //       (event) {
+    //         // event = Map<String, dynamic>
+    //         final data = event["data"];
+    //         if (data == null) {
+    //           print("⚠️ SSE event missing data field");
+    //           return;
+    //         }
+    //
+    //         totalIncomingNotifications++;
+    //         print("📩 SSE Notification #$totalIncomingNotifications → $data");
+    //
+    //         final notif = NotificationModel.fromJson(data);
+    //
+    //         // Skip empty or invalid notifications
+    //         if (notif.id == 0 || notif.title.isEmpty) return;
+    //
+    //         // Deduplicate
+    //         if (_notifications.any((n) => n.id == notif.id)) {
+    //           print("⚠️ Duplicate notification ID ${notif.id} ignored");
+    //           return;
+    //         }
+    //
+    //         final isRead = _readIds.contains(notif.id);
+    //
+    //         // Insert newest on top
+    //         _notifications.insert(0, notif.copyWith(isRead: isRead));
+    //
+    //         notifyListeners();
+    //       },
+    //       onError: (error) async {
+    //         print("❌ SSE error: $error");
+    //         await Future.delayed(const Duration(seconds: 5));
+    //         reconnect(userType: userType);
+    //       },
+    //       onDone: () async {
+    //         print("⚠️ SSE closed. Reconnecting...");
+    //         await Future.delayed(const Duration(seconds: 5));
+    //         reconnect(userType: userType);
+    //       },
+    //       cancelOnError: false,
+    //     );
   }
 
   // -----------------------------------------------------------
@@ -158,6 +206,22 @@ class NotificationProvider extends ChangeNotifier {
   void stopListening() {
     _sseSubscription?.cancel();
     _sseSubscription = null;
+  }
+
+  // -----------------------------------------------------------
+  // NOTIFICATION SOUND
+  // -----------------------------------------------------------
+  void _playNotificationSound() async {
+    try {
+      await _audioPlayer.play(
+        AssetSource(
+          'sounds/notification.mp3',
+        ), // place your mp3 in assets/sounds/
+        volume: 1.0,
+      );
+    } catch (e) {
+      print('🔊 Failed to play notification sounds: $e');
+    }
   }
 
   @override

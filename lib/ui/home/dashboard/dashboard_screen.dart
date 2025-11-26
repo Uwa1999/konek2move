@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer/shimmer.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -11,6 +12,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   bool isLoading = true;
+  String firstName = '';
 
   @override
   void initState() {
@@ -19,6 +21,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
     Future.delayed(const Duration(seconds: 2), () {
       setState(() => isLoading = false);
     });
+    _loadFirstName();
+  }
+
+  Future<void> _loadFirstName() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedName = prefs.getString('first_name'); // key you used
+    if (savedName != null && savedName.isNotEmpty) {
+      setState(() {
+        firstName = savedName;
+      });
+    }
   }
 
   Future<void> _refreshDashboard() async {
@@ -54,17 +67,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
       children: [
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
+          children: [
             Text(
-              "Hello, Rider!",
-              style: TextStyle(
+              "Hello, $firstName!",
+              style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
                 color: Colors.black87,
               ),
             ),
-            SizedBox(height: 4),
-            Text(
+            const SizedBox(height: 4),
+            const Text(
               "Ready to deliver today?",
               style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
