@@ -1,7 +1,6 @@
 import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
-import 'package:konek2move/core/services/api_services.dart';
 import 'package:shimmer/shimmer.dart';
 
 import 'new_order_screen.dart';

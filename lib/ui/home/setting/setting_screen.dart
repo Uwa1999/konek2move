@@ -68,7 +68,7 @@ class _SettingScreenState extends State<SettingScreen> {
             isError: false,
           );
         }
-      } on Exception catch (e) {
+      } on Exception {
         _showTopMessage(
           context,
           message:

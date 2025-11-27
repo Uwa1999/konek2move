@@ -103,14 +103,12 @@ class NotificationProvider extends ChangeNotifier {
             }
 
             totalIncomingNotifications++;
-            print("📩 SSE Notification #$totalIncomingNotifications → $data");
 
             final notif = NotificationModel.fromJson(data);
 
             if (notif.id == 0 || notif.title.isEmpty) return;
 
             if (_notifications.any((n) => n.id == notif.id)) {
-              print("⚠️ Duplicate notification ID ${notif.id} ignored");
               return;
             }
 
@@ -125,12 +123,10 @@ class NotificationProvider extends ChangeNotifier {
             notifyListeners();
           },
           onError: (error) async {
-            print("❌ SSE error: $error");
             await Future.delayed(const Duration(seconds: 5));
             reconnect(userType: userType);
           },
           onDone: () async {
-            print("⚠️ SSE closed. Reconnecting...");
             await Future.delayed(const Duration(seconds: 5));
             reconnect(userType: userType);
           },

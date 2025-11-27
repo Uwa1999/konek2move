@@ -250,6 +250,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
@@ -262,110 +263,202 @@ class NewOrderScreen extends StatefulWidget {
 }
 
 class _NewOrderScreenState extends State<NewOrderScreen> {
+  final Completer<GoogleMapController> _mapController = Completer();
+
   LatLng? _currentLocation;
   final LatLng dropOffLocation = const LatLng(14.0611, 121.3270);
 
-  final Set<Marker> _markers = {};
-  final Set<Polyline> _polylines = {};
-  List<LatLng> _polylineCoordinates = [];
+  // FAST & SMOOTH NOTIFIERS (no rebuild of whole screen)
+  final ValueNotifier<Set<Marker>> _markerNotifier = ValueNotifier({});
+  final ValueNotifier<Set<Polyline>> _polylineNotifier = ValueNotifier({});
 
-  String distanceKm = '';
-  String estimatedTime = '';
+  String distanceKm = "-";
+  String estimatedTime = "-";
+
+  StreamSubscription<Position>? _positionStream;
+  DateTime _lastRouteUpdate = DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime _lastCameraMove = DateTime.fromMillisecondsSinceEpoch(0);
+
+  bool _isFetchingRoute = false;
+
+  final String googleApiKey = "AIzaSyAhRp_J8GBH7RBH3XNCOsX3dkm_G8CBs6U";
+
+  static const Duration routeThrottle = Duration(seconds: 10);
 
   @override
   void initState() {
     super.initState();
-    _initializeMap();
+    _startLiveTracking();
   }
 
-  Future<void> _initializeMap() async {
-    // For testing, set current location manually
-    _currentLocation = const LatLng(14.0580, 121.3240);
+  @override
+  void dispose() {
+    _positionStream?.cancel();
+    super.dispose();
+  }
 
-    // Add markers
-    _markers.add(
+  // ============================================================
+  // START TRACKING
+  // ============================================================
+  Future<void> _startLiveTracking() async {
+    // Permission
+    LocationPermission permission = await Geolocator.requestPermission();
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      _currentLocation = const LatLng(14.0580, 121.3240);
+      _updateMarkers();
+      return;
+    }
+
+    // Initial location
+    try {
+      Position pos = await Geolocator.getCurrentPosition(
+        timeLimit: const Duration(seconds: 8),
+      );
+      _currentLocation = LatLng(pos.latitude, pos.longitude);
+    } catch (_) {
+      _currentLocation = const LatLng(14.0580, 121.3240);
+    }
+
+    _updateMarkers();
+    _fetchRoute(force: true);
+
+    // Live updates
+    _positionStream =
+        Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 5,
+          ),
+        ).listen((Position pos) {
+          _currentLocation = LatLng(pos.latitude, pos.longitude);
+          _updateMarkers();
+          _moveCameraSmooth();
+          _fetchRoute();
+        });
+  }
+
+  // ============================================================
+  // UPDATE MARKERS (FAST)
+  // ============================================================
+  void _updateMarkers() {
+    if (_currentLocation == null) return;
+
+    _markerNotifier.value = {
       Marker(
-        markerId: const MarkerId('pickup'),
+        markerId: const MarkerId("rider"),
         position: _currentLocation!,
-        infoWindow: const InfoWindow(title: "Pickup"),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
       ),
-    );
-    _markers.add(
-      Marker(
-        markerId: const MarkerId('dropoff'),
-        position: dropOffLocation,
-        infoWindow: const InfoWindow(title: "Drop-off"),
-      ),
-    );
-
-    // Fetch route from Google Directions API
-    await _getRoutePolyline();
-
-    setState(() {});
+      Marker(markerId: const MarkerId("dropoff"), position: dropOffLocation),
+    };
   }
 
+  // ============================================================
+  // CAMERA FOLLOW (SMOOTH)
+  // ============================================================
+  Future<void> _moveCameraSmooth() async {
+    if (_currentLocation == null || !_mapController.isCompleted) return;
+
+    if (DateTime.now().difference(_lastCameraMove) < const Duration(seconds: 2))
+      return;
+
+    _lastCameraMove = DateTime.now();
+
+    final controller = await _mapController.future;
+    controller.animateCamera(CameraUpdate.newLatLng(_currentLocation!));
+  }
+
+  // ============================================================
+  // ROUTE FETCHING (THROTTLED)
+  // ============================================================
+  Future<void> _fetchRoute({bool force = false}) async {
+    if (_currentLocation == null) return;
+
+    if (!force && DateTime.now().difference(_lastRouteUpdate) < routeThrottle)
+      return;
+
+    if (_isFetchingRoute) return;
+    _isFetchingRoute = true;
+
+    try {
+      await _getRoutePolyline();
+      _lastRouteUpdate = DateTime.now();
+    } catch (_) {}
+    _isFetchingRoute = false;
+  }
+
+  // ============================================================
+  // GET POLYLINE DATA (GOOGLE DIRECTIONS)
+  // ============================================================
   Future<void> _getRoutePolyline() async {
-    final String googleApiKey = 'AIzaSyA4eJv1jVmJWrTdOO6SOsEGirFKueKRg98';
-    final String url =
+    final url =
         'https://maps.googleapis.com/maps/api/directions/json?origin=${_currentLocation!.latitude},${_currentLocation!.longitude}&destination=${dropOffLocation.latitude},${dropOffLocation.longitude}&mode=driving&key=$googleApiKey';
 
-    final response = await http.get(Uri.parse(url));
+    final response = await http
+        .get(Uri.parse(url))
+        .timeout(const Duration(seconds: 12));
+
+    if (response.statusCode != 200) return;
+
     final data = json.decode(response.body);
 
-    if (data['status'] == 'OK' && data['routes'].isNotEmpty) {
-      final route = data['routes'][0];
+    if (data["routes"] == null || data["routes"].isEmpty) return;
 
-      distanceKm = (route['legs'][0]['distance']['value'] / 1000)
-          .toStringAsFixed(1);
-      estimatedTime =
-          "${(route['legs'][0]['duration']['value'] / 60).round()} min";
+    final leg = data["routes"][0]["legs"][0];
 
-      final polylinePoints = route['overview_polyline']['points'];
-      _polylineCoordinates = _decodePolyline(polylinePoints);
+    distanceKm = (leg["distance"]["value"] / 1000).toStringAsFixed(1);
+    estimatedTime = "${(leg["duration"]["value"] / 60).round()} min";
+    if (mounted) setState(() {});
 
-      _polylines.clear(); // clear previous polylines if any
-      _polylines.add(
-        Polyline(
-          polylineId: const PolylineId("route"),
-          color: Colors.blue, // Food Panda style
-          width: 5,
-          points: _polylineCoordinates,
-          jointType: JointType.round,
-          startCap: Cap.roundCap,
-          endCap: Cap.roundCap,
-        ),
-      );
+    final encoded = data["routes"][0]["overview_polyline"]["points"];
 
-      setState(() {});
-    } else {
-      print("Error fetching directions: ${data['status']}");
-    }
+    List<LatLng> points = _decodePolyline(encoded);
+
+    _polylineNotifier.value = {
+      Polyline(
+        polylineId: const PolylineId("route"),
+        color: Colors.blue,
+        width: 6,
+        points: points,
+        startCap: Cap.roundCap,
+        endCap: Cap.roundCap,
+      ),
+    };
   }
 
+  // ============================================================
+  // FAST POLYLINE DECODER (optimized)
+  // ============================================================
   List<LatLng> _decodePolyline(String encoded) {
     List<LatLng> poly = [];
-    int index = 0, len = encoded.length;
-    int lat = 0, lng = 0;
+    int index = 0;
+    int lat = 0;
+    int lng = 0;
 
-    while (index < len) {
-      int b, shift = 0, result = 0;
+    while (index < encoded.length) {
+      int result = 0;
+      int shift = 0;
+      int b;
+
       do {
         b = encoded.codeUnitAt(index++) - 63;
         result |= (b & 0x1F) << shift;
         shift += 5;
       } while (b >= 0x20);
-      int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
-      lat += dlat;
 
-      shift = 0;
+      lat += (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
+
       result = 0;
+      shift = 0;
+
       do {
         b = encoded.codeUnitAt(index++) - 63;
         result |= (b & 0x1F) << shift;
         shift += 5;
       } while (b >= 0x20);
-      int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
-      lng += dlng;
+
+      lng += (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
 
       poly.add(LatLng(lat / 1e5, lng / 1e5));
     }
@@ -373,6 +466,9 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     return poly;
   }
 
+  // ============================================================
+  // UI
+  // ============================================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -425,15 +521,30 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
       height: mapHeight,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: GoogleMap(
-          initialCameraPosition: CameraPosition(
-            target: _currentLocation ?? dropOffLocation,
-            zoom: 14,
-          ),
-          markers: _markers,
-          polylines: _polylines,
-          myLocationEnabled: true,
-          zoomControlsEnabled: false,
+        child: ValueListenableBuilder(
+          valueListenable: _markerNotifier,
+          builder: (_, markers, __) {
+            return ValueListenableBuilder(
+              valueListenable: _polylineNotifier,
+              builder: (_, polylines, __) {
+                return GoogleMap(
+                  initialCameraPosition: CameraPosition(
+                    target: _currentLocation ?? dropOffLocation,
+                    zoom: 14,
+                  ),
+                  markers: markers,
+                  polylines: polylines,
+                  myLocationEnabled: true,
+                  zoomControlsEnabled: false,
+                  onMapCreated: (controller) {
+                    if (!_mapController.isCompleted) {
+                      _mapController.complete(controller);
+                    }
+                  },
+                );
+              },
+            );
+          },
         ),
       ),
     );
@@ -445,17 +556,17 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
         'icon': Icons.storefront,
         'title': "Pickup",
         'main': "CARD OTTOKONEK OFFICE",
-        'sub': "38C4+PXC, Colago Ave, San Pablo City, Laguna",
-        'distance': distanceKm.isNotEmpty ? "$distanceKm km" : "-",
-        'duration': estimatedTime.isNotEmpty ? estimatedTime : "-",
+        'sub': "38C4+PXC",
+        'distance': distanceKm,
+        'duration': estimatedTime,
       },
       {
         'icon': Icons.info_outline,
         'title': "Drop-off",
         'main': "St. Peter Chapels",
-        'sub': "San Pablo City, Laguna",
-        'distance': distanceKm.isNotEmpty ? "$distanceKm km" : "-",
-        'duration': estimatedTime.isNotEmpty ? estimatedTime : "-",
+        'sub': "San Pablo City",
+        'distance': distanceKm,
+        'duration': estimatedTime,
       },
     ];
 
@@ -478,19 +589,20 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
         const SizedBox(width: 15),
         Expanded(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: details.map((d) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 20),
-                child: _buildDetailRow(
-                  title: d['title'] as String,
-                  mainText: d['main'] as String,
-                  subText: d['sub'] as String,
-                  distance: d['distance'] as String,
-                  duration: d['duration'] as String,
-                ),
-              );
-            }).toList(),
+            children: details
+                .map(
+                  (d) => Padding(
+                    padding: const EdgeInsets.only(bottom: 20),
+                    child: _buildDetailRow(
+                      title: d['title'] as String,
+                      mainText: d['main'] as String,
+                      subText: d['sub'] as String,
+                      distance: d['distance'] as String,
+                      duration: d['duration'] as String,
+                    ),
+                  ),
+                )
+                .toList(),
           ),
         ),
       ],
@@ -515,8 +627,8 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             Text(
-              "$distance ~ $duration",
-              style: TextStyle(fontSize: 14, color: Colors.grey),
+              "$distance km • $duration",
+              style: TextStyle(color: Colors.grey[600]),
             ),
           ],
         ),
@@ -525,10 +637,8 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
           mainText,
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
-        if (subText.isNotEmpty) ...[
-          const SizedBox(height: 2),
-          Text(subText, style: TextStyle(fontSize: 14, color: Colors.grey)),
-        ],
+        if (subText.isNotEmpty)
+          Text(subText, style: TextStyle(color: Colors.grey[600])),
       ],
     );
   }
@@ -536,13 +646,13 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   Widget _buildHeader() {
     return Container(
       height: 80,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: const BorderRadius.only(
+        borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(20),
           bottomRight: Radius.circular(20),
         ),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 3)),
         ],
       ),

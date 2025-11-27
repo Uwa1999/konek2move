@@ -115,15 +115,11 @@ class ApiServices {
       request.headers['Accept'] = 'text/event-stream';
       request.headers['Cache-Control'] = 'no-cache';
 
-      print("🔌 Connecting to SSE...");
-
       final response = await client.send(request);
 
       if (response.statusCode != 200) {
         throw Exception('SSE failed: HTTP ${response.statusCode}');
       }
-
-      print("✅ SSE connected!");
 
       // Decode & split into lines
       final lines = response.stream
@@ -134,14 +130,10 @@ class ApiServices {
         final clean = line.trim();
         if (clean.isEmpty) continue;
 
-        print("📨 SSE raw line: $clean");
-
         if (!clean.startsWith('data:')) continue;
 
         final dataPart = clean.substring(5).trim();
         if (dataPart.isEmpty) continue;
-
-        print("📦 SSE data payload: $dataPart");
 
         try {
           final decoded = json.decode(dataPart);
@@ -238,8 +230,6 @@ class ApiServices {
       );
       final http.Response response = await http.get(url);
 
-      print('Dropdown Response: ${response.body}');
-
       if (response.statusCode == 200) {
         final Map<String, dynamic> decodedData = jsonDecode(response.body);
         final Map<String, dynamic> data = decodedData['data'];
@@ -274,8 +264,6 @@ class ApiServices {
         body: jsonEncode({"email": email}),
       );
 
-      print('Response Body: ${response.body}');
-
       if (response.statusCode == 200) {
         final Map<String, dynamic> decodedData = jsonDecode(response.body);
         return ModelResponse.fromJson(decodedData);
@@ -302,8 +290,6 @@ class ApiServices {
         body: jsonEncode({"otp": otp}),
       );
 
-      print('Response Body: ${response.body}');
-
       if (response.statusCode == 200) {
         final Map<String, dynamic> decodedData = jsonDecode(response.body);
         return ModelResponse.fromJson(decodedData);
@@ -329,8 +315,6 @@ class ApiServices {
         },
         body: jsonEncode({"email": email, "password": password}),
       );
-
-      print('Response Body: ${response.body}');
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> decodedData = jsonDecode(response.body);
@@ -397,8 +381,6 @@ class ApiServices {
       // Send request
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
-
-      print('Response Body: ${response.body}');
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> decodedData = jsonDecode(response.body);
