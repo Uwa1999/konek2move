@@ -33,14 +33,16 @@ class NotificationProvider extends ChangeNotifier {
   // -----------------------------------------------------------
   // FETCH ALL NOTIFICATIONS (initial load)
   // -----------------------------------------------------------
-  Future<void> fetchNotifications({
-    required String userCode,
-    required String userType,
-  }) async {
+  Future<void> fetchNotifications(
+    //     {
+    //   required String userCode,
+    //   required String userType,
+    // }
+  ) async {
     try {
       final list = await _api.getNotifications(
-        userCode: userCode,
-        userType: userType,
+        // userCode: userCode,
+        // userType: userType,
       );
 
       _notifications.clear();
@@ -75,8 +77,8 @@ class NotificationProvider extends ChangeNotifier {
       try {
         await _api.markNotificationAsRead(
           notificationId: notif.id,
-          userCode: userCode,
-          userType: userType,
+          // userCode: userCode,
+          // userType: userType,
         );
       } catch (e) {
         print("❌ Error marking notification as read on server: $e");

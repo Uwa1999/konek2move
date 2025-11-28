@@ -78,16 +78,23 @@ class ApiServices {
   //   }
   // }
 
-  Future<List<NotificationModel>> getNotifications({
-    required String userCode,
-    required String userType,
-  }) async {
+  Future<List<NotificationModel>> getNotifications(
+    //     {
+    //   required String userCode,
+    //   required String userType,
+    // }
+  ) async {
     final url = Uri.parse(
-      '${GetDNS.getOttokonekHestia()}/api/public/v1/moveapp/notification/index?user_code=$userCode&user_type=$userType',
+      '${GetDNS.getOttokonekHestia()}/api/private/v1/moveapp/notification/index',
     );
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("jwt_token") ?? "";
     final response = await http.get(
       url,
-      headers: {'Content-Type': 'application/json; charset=UTF-8'},
+      headers: {
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Authorization': 'Bearer $token',
+      },
     );
     if (response.statusCode == 200) {
       final Map<String, dynamic> jsonBody = json.decode(response.body);
@@ -102,9 +109,10 @@ class ApiServices {
     required String userCode,
     required String userType,
   }) async* {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("jwt_token") ?? "";
     final url = Uri.parse(
-      '${GetDNS.getNotifications()}/api/public/v1/moveapp/notification/listen'
-      '?user_code=$userCode&user_type=$userType',
+      '${GetDNS.getNotifications()}/api/public/v1/moveapp/notification/listen?user_code=$userCode&user_type=$userType',
     );
 
     final client = http.Client();
@@ -112,6 +120,7 @@ class ApiServices {
     try {
       final request = http.Request('GET', url);
       request.headers['X-API-KEY'] = GetKEY.getApiKey();
+      request.headers['Authorization'] = 'Bearer $token';
       request.headers['Accept'] = 'text/event-stream';
       request.headers['Cache-Control'] = 'no-cache';
 
@@ -157,22 +166,27 @@ class ApiServices {
 
   Future<void> markNotificationAsRead({
     required int notificationId,
-    required String userCode,
-    required String userType,
+    // required String userCode,
+    // required String userType,
   }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("jwt_token") ?? "";
     final url = Uri.parse(
-      '${GetDNS.getOttokonekHestia()}/api/public/v1/moveapp/notification/view',
+      '${GetDNS.getOttokonekHestia()}/api/private/v1/moveapp/notification/view',
     );
 
     final body = json.encode({
       'notification_id': notificationId,
-      'user_code': userCode,
-      'user_type': userType,
+      // 'user_code': userCode,
+      // 'user_type': userType,
     });
 
     final response = await http.post(
       url,
-      headers: {'Content-Type': 'application/json; charset=UTF-8'},
+      headers: {
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Authorization': 'Bearer $token',
+      },
       body: body,
     );
 
@@ -183,45 +197,6 @@ class ApiServices {
       );
     }
   }
-
-  // Future<Map<String, Map<String, String>>> fetchDropdownLocationOptions({
-  //   required String regionCode,
-  //   required String provinceCode,
-  //   required String municipalityCode,
-  // }) async {
-  //   try {
-  //     final Uri url = Uri.parse(
-  //       '${GetDNS.getOttokonekHestia()}/api/public/v1/moveapp/dropdown/location'
-  //       '?region_code=$regionCode&province_code=$provinceCode&municipality_code=$municipalityCode',
-  //     );
-  //     final http.Response response = await http.get(url);
-  //
-  //     print('Dropdown Response: ${response.body}');
-  //
-  //     if (response.statusCode == 200) {
-  //       final Map<String, dynamic> decodedData = jsonDecode(response.body);
-  //       final Map<String, dynamic> data = decodedData['data'];
-  //
-  //       // Convert each list in data to Map<code, name>
-  //       Map<String, Map<String, String>> dropdowns = {};
-  //       data.forEach((key, value) {
-  //         final List items = value as List;
-  //         dropdowns[key] = {
-  //           for (var item in items)
-  //             item['code'] as String: item['name'] as String,
-  //         };
-  //       });
-  //
-  //       return dropdowns;
-  //     } else {
-  //       throw Exception(
-  //         'Server returned ${response.statusCode}: ${response.body}',
-  //       );
-  //     }
-  //   } catch (e) {
-  //     throw Exception('An error occurred: $e');
-  //   }
-  // }
 
   Future<Map<String, List<String>>> fetchDropdownOptions() async {
     try {

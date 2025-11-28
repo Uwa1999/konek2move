@@ -45,8 +45,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
       // Fetch existing notifications
       await notifProvider.fetchNotifications(
-        userCode: userCode,
-        userType: 'driver',
+        // userCode: userCode,
+        // userType: 'driver',
       );
 
       // Listen for live notifications

@@ -40,8 +40,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
     // Fetch notifications
     await provider.fetchNotifications(
-      userCode: driverCode!,
-      userType: "driver",
+      // userCode: driverCode!,
+      // userType: "driver",
     );
 
     // Listen for live SSE updates
@@ -55,8 +55,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
     final provider = context.read<NotificationProvider>();
     await provider.fetchNotifications(
-      userCode: driverCode!,
-      userType: "driver",
+      // userCode: driverCode!,
+      // userType: "driver",
     );
   }
 
@@ -254,8 +254,16 @@ class _NotificationScreenState extends State<NotificationScreen> {
                         ),
                       ),
                       const SizedBox(height: 4),
+                      // Text(
+                      //   n.body,
+                      //   style: const TextStyle(
+                      //     color: Colors.black54,
+                      //     fontSize: 14,
+                      //   ),
+                      // ),
                       Text(
-                        n.body,
+                        n.body.split(' ').take(5).join(' ') +
+                            (n.body.split(' ').length > 5 ? '...' : ''),
                         style: const TextStyle(
                           color: Colors.black54,
                           fontSize: 14,

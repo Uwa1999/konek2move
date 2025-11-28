@@ -3,7 +3,7 @@
     <application
         android:label="konek2move"
         android:name="${applicationName}"
-        android:icon="@drawable/rider"
+        android:icon="@drawable/konek2move"
         android:theme="@style/AppTheme"
         android:screenOrientation="portrait">
         <activity
@@ -20,7 +20,7 @@
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyBsFtLd2F7y8aTS80bEZJ_uKCTwpFHg9Yo" />
+            android:value="AIzaSyA4eJv1jVmJWrTdOO6SOsEGirFKueKRg98" />
         <meta-data
             android:name="flutterEmbedding"
             android:value="2"
