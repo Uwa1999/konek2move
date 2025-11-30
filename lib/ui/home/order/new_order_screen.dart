@@ -246,26 +246,18 @@
 //     );
 //   }
 // }
+// lib/screens/new_order_screen.dart
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
-import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
-import 'package:shimmer/shimmer.dart';
-import 'package:konek2move/core/constants/app_colors.dart';
-import 'package:konek2move/core/widgets/custom_button.dart';
 
-import 'dart:async';
-import 'dart:convert';
-import 'dart:math';
-import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:shimmer/shimmer.dart';
+
 import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
 
@@ -278,90 +270,69 @@ class NewOrderScreen extends StatefulWidget {
 
 class _NewOrderScreenState extends State<NewOrderScreen>
     with TickerProviderStateMixin {
+  // ---------------------------
+  // Map, location & state
+  // ---------------------------
   final Completer<GoogleMapController> _mapController = Completer();
 
   LatLng? _currentLocation;
   final LatLng dropOffLocation = const LatLng(14.0611, 121.3270);
   final LatLng pickupLocation = const LatLng(14.0589, 121.3265);
 
-  final ValueNotifier<Set<Marker>> _markerNotifier = ValueNotifier({});
-  final ValueNotifier<Set<Polyline>> _polylineNotifier = ValueNotifier({});
-  final ValueNotifier<bool> _mapLoadedNotifier = ValueNotifier(false);
-  final ValueNotifier<bool> _isSearchingRoute = ValueNotifier(false);
+  final ValueNotifier<bool> _mapLoaded = ValueNotifier(false);
+  final ValueNotifier<Set<Marker>> _markers = ValueNotifier({});
+  final ValueNotifier<Set<Polyline>> _polylines = ValueNotifier({});
 
-  BitmapDescriptor? _iconRider;
-  BitmapDescriptor? _iconPickup;
-  BitmapDescriptor? _iconDropoff;
-  final ValueNotifier<bool> _iconsLoaded = ValueNotifier(false);
+  // map style
+  String? _mapStyle;
 
+  // route / ETA
   String distanceKm = "-";
   String estimatedTime = "-";
 
-  StreamSubscription<Position>? _positionStream;
-  DateTime _lastRouteUpdate = DateTime.fromMillisecondsSinceEpoch(0);
-  DateTime _lastCameraMove = DateTime.fromMillisecondsSinceEpoch(0);
-
+  // throttling & fetching
   bool _isFetchingRoute = false;
-
-  // Replace with secure storage in production
-  final String googleApiKey = "AIzaSyA4eJv1jVmJWrTdOO6SOsEGirFKueKRg98";
-
+  DateTime _lastRouteUpdate = DateTime.fromMillisecondsSinceEpoch(0);
   static const Duration routeThrottle = Duration(seconds: 10);
 
+  // position stream
+  StreamSubscription<Position>? _positionStream;
+
+  // fullscreen
   bool _isFullScreen = false;
+
+  // YOUR API KEY (AS PROVIDED)
+  // Replace or rotate keys as needed; consider secure storage for production.
+  final String googleApiKey = "AIzaSyA4eJv1jVmJWrTdOO6SOsEGirFKueKRg98";
+
+  // Example receiver info (UI-only)
+  final Map<String, String> _receiver = {
+    'name': 'Juan Dela Cruz',
+    'phone': '+639171234567',
+    'note': 'Leave at the guardhouse. Fragile.',
+    'address': 'Blk 12 Lot 8, San Pablo City, Laguna',
+  };
 
   @override
   void initState() {
     super.initState();
-    _preloadAssets();
-    _startLiveTracking();
+    _initLocationAndMap();
+    _loadMapStyle();
   }
 
   @override
   void dispose() {
     _positionStream?.cancel();
-    _markerNotifier.dispose();
-    _polylineNotifier.dispose();
-    _mapLoadedNotifier.dispose();
-    _isSearchingRoute.dispose();
-    _iconsLoaded.dispose();
+    _mapLoaded.dispose();
+    _markers.dispose();
+    _polylines.dispose();
     super.dispose();
   }
 
-  Future<void> _preloadAssets() async {
-    try {
-      final ImageConfiguration config = createLocalImageConfiguration(
-        context,
-        size: const Size(48, 48),
-      );
-      _iconRider = await BitmapDescriptor.asset(
-        config,
-        'assets/icons/rider.png',
-      );
-      _iconPickup = await BitmapDescriptor.asset(
-        config,
-        'assets/icons/pickup.png',
-      );
-      _iconDropoff = await BitmapDescriptor.asset(
-        config,
-        'assets/icons/dropoff.png',
-      );
-    } catch (e) {
-      _iconRider = BitmapDescriptor.defaultMarkerWithHue(
-        BitmapDescriptor.hueAzure,
-      );
-      _iconPickup = BitmapDescriptor.defaultMarkerWithHue(
-        BitmapDescriptor.hueGreen,
-      );
-      _iconDropoff = BitmapDescriptor.defaultMarkerWithHue(
-        BitmapDescriptor.hueRed,
-      );
-    } finally {
-      _iconsLoaded.value = true;
-    }
-  }
-
-  Future<void> _startLiveTracking() async {
+  // ---------------------------
+  // Initialize location & map
+  // ---------------------------
+  Future<void> _initLocationAndMap() async {
     LocationPermission permission;
     try {
       permission = await Geolocator.requestPermission();
@@ -371,14 +342,17 @@ class _NewOrderScreenState extends State<NewOrderScreen>
 
     if (permission == LocationPermission.denied ||
         permission == LocationPermission.deniedForever) {
+      // fallback location
       _currentLocation = const LatLng(14.0580, 121.3240);
       _updateMarkers();
-      _mapLoadedNotifier.value = true;
+      _mapLoaded.value = true;
+      // still try to fetch route for UI completeness
+      await _fetchRoute(force: true);
       return;
     }
 
     try {
-      Position pos = await Geolocator.getCurrentPosition(
+      final pos = await Geolocator.getCurrentPosition(
         timeLimit: const Duration(seconds: 8),
       );
       _currentLocation = LatLng(pos.latitude, pos.longitude);
@@ -387,92 +361,45 @@ class _NewOrderScreenState extends State<NewOrderScreen>
     }
 
     _updateMarkers();
-    _fetchRoute(force: true);
+    _mapLoaded.value = true;
 
+    // initial route
+    await _fetchRoute(force: true);
+
+    // subscribe to position changes (distanceFilter for efficiency)
     _positionStream =
         Geolocator.getPositionStream(
           locationSettings: const LocationSettings(
             accuracy: LocationAccuracy.bestForNavigation,
             distanceFilter: 5,
           ),
-        ).listen((Position pos) {
-          final newLoc = LatLng(pos.latitude, pos.longitude);
-          _currentLocation = newLoc;
-          _updateMarkers();
-          _moveCameraSmooth();
-          _fetchRoute();
-        }, onError: (e) {});
-
-    await Future.wait([
-      Future.delayed(const Duration(milliseconds: 300)),
-      _waitForIconsLoaded(),
-    ]);
-
-    _mapLoadedNotifier.value = true;
+        ).listen(
+          (Position p) {
+            _currentLocation = LatLng(p.latitude, p.longitude);
+            _updateMarkers();
+            _moveCameraSmooth();
+            _fetchRoute(); // will be throttled internally
+          },
+          onError: (e) {
+            // ignore silently; can log if needed
+          },
+        );
   }
 
-  Future<void> _waitForIconsLoaded() async {
-    if (_iconsLoaded.value == true) return;
-
-    final completer = Completer<void>();
-
-    late VoidCallback listener;
-    listener = () {
-      if (_iconsLoaded.value == true) {
-        _iconsLoaded.removeListener(listener);
-        if (!completer.isCompleted) completer.complete();
-      }
-    };
-
-    _iconsLoaded.addListener(listener);
-
-    await completer.future.timeout(
-      const Duration(seconds: 5),
-      onTimeout: () {
-        _iconsLoaded.removeListener(listener);
-      },
-    );
+  //----------------------------
+  // Map style
+  //----------------------------
+  void _loadMapStyle() async {
+    _mapStyle = await rootBundle.loadString('assets/konek2move_map_style.json');
   }
 
-  void _updateMarkers() {
-    if (_currentLocation == null) return;
-
-    final rider = Marker(
-      markerId: const MarkerId("rider"),
-      position: _currentLocation!,
-      icon:
-          _iconRider ??
-          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-      infoWindow: const InfoWindow(title: "Rider (You)"),
-      zIndex: 3,
-    );
-
-    final pickup = Marker(
-      markerId: const MarkerId("pickup"),
-      position: pickupLocation,
-      icon:
-          _iconPickup ??
-          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-      infoWindow: const InfoWindow(title: "Pickup"),
-      zIndex: 2,
-    );
-
-    final drop = Marker(
-      markerId: const MarkerId("dropoff"),
-      position: dropOffLocation,
-      icon:
-          _iconDropoff ??
-          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-      infoWindow: const InfoWindow(title: "Drop-off"),
-      zIndex: 1,
-    );
-
-    _markerNotifier.value = {drop, pickup, rider};
-  }
-
-  void _showCancelConfirmSheet(BuildContext context) {
+  //----------------------------
+  // Cancel
+  //----------------------------
+  void _showCancelSheet() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -484,82 +411,49 @@ class _NewOrderScreenState extends State<NewOrderScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
+                width: 40,
                 height: 5,
-                width: 50,
-                margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
                   color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
-
-              const SizedBox(height: 5),
-
-              const Text(
-                "Are you sure you want to cancel this order?",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-
               const SizedBox(height: 20),
 
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Text("Order cancelled"),
-                        backgroundColor: kPrimaryRedColor,
-                        behavior: SnackBarBehavior.floating,
-                        margin: const EdgeInsets.all(16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: kPrimaryRedColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: const Text(
-                    "Confirm",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
+              const Text(
+                "Cancel Delivery?",
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
 
               const SizedBox(height: 10),
 
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: OutlinedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    side: BorderSide(color: Colors.grey.shade400),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: const Text(
-                    "Back",
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.black87,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
+              Text(
+                "Are you sure you want to cancel this delivery request?",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Confirm Button
+              CustomButton(
+                text: "Yes, Cancel Delivery",
+                color: kPrimaryRedColor,
+                textColor: kDefaultIconLightColor,
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pop(context); // Go back to previous screen
+                },
+              ),
+
+              const SizedBox(height: 10),
+
+              // Close Button
+              CustomButton(
+                text: "No, Keep Delivery",
+                color: kLightButtonColor,
+                textColor: kPrimaryColor,
+                onTap: () => Navigator.pop(context),
               ),
 
               const SizedBox(height: 10),
@@ -570,11 +464,49 @@ class _NewOrderScreenState extends State<NewOrderScreen>
     );
   }
 
+  // ---------------------------
+  // Update Markers
+  // ---------------------------
+  void _updateMarkers() {
+    if (_currentLocation == null) return;
+
+    final rider = Marker(
+      markerId: const MarkerId('rider'),
+      position: _currentLocation!,
+      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+      infoWindow: const InfoWindow(title: 'Rider (You)'),
+      zIndex: 3,
+    );
+
+    final pickup = Marker(
+      markerId: const MarkerId('pickup'),
+      position: pickupLocation,
+      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+      infoWindow: const InfoWindow(title: 'Pickup'),
+      zIndex: 2,
+    );
+
+    final drop = Marker(
+      markerId: const MarkerId('dropoff'),
+      position: dropOffLocation,
+      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+      infoWindow: const InfoWindow(title: 'Drop-off'),
+      zIndex: 1,
+    );
+
+    _markers.value = {drop, pickup, rider};
+  }
+
+  // ---------------------------
+  // Camera movement (smooth)
+  // ---------------------------
+  DateTime _lastCameraMove = DateTime.fromMillisecondsSinceEpoch(0);
   Future<void> _moveCameraSmooth() async {
     if (_currentLocation == null || !_mapController.isCompleted) return;
 
+    // small debounce to avoid too many camera moves
     if (DateTime.now().difference(_lastCameraMove) <
-        const Duration(seconds: 2)) {
+        const Duration(seconds: 1)) {
       return;
     }
     _lastCameraMove = DateTime.now();
@@ -589,9 +521,14 @@ class _NewOrderScreenState extends State<NewOrderScreen>
           ),
         ),
       );
-    } catch (_) {}
+    } catch (_) {
+      // ignore failures silently
+    }
   }
 
+  // ---------------------------
+  // Fetch route (throttled)
+  // ---------------------------
   Future<void> _fetchRoute({bool force = false}) async {
     if (_currentLocation == null) return;
     if (!force && DateTime.now().difference(_lastRouteUpdate) < routeThrottle) {
@@ -600,285 +537,103 @@ class _NewOrderScreenState extends State<NewOrderScreen>
     if (_isFetchingRoute) return;
 
     _isFetchingRoute = true;
-    _isSearchingRoute.value = true;
-
     try {
-      await _getRoutePolyline();
-      _lastRouteUpdate = DateTime.now();
-    } catch (e) {
-      // ignore
-    } finally {
-      _isFetchingRoute = false;
-      _isSearchingRoute.value = false;
-    }
-  }
+      final origin =
+          '${_currentLocation!.latitude},${_currentLocation!.longitude}';
+      final dest = '${dropOffLocation.latitude},${dropOffLocation.longitude}';
+      final uri = Uri.parse(
+        'https://maps.googleapis.com/maps/api/directions/json?origin=$origin&destination=$dest&mode=driving&key=$googleApiKey',
+      );
 
-  Future<void> _getRoutePolyline() async {
-    if (_currentLocation == null) return;
+      final response = await http
+          .get(uri)
+          .timeout(
+            const Duration(seconds: 12),
+            onTimeout: () => http.Response('', 408),
+          );
 
-    final url =
-        'https://maps.googleapis.com/maps/api/directions/json?origin=${_currentLocation!.latitude},${_currentLocation!.longitude}&destination=${dropOffLocation.latitude},${dropOffLocation.longitude}&mode=driving&key=$googleApiKey';
+      if (response.statusCode != 200) return;
 
-    final response = await http
-        .get(Uri.parse(url))
-        .timeout(
-          const Duration(seconds: 12),
-          onTimeout: () => http.Response('', 408),
-        );
+      final data = json.decode(response.body);
+      if (data == null ||
+          data['routes'] == null ||
+          (data['routes'] as List).isEmpty) {
+        return;
+      }
 
-    if (response.statusCode != 200) return;
+      final route = data['routes'][0];
+      final leg = route['legs'][0];
 
-    final data = json.decode(response.body);
-
-    if (data == null ||
-        data["routes"] == null ||
-        (data["routes"] as List).isEmpty) {
-      return;
-    }
-
-    final leg = data["routes"][0]["legs"][0];
-    if (leg != null) {
+      // update distance & duration
       try {
-        final distMeters = leg["distance"]["value"] ?? 0;
-        final durSeconds = leg["duration"]["value"] ?? 0;
+        final distMeters = leg['distance']['value'] ?? 0;
+        final durSeconds = leg['duration']['value'] ?? 0;
         distanceKm = (distMeters / 1000).toStringAsFixed(1);
         estimatedTime = "${(durSeconds / 60).round()} min";
+        if (mounted) setState(() {}); // only for UI strings
       } catch (_) {
-        distanceKm = "-";
-        estimatedTime = "-";
+        // keep previous values
       }
-      if (mounted) setState(() {});
+
+      final encoded = route['overview_polyline']?['points'] as String?;
+      if (encoded == null || encoded.isEmpty) return;
+      final points = _decodePolyline(encoded);
+
+      _polylines.value = {
+        Polyline(
+          polylineId: const PolylineId('route'),
+          color: Colors.blue,
+          width: 6,
+          points: points,
+          startCap: Cap.roundCap,
+          endCap: Cap.roundCap,
+        ),
+      };
+
+      _lastRouteUpdate = DateTime.now();
+    } catch (_) {
+      // ignore for UX; can add logging
+    } finally {
+      _isFetchingRoute = false;
     }
-
-    final encoded = data["routes"][0]["overview_polyline"]["points"] as String?;
-    if (encoded == null || encoded.isEmpty) return;
-
-    List<LatLng> points = _decodePolyline(encoded);
-
-    _polylineNotifier.value = {
-      Polyline(
-        polylineId: const PolylineId("route"),
-        color: Colors.blue,
-        width: 6,
-        points: points,
-        startCap: Cap.roundCap,
-        endCap: Cap.roundCap,
-      ),
-    };
   }
 
+  // ---------------------------
+  // Polyline decoder
+  // ---------------------------
   List<LatLng> _decodePolyline(String encoded) {
     List<LatLng> poly = [];
-    int index = 0;
-    int lat = 0;
-    int lng = 0;
+    int index = 0, len = encoded.length;
+    int lat = 0, lng = 0;
 
-    while (index < encoded.length) {
-      int result = 0;
-      int shift = 0;
-      int b;
-
+    while (index < len) {
+      int b, shift = 0, result = 0;
       do {
         b = encoded.codeUnitAt(index++) - 63;
-        result |= (b & 0x1F) << shift;
+        result |= (b & 0x1f) << shift;
         shift += 5;
       } while (b >= 0x20);
+      final dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+      lat += dlat;
 
-      lat += (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
-
-      result = 0;
       shift = 0;
-
+      result = 0;
       do {
         b = encoded.codeUnitAt(index++) - 63;
-        result |= (b & 0x1F) << shift;
+        result |= (b & 0x1f) << shift;
         shift += 5;
       } while (b >= 0x20);
-
-      lng += (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
+      final dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+      lng += dlng;
 
       poly.add(LatLng(lat / 1e5, lng / 1e5));
     }
-
     return poly;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    // safe paddings and screen size
-    final safeTop = MediaQuery.of(context).padding.top;
-    final safeBottom = MediaQuery.of(context).padding.bottom;
-    final screenHeight = MediaQuery.of(context).size.height;
-
-    final normalMapHeight = max(220.0, screenHeight * 0.5);
-
-    // ensure fullMapHeight doesn't go negative on very small devices
-    final fullMapHeight = max(260.0, screenHeight - 80 - safeTop - safeBottom);
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      // Use SafeArea to avoid status bar overlaps (header handles its own styling)
-      body: Column(
-        children: [
-          _buildHeader(),
-
-          // Animated map container that expands/collapses smoothly.
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 350),
-            curve: Curves.easeInOut,
-            height: _isFullScreen ? fullMapHeight : normalMapHeight,
-            width: double.infinity,
-
-            // ❗ NO padding inside map → prevents overflow
-            padding: _isFullScreen
-                ? EdgeInsets.zero
-                : const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(_isFullScreen ? 0 : 16),
-              child: Stack(
-                children: [
-                  // MAP
-                  Positioned.fill(
-                    child: ValueListenableBuilder<bool>(
-                      valueListenable: _mapLoadedNotifier,
-                      builder: (_, loaded, __) {
-                        if (!loaded || _currentLocation == null) {
-                          return _mapShimmerPlaceholder();
-                        }
-
-                        return ValueListenableBuilder<Set<Marker>>(
-                          valueListenable: _markerNotifier,
-                          builder: (_, markers, __) {
-                            return ValueListenableBuilder<Set<Polyline>>(
-                              valueListenable: _polylineNotifier,
-                              builder: (_, polylines, __) {
-                                return GoogleMap(
-                                  initialCameraPosition: CameraPosition(
-                                    target: _currentLocation ?? dropOffLocation,
-                                    zoom: 14,
-                                  ),
-                                  markers: markers,
-                                  polylines: polylines,
-                                  myLocationEnabled: true,
-                                  zoomControlsEnabled: false,
-                                  myLocationButtonEnabled: false,
-                                  onMapCreated: (controller) {
-                                    if (!_mapController.isCompleted) {
-                                      _mapController.complete(controller);
-                                    }
-                                  },
-                                );
-                              },
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ),
-
-                  // ================================
-                  // FULL SCREEN BUTTON (TOP RIGHT)
-                  // ================================
-                  Positioned(
-                    top: 12,
-                    right: 12,
-                    child: _circleButton(
-                      icon: _isFullScreen
-                          ? Icons.fullscreen_exit
-                          : Icons.fullscreen,
-                      onTap: () {
-                        setState(() => _isFullScreen = !_isFullScreen);
-                        Future.delayed(const Duration(milliseconds: 360), () {
-                          _moveCameraSmooth();
-                        });
-                      },
-                    ),
-                  ),
-
-                  // ================================
-                  // ZOOM-IN BUTTON
-                  // ================================
-                  Positioned(
-                    right: 12,
-                    bottom: 70,
-                    child: _circleButton(
-                      icon: Icons.add,
-                      onTap: () async {
-                        final controller = await _mapController.future;
-                        controller.animateCamera(CameraUpdate.zoomIn());
-                      },
-                    ),
-                  ),
-
-                  // ================================
-                  // ZOOM-OUT BUTTON (MATCH POSITION)
-                  // ================================
-                  Positioned(
-                    right: 12,
-                    bottom: 12,
-                    child: _circleButton(
-                      icon: Icons.remove,
-                      onTap: () async {
-                        final controller = await _mapController.future;
-                        controller.animateCamera(CameraUpdate.zoomOut());
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // hide the rest when full screen
-          if (!_isFullScreen)
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 0,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 10),
-                    Text(
-                      "Delivery Details",
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 15),
-                    ValueListenableBuilder<bool>(
-                      valueListenable: _mapLoadedNotifier,
-                      builder: (_, loaded, __) {
-                        if (!loaded) {
-                          return _fancyShimmerSkeleton(context);
-                        }
-                        return _buildDeliveryDetails();
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                ),
-              ),
-            ),
-
-          // if (!_isFullScreen)
-          //   CustomButton(
-          //     text: "Start Delivery",
-          //     horizontalPadding: 12,
-          //     color: kPrimaryColor,
-          //     textColor: Colors.white,
-          //     onTap: () {},
-          //   ),
-        ],
-      ),
-    );
-  }
-
+  // ---------------------------
+  // UI helpers
+  // ---------------------------
   Widget _circleButton({required IconData icon, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
@@ -886,8 +641,8 @@ class _NewOrderScreenState extends State<NewOrderScreen>
         height: 48,
         width: 48,
         decoration: BoxDecoration(
-          shape: BoxShape.circle,
           color: Colors.white,
+          shape: BoxShape.circle,
           boxShadow: const [
             BoxShadow(
               color: Colors.black26,
@@ -996,7 +751,7 @@ class _NewOrderScreenState extends State<NewOrderScreen>
     ];
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -1105,10 +860,9 @@ class _NewOrderScreenState extends State<NewOrderScreen>
               onPressed: () => Navigator.pop(context),
             ),
           ),
-
           const Center(
             child: Text(
-              "New Order",
+              "Order Details",
               style: TextStyle(
                 color: Colors.black,
                 fontSize: 20,
@@ -1116,11 +870,10 @@ class _NewOrderScreenState extends State<NewOrderScreen>
               ),
             ),
           ),
-
           Positioned(
             right: 16,
             child: TextButton(
-              onPressed: () => _showCancelConfirmSheet(context),
+              onPressed: () => _showCancelSheet(),
               child: const Text(
                 'Cancel',
                 style: TextStyle(
@@ -1131,6 +884,252 @@ class _NewOrderScreenState extends State<NewOrderScreen>
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReceiverCard() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [
+          BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 3)),
+        ],
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 26,
+            backgroundColor: kPrimaryColor.withOpacity(0.06),
+            child: const Icon(Icons.person, color: Colors.black54),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _receiver['name'] ?? '-',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _receiver['address'] ?? '-',
+                  style: const TextStyle(color: Colors.black54),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _receiver['note'] ?? '',
+                  style: const TextStyle(color: Colors.black54, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // UI-only icons (no external actions)
+              IconButton(
+                onPressed: null,
+                icon: const Icon(Icons.phone, color: kPrimaryColor),
+              ),
+              const SizedBox(height: 6),
+              IconButton(
+                onPressed: null,
+                icon: const Icon(Icons.message, color: kPrimaryColor),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------
+  // Build
+  // ---------------------------
+  @override
+  Widget build(BuildContext context) {
+    final safeTop = MediaQuery.of(context).padding.top;
+    final safeBottom = MediaQuery.of(context).padding.bottom;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    final normalMapHeight = max(220.0, screenHeight * 0.5);
+    final fullMapHeight = max(260.0, screenHeight - 80 - safeTop - safeBottom);
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Column(
+        children: [
+          _buildHeader(),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 350),
+            curve: Curves.easeInOut,
+            height: _isFullScreen ? fullMapHeight : normalMapHeight,
+            width: double.infinity,
+            padding: _isFullScreen
+                ? EdgeInsets.zero
+                : const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(_isFullScreen ? 0 : 16),
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: ValueListenableBuilder<bool>(
+                      valueListenable: _mapLoaded,
+                      builder: (_, loaded, __) {
+                        if (!loaded || _currentLocation == null) {
+                          return _mapShimmerPlaceholder();
+                        }
+
+                        return ValueListenableBuilder<Set<Marker>>(
+                          valueListenable: _markers,
+                          builder: (_, markers, __) {
+                            return ValueListenableBuilder<Set<Polyline>>(
+                              valueListenable: _polylines,
+                              builder: (_, polylines, __) {
+                                return GoogleMap(
+                                  initialCameraPosition: CameraPosition(
+                                    target: _currentLocation ?? dropOffLocation,
+                                    zoom: 14,
+                                  ),
+                                  style: 'assets/konek2move_map_style.json',
+                                  buildingsEnabled: true,
+                                  mapType: MapType.normal,
+                                  markers: markers,
+                                  polylines: polylines,
+                                  myLocationEnabled: true,
+                                  zoomControlsEnabled: false,
+                                  myLocationButtonEnabled: false,
+
+                                  onMapCreated:
+                                      (GoogleMapController controller) async {
+                                        if (!_mapController.isCompleted) {
+                                          _mapController.complete(controller);
+                                        }
+
+                                        if (_mapStyle != null) {
+                                          controller.setMapStyle(_mapStyle);
+                                        }
+                                      },
+                                );
+                              },
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+
+                  // Fullscreen toggle
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: _circleButton(
+                      icon: _isFullScreen
+                          ? Icons.fullscreen_exit
+                          : Icons.fullscreen,
+                      onTap: () {
+                        setState(() => _isFullScreen = !_isFullScreen);
+                        Future.delayed(
+                          const Duration(milliseconds: 360),
+                          _moveCameraSmooth,
+                        );
+                      },
+                    ),
+                  ),
+
+                  // Zoom in
+                  Positioned(
+                    right: 12,
+                    bottom: 70,
+                    child: _circleButton(
+                      icon: Icons.add,
+                      onTap: () async {
+                        final controller = await _mapController.future;
+                        controller.animateCamera(CameraUpdate.zoomIn());
+                      },
+                    ),
+                  ),
+
+                  // Zoom out
+                  Positioned(
+                    right: 12,
+                    bottom: 12,
+                    child: _circleButton(
+                      icon: Icons.remove,
+                      onTap: () async {
+                        final controller = await _mapController.future;
+                        controller.animateCamera(CameraUpdate.zoomOut());
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          if (!_isFullScreen)
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 0,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 10),
+                    const Text(
+                      "Delivery Details",
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: Colors.black54,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ValueListenableBuilder<bool>(
+                      valueListenable: _mapLoaded,
+                      builder: (_, loaded, __) {
+                        if (!loaded) return _fancyShimmerSkeleton(context);
+                        return _buildReceiverCard();
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    ValueListenableBuilder<bool>(
+                      valueListenable: _mapLoaded,
+                      builder: (_, loaded, __) {
+                        if (!loaded) return _fancyShimmerSkeleton(context);
+                        return _buildDeliveryDetails();
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    CustomButton(
+                      text: "Start Delivery",
+                      horizontalPadding: 12,
+                      color: kPrimaryColor,
+                      textColor: Colors.white,
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Start delivery tapped'),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );

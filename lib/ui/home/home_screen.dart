@@ -143,13 +143,23 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    SvgPicture.asset(
-                      "assets/icons/notification.svg",
-                      width: 30,
-                      height: 30,
-                      colorFilter: const ColorFilter.mode(
-                        kPrimaryColor,
-                        BlendMode.srcIn,
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: kPrimaryColor.withOpacity(0.06),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Center(
+                        child: SvgPicture.asset(
+                          "assets/icons/notification.svg",
+                          width: 30,
+                          height: 30,
+                          colorFilter: const ColorFilter.mode(
+                            kPrimaryColor,
+                            BlendMode.srcIn,
+                          ),
+                        ),
                       ),
                     ),
                     if (notifProvider.unreadCount > 0)

@@ -73,17 +73,6 @@ Future<void> _initializePermissions() async {
   if (await Permission.storage.request().isDenied) {
     debugPrint("Storage permission denied");
   }
-
-  // 6. Microphone
-  if (await Permission.microphone.request().isDenied) {
-    debugPrint("Microphone permission denied");
-  }
-
-  // 7. Bluetooth
-  if (await Permission.bluetooth.request().isDenied) {
-    debugPrint("Bluetooth permission denied");
-  }
-
   // 8. Sensors
   if (await Permission.sensors.request().isDenied) {
     debugPrint("Sensors permission denied");
@@ -93,22 +82,22 @@ Future<void> _initializePermissions() async {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Ensure this line is only used if you are targeting older Android versions,
-  // otherwise, it might be unnecessary with recent Flutter/Maps plugins.
   AndroidGoogleMapsFlutter.useAndroidViewSurface = true;
 
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
+  // Force PORTRAIT-ONLY
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+
+  // Show only TOP system UI (status bar)
+  SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.manual,
+    overlays: [SystemUiOverlay.top],
+  );
 
   await _initializePermissions();
 
   runApp(
     MultiProvider(
       providers: [
-        // Initialize the provider correctly
         ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
       ],
