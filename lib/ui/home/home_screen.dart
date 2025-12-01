@@ -122,11 +122,12 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Center(
-              child: Text(
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Stack(
+            alignment: Alignment.bottomCenter,
+            children: [
+              Text(
                 _getTitle(),
                 style: const TextStyle(
                   fontSize: 20,
@@ -134,60 +135,63 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: Colors.black,
                 ),
               ),
-            ),
-            Positioned(
-              right: 16,
-              child: GestureDetector(
-                onTap: () =>
-                    Navigator.pushReplacementNamed(context, '/notification'),
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: kPrimaryColor.withOpacity(0.06),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Center(
-                        child: SvgPicture.asset(
-                          "assets/icons/notification.svg",
+              Positioned(
+                right: 16,
+                child: GestureDetector(
+                  onTap: () =>
+                      Navigator.pushReplacementNamed(context, '/notification'),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Center(
+                        child: Container(
                           width: 30,
                           height: 30,
-                          colorFilter: const ColorFilter.mode(
-                            kPrimaryColor,
-                            BlendMode.srcIn,
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (notifProvider.unreadCount > 0)
-                      Positioned(
-                        right: -4,
-                        top: -4,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color: Colors.red,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 1.5),
+                            color: kPrimaryColor.withOpacity(0.06),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Text(
-                            '${notifProvider.unreadCount}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
+                          child: SvgPicture.asset(
+                            "assets/icons/notification.svg",
+                            width: 30,
+                            height: 30,
+                            colorFilter: const ColorFilter.mode(
+                              kPrimaryColor,
+                              BlendMode.srcIn,
                             ),
                           ),
                         ),
                       ),
-                  ],
+                      if (notifProvider.unreadCount > 0)
+                        Positioned(
+                          right: -4,
+                          top: -4,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Text(
+                              '${notifProvider.unreadCount}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

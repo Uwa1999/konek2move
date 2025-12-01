@@ -187,3 +187,68 @@ class NotificationModel {
     );
   }
 }
+
+class ModelChatResponse {
+  final List<ChatMessage> data;
+  final String message;
+  final String? error;
+  final String retCode;
+  final String? responseTime;
+  final String? device;
+
+  ModelChatResponse({
+    required this.data,
+    required this.message,
+    this.error,
+    required this.retCode,
+    this.responseTime,
+    this.device,
+  });
+
+  factory ModelChatResponse.fromJson(Map<String, dynamic> json) {
+    return ModelChatResponse(
+      data: (json['data'] as List? ?? [])
+          .map((e) => ChatMessage.fromJson(e))
+          .toList(),
+      message: json['message'] ?? '',
+      error: json['error'],
+      retCode: json['retCode'] ?? '',
+      responseTime: json['responseTime'],
+      device: json['device'],
+    );
+  }
+}
+
+class ChatMessage {
+  final int id;
+  final String senderType;
+  final String senderCode;
+  final String? message;
+  final String? attachmentUrl;
+  final String messageType;
+  final DateTime createdAt;
+
+  ChatMessage({
+    required this.id,
+    required this.senderType,
+    required this.senderCode,
+    this.message,
+    this.attachmentUrl,
+    required this.messageType,
+    required this.createdAt,
+  });
+
+  factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    return ChatMessage(
+      id: json['id'] ?? 0,
+      senderType: json['sender_type'] ?? '',
+      senderCode: json['sender_code'] ?? '',
+      message: json['message'],
+      attachmentUrl: json['attachment_url'],
+      messageType: json['message_type'] ?? '',
+      createdAt:
+          DateTime.tryParse(json['created_at'] ?? '')?.toLocal() ??
+          DateTime.now(),
+    );
+  }
+}

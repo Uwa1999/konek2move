@@ -78,12 +78,7 @@ class ApiServices {
   //   }
   // }
 
-  Future<List<NotificationModel>> getNotifications(
-    //     {
-    //   required String userCode,
-    //   required String userType,
-    // }
-  ) async {
+  Future<List<NotificationModel>> getNotifications() async {
     final url = Uri.parse(
       '${GetDNS.getOttokonekHestia()}/api/private/v1/moveapp/notification/index',
     );
@@ -138,15 +133,17 @@ class ApiServices {
       await for (final line in lines) {
         final clean = line.trim();
         if (clean.isEmpty) continue;
-
+        print("📩 RAW SSE LINE: $clean");
         if (!clean.startsWith('data:')) continue;
 
         final dataPart = clean.substring(5).trim();
         if (dataPart.isEmpty) continue;
 
         try {
+          print("📦 RAW JSON: $dataPart");
           final decoded = json.decode(dataPart);
           if (decoded is Map<String, dynamic>) {
+            print("✅ SSE MAP: $decoded");
             yield decoded;
           } else {
             print("⚠️ SSE JSON is not a Map");
@@ -223,6 +220,154 @@ class ApiServices {
       }
     } catch (e) {
       throw Exception('An error occurred: $e');
+    }
+  }
+
+  Future<ModelChatResponse> getChatMessages(int chatId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("jwt_token") ?? "";
+
+      final Uri url = Uri.parse(
+        '${GetDNS.getOttokonekHestia()}/api/private/v1/moveapp/chat/$chatId/messages',
+      );
+
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return ModelChatResponse.fromJson(jsonDecode(response.body));
+      } else {
+        throw Exception(
+          "Server returned ${response.statusCode}: ${response.body}",
+        );
+      }
+    } catch (e) {
+      throw Exception("Error fetching chat messages: $e");
+    }
+  }
+
+  Future<ModelResponse> uploadChatImage({
+    required int chatId,
+    required String orderNo,
+    required File file,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String token = prefs.getString("jwt_token") ?? "";
+
+      final Uri url = Uri.parse(
+        '${GetDNS.getOttokonekHestia()}/api/private/v1/moveapp/chat/$chatId/upload',
+      );
+
+      var request = http.MultipartRequest('POST', url);
+
+      // Required fields based on your Postman sample
+      request.fields['order_no'] = orderNo;
+      request.fields['message_type'] = "file";
+
+      // Attach image
+      final mimeType = file.path.split('.').last.toLowerCase();
+      final imageType = mimeType == "png" ? "png" : "jpeg";
+
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'file',
+          file.path,
+          contentType: http.MediaType("image", imageType),
+        ),
+      );
+
+      // Add Authorization header
+      request.headers['Authorization'] = 'Bearer $token';
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final Map<String, dynamic> decoded = jsonDecode(response.body);
+        return ModelResponse.fromJson(decoded);
+      } else {
+        throw Exception(
+          "Upload failed: ${response.statusCode} ${response.body}",
+        );
+      }
+    } catch (e) {
+      throw Exception("Image upload error: $e");
+    }
+  }
+
+  Future<ModelResponse> sendChatMessage({
+    required int chatId,
+    required String orderNo,
+    required String message,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("jwt_token") ?? "";
+
+      final Uri url = Uri.parse(
+        '${GetDNS.getOttokonekHestia()}/api/private/v1/moveapp/chat/$chatId/message',
+      );
+
+      var request = http.MultipartRequest("POST", url);
+
+      // Fields from Postman screenshot
+      request.fields['message'] = message;
+      request.fields['order_no'] = orderNo;
+      request.fields['message_type'] = "text";
+
+      // Auth header
+      request.headers['Authorization'] = 'Bearer $token';
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final Map<String, dynamic> decodedData = jsonDecode(response.body);
+        return ModelResponse.fromJson(decodedData);
+      } else {
+        throw Exception(
+          "Chat reply failed: ${response.statusCode} ${response.body}",
+        );
+      }
+    } catch (e) {
+      throw Exception("Chat message error: $e");
+    }
+  }
+
+  Future<ModelResponse> markChatAsRead(int chatId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("jwt_token") ?? "";
+
+      final Uri url = Uri.parse(
+        '${GetDNS.getOttokonekHestia()}/api/private/v1/moveapp/chat/$chatId/read',
+      );
+
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final Map<String, dynamic> decoded = jsonDecode(response.body);
+        return ModelResponse.fromJson(decoded);
+      } else {
+        throw Exception(
+          "Failed to mark chat as read: ${response.statusCode} ${response.body}",
+        );
+      }
+    } catch (e) {
+      throw Exception("Chat read error: $e");
     }
   }
 

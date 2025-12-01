@@ -106,44 +106,100 @@ class _NotificationScreenState extends State<NotificationScreen> {
     );
   }
 
+  // Widget _buildHeader() {
+  //   return Container(
+  //     height: 80,
+  //     decoration: BoxDecoration(
+  //       color: Colors.blue,
+  //       borderRadius: const BorderRadius.only(
+  //         bottomLeft: Radius.circular(20),
+  //         bottomRight: Radius.circular(20),
+  //       ),
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: Colors.black12,
+  //           blurRadius: 8,
+  //           offset: const Offset(0, 3),
+  //         ),
+  //       ],
+  //     ),
+  //     child: Stack(
+  //       alignment: Alignment.bottomCenter,
+  //       children: [
+  //         Positioned(
+  //           left: 16,
+  //           child: IconButton(
+  //             icon: const Icon(Icons.arrow_back, color: Colors.black),
+  //             onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
+  //           ),
+  //         ),
+  //         const Center(
+  //           child: Text(
+  //             "Notifications",
+  //             style: TextStyle(
+  //               color: Colors.black,
+  //               fontSize: 20,
+  //               fontWeight: FontWeight.bold,
+  //             ),
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
   Widget _buildHeader() {
     return Container(
       height: 80,
-      decoration: BoxDecoration(
+      width: double.infinity,
+      decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(20),
-          bottomRight: Radius.circular(20),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(24),
+          bottomRight: Radius.circular(24),
         ),
         boxShadow: [
           BoxShadow(
             color: Colors.black12,
-            blurRadius: 8,
-            offset: const Offset(0, 3),
+            blurRadius: 10,
+            offset: Offset(0, 3),
           ),
         ],
       ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Positioned(
-            left: 16,
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.black),
-              onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
-            ),
-          ),
-          const Center(
-            child: Text(
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Stack(
+          alignment: Alignment.bottomCenter,
+          children: [
+            const Text(
               "Notifications",
               style: TextStyle(
-                color: Colors.black,
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
+                color: Colors.black,
               ),
             ),
-          ),
-        ],
+
+            Positioned(
+              left: 16,
+              child: GestureDetector(
+                onTap: () => Navigator.pushReplacementNamed(context, '/home'),
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back,
+                    size: 20,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

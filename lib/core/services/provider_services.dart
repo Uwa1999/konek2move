@@ -229,45 +229,6 @@ class NotificationProvider extends ChangeNotifier {
   }
 }
 
-// class ConnectivityProvider extends ChangeNotifier {
-//   // Use a Set for more efficient checking of different connection types
-//   Set<ConnectivityResult> _connectivityStatus = {ConnectivityResult.none};
-//   Set<ConnectivityResult> get connectivityStatus => _connectivityStatus;
-//
-//   late StreamSubscription<List<ConnectivityResult>> _subscription;
-//   final Connectivity _connectivity = Connectivity();
-//
-//   ConnectivityProvider() {
-//     _initConnectivity();
-//   }
-//
-//   void _initConnectivity() async {
-//     // Initial check
-//     final initialStatus = await _connectivity.checkConnectivity();
-//     _connectivityStatus = initialStatus.toSet();
-//     notifyListeners();
-//
-//     // Listen for changes
-//     _subscription = _connectivity.onConnectivityChanged.listen((
-//       List<ConnectivityResult> results,
-//     ) {
-//       _connectivityStatus = results.toSet();
-//       notifyListeners();
-//     });
-//   }
-//
-//   @override
-//   void dispose() {
-//     _subscription.cancel();
-//     super.dispose();
-//   }
-//
-//   // Simplified and correct check for connectivity
-//   bool get isConnected {
-//     // Check if the set contains any status that implies a connection
-//     return !_connectivityStatus.contains(ConnectivityResult.none);
-//   }
-// }
 class ConnectivityProvider extends ChangeNotifier {
   Set<ConnectivityResult> _connectivityStatus = {};
   bool _isChecking = true;
@@ -310,5 +271,98 @@ class ConnectivityProvider extends ChangeNotifier {
   void dispose() {
     _subscription.cancel();
     super.dispose();
+  }
+}
+
+class ChatProvider extends ChangeNotifier {
+  final ApiServices api = ApiServices();
+
+  List<ChatMessage> messages = [];
+  bool initialLoad = true;
+
+  int unreadCount = 0; // 🔥 ADDED NOTIFICATION COUNTER
+
+  List<ChatMessage> get allMessages => messages;
+
+  // =====================================================
+  // LOAD MESSAGES
+  // =====================================================
+  Future<void> loadMessages(int chatId) async {
+    try {
+      final res = await api.getChatMessages(chatId);
+
+      messages = res.data;
+
+      // Sort oldest → newest
+      messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+      initialLoad = false;
+      notifyListeners();
+    } catch (e) {
+      print("Chat load error: $e");
+    }
+  }
+
+  // =====================================================
+  // TEMP LOCAL MESSAGE (bubble before real send)
+  // =====================================================
+  void addLocal(ChatMessage msg) {
+    messages.add(msg);
+    messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    notifyListeners();
+  }
+
+  // =====================================================
+  // REMOVE TEMP BUBBLE AFTER SUCCESSFUL SEND
+  // =====================================================
+  void removeLocal(ChatMessage temp) {
+    messages.removeWhere((m) {
+      return m.id == 0 &&
+          m.senderType == temp.senderType &&
+          m.senderCode == temp.senderCode &&
+          m.messageType == temp.messageType &&
+          ((temp.messageType == "text" && m.message == temp.message) ||
+              (temp.messageType == "image"));
+    });
+
+    notifyListeners();
+  }
+
+  // =====================================================
+  // REMOVE TEMP WHEN REAL MESSAGE FROM SSE ARRIVES
+  // =====================================================
+  void removeTempIfMatched(ChatMessage real) {
+    messages.removeWhere((m) {
+      return m.id == 0 &&
+          m.senderType == real.senderType &&
+          m.senderCode == real.senderCode &&
+          m.messageType == real.messageType &&
+          ((real.messageType == "text" && m.message == real.message) ||
+              (real.messageType == "image"));
+    });
+
+    notifyListeners();
+  }
+
+  // =====================================================
+  // 🔥 NOTIFICATION BADGE FUNCTIONS
+  // =====================================================
+
+  // Increase badge number (called on SSE new message FROM CUSTOMER)
+  void incrementUnread() {
+    unreadCount++;
+    notifyListeners();
+  }
+
+  // Reset badge when opening chat screen
+  void clearUnread() {
+    unreadCount = 0;
+    notifyListeners();
+  }
+
+  // If you ever need to manually set the count:
+  void setUnread(int count) {
+    unreadCount = count;
+    notifyListeners();
   }
 }

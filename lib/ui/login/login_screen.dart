@@ -15,9 +15,14 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen>
+    with TickerProviderStateMixin {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+
+  late AnimationController _controller;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideRightAnimation;
 
   bool isEmailValid = false;
   bool isPasswordNotEmpty = false;
@@ -34,6 +39,25 @@ class _LoginScreenState extends State<LoginScreen> {
       _checkBiometricEnabled();
       // _checkIfCompleted();
     });
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+
+    // Fade In
+    _fadeAnimation = Tween<double>(
+      begin: 0,
+      end: 1,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+
+    // Slide from LEFT → RIGHT
+    _slideRightAnimation = Tween<Offset>(
+      begin: const Offset(-0.8, 0), // start far left
+      end: const Offset(0, 0), // end at normal position
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+
+    _controller.forward();
   }
 
   Future<void> _checkBiometricEnabled() async {
@@ -195,6 +219,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
     final isButtonEnabled = isEmailValid && isPasswordNotEmpty;
 
     return Scaffold(
@@ -203,35 +228,38 @@ class _LoginScreenState extends State<LoginScreen> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center, // center content
+            crossAxisAlignment: CrossAxisAlignment.start, // center content
             children: [
               // Top image
-              Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: Center(
-                  child: Image.asset(
-                    "assets/images/login.png",
-                    height: 180, // standard height for consistency
-                    fit: BoxFit.contain,
+              const SizedBox(height: 50),
+              FadeTransition(
+                opacity: _fadeAnimation,
+                child: SlideTransition(
+                  position: _slideRightAnimation,
+                  child: Center(
+                    child: Image.asset(
+                      "assets/images/login.png",
+                      height: size.height * 0.12,
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(height: 25),
+              const SizedBox(height: 50),
 
               // Title
               Text(
-                "Ready to Move with Konek2Move?",
-                style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  color: kPrimaryColor,
-                ),
-                textAlign: TextAlign.center,
+                "Lets get you Login!",
+                style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 5),
               Text(
                 "Login now and get your deliveries on the go!",
-                style: TextStyle(fontSize: 15, color: Colors.grey[700]),
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey,
+                  height: 1.7,
+                  fontWeight: FontWeight.w500,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 35),
@@ -240,8 +268,7 @@ class _LoginScreenState extends State<LoginScreen> {
               _buildLabel("Email"),
               const SizedBox(height: 8),
               _buildEmailField(),
-              const SizedBox(height: 20),
-
+              const SizedBox(height: 15),
               // Password field
               _buildLabel("Password"),
               const SizedBox(height: 8),

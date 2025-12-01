@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:shimmer/shimmer.dart';
 
-import 'new_order_screen.dart';
+import 'order_details_screen.dart';
 
 class OrderScreen extends StatefulWidget {
   const OrderScreen({super.key});
@@ -353,7 +353,7 @@ class _OrderScreenState extends State<OrderScreen> {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (_) => NewOrderScreen(),
+                                          builder: (_) => OrderDetailScreen(),
                                         ),
                                       );
                                     },

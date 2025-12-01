@@ -246,7 +246,7 @@
 //     );
 //   }
 // }
-// lib/screens/new_order_screen.dart
+// lib/screens/order_details_screen.dart
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
@@ -256,19 +256,24 @@ import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:konek2move/core/services/api_services.dart';
+import 'package:konek2move/core/services/provider_services.dart';
+import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 
 import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
 
-class NewOrderScreen extends StatefulWidget {
-  const NewOrderScreen({super.key});
+import 'chat/order_chat_screen.dart';
+
+class OrderDetailScreen extends StatefulWidget {
+  const OrderDetailScreen({super.key});
 
   @override
-  State<NewOrderScreen> createState() => _NewOrderScreenState();
+  State<OrderDetailScreen> createState() => _OrderDetailScreenState();
 }
 
-class _NewOrderScreenState extends State<NewOrderScreen>
+class _OrderDetailScreenState extends State<OrderDetailScreen>
     with TickerProviderStateMixin {
   // ---------------------------
   // Map, location & state
@@ -276,12 +281,18 @@ class _NewOrderScreenState extends State<NewOrderScreen>
   final Completer<GoogleMapController> _mapController = Completer();
 
   LatLng? _currentLocation;
-  final LatLng dropOffLocation = const LatLng(14.0611, 121.3270);
+  final LatLng dropOffLocation = const LatLng(14.080821, 121.323274);
   final LatLng pickupLocation = const LatLng(14.0589, 121.3265);
 
   final ValueNotifier<bool> _mapLoaded = ValueNotifier(false);
   final ValueNotifier<Set<Marker>> _markers = ValueNotifier({});
   final ValueNotifier<Set<Polyline>> _polylines = ValueNotifier({});
+
+  StreamSubscription? _notifSub;
+  BitmapDescriptor? _truckIcon;
+
+  final String userCode = "DRV-000003";
+  final String userType = "driver";
 
   // map style
   String? _mapStyle;
@@ -316,17 +327,42 @@ class _NewOrderScreenState extends State<NewOrderScreen>
   @override
   void initState() {
     super.initState();
+
     _initLocationAndMap();
     _loadMapStyle();
+    _loadTruckIcon();
+
+    // 🔥 GLOBAL LIVE CHAT NOTIFICATION LISTENER
+    Future.microtask(() {
+      final provider = context.read<ChatProvider>();
+
+      _notifSub = ApiServices()
+          .listenNotifications(userCode: userCode, userType: userType)
+          .listen((event) {
+            _handleRealtimeChat(event, provider);
+          });
+    });
   }
 
   @override
   void dispose() {
     _positionStream?.cancel();
+    _notifSub?.cancel(); // 🔥 IMPORTANT
     _mapLoaded.dispose();
     _markers.dispose();
     _polylines.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadTruckIcon() async {
+    final icon = await BitmapDescriptor.fromAssetImage(
+      const ImageConfiguration(size: Size(100, 100)), // icon size
+      'assets/images/truck.png',
+    );
+
+    setState(() {
+      _truckIcon = icon;
+    });
   }
 
   // ---------------------------
@@ -391,6 +427,24 @@ class _NewOrderScreenState extends State<NewOrderScreen>
   //----------------------------
   void _loadMapStyle() async {
     _mapStyle = await rootBundle.loadString('assets/konek2move_map_style.json');
+  }
+
+  void _handleRealtimeChat(Map<String, dynamic> event, ChatProvider provider) {
+    final data = event["data"];
+    if (data == null) return;
+
+    // Only react to chat messages
+    if (!(data["topic"]?.toString().contains("chat.new_message") ?? false)) {
+      return;
+    }
+
+    final meta = data["meta"];
+    if (meta == null) return;
+
+    // If message is from CUSTOMER → show badge
+    if (meta["sender_type"] != "driver") {
+      provider.incrementUnread();
+    }
   }
 
   //----------------------------
@@ -473,8 +527,11 @@ class _NewOrderScreenState extends State<NewOrderScreen>
     final rider = Marker(
       markerId: const MarkerId('rider'),
       position: _currentLocation!,
-      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+      icon:
+          _truckIcon ??
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
       infoWindow: const InfoWindow(title: 'Rider (You)'),
+      anchor: const Offset(0.5, 0.5),
       zIndex: 3,
     );
 
@@ -582,7 +639,7 @@ class _NewOrderScreenState extends State<NewOrderScreen>
       _polylines.value = {
         Polyline(
           polylineId: const PolylineId('route'),
-          color: Colors.blue,
+          color: kPrimaryColor,
           width: 6,
           points: points,
           startCap: Cap.roundCap,
@@ -840,51 +897,84 @@ class _NewOrderScreenState extends State<NewOrderScreen>
   Widget _buildHeader() {
     return Container(
       height: 80,
+      width: double.infinity,
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(20),
-          bottomRight: Radius.circular(20),
+          bottomLeft: Radius.circular(24),
+          bottomRight: Radius.circular(24),
         ),
         boxShadow: [
-          BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 3)),
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
         ],
       ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Positioned(
-            left: 16,
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.black),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ),
-          const Center(
-            child: Text(
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Stack(
+          alignment: Alignment.bottomCenter,
+          children: [
+            /// Title
+            const Text(
               "Order Details",
               style: TextStyle(
-                color: Colors.black,
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
+                color: Colors.black,
               ),
             ),
-          ),
-          Positioned(
-            right: 16,
-            child: TextButton(
-              onPressed: () => _showCancelSheet(),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: kPrimaryRedColor,
-                  fontWeight: FontWeight.bold,
+
+            /// Back button
+            Positioned(
+              left: 16,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back,
+                    size: 20,
+                    color: Colors.black,
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+
+            /// Cancel button
+            Positioned(
+              right: 16,
+              child: GestureDetector(
+                onTap: () => _showCancelSheet(),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: kPrimaryRedColor.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: kPrimaryRedColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -941,9 +1031,48 @@ class _NewOrderScreenState extends State<NewOrderScreen>
                 icon: const Icon(Icons.phone, color: kPrimaryColor),
               ),
               const SizedBox(height: 6),
-              IconButton(
-                onPressed: null,
-                icon: const Icon(Icons.message, color: kPrimaryColor),
+              Consumer<ChatProvider>(
+                builder: (_, provider, __) {
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      IconButton(
+                        onPressed: () {
+                          provider.clearUnread();
+
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const OrderChatScreen(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.message, color: kPrimaryColor),
+                      ),
+
+                      if (provider.unreadCount > 0)
+                        Positioned(
+                          right: 4,
+                          top: 4,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Text(
+                              provider.unreadCount.toString(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
               ),
             ],
           ),
@@ -998,14 +1127,14 @@ class _NewOrderScreenState extends State<NewOrderScreen>
                                 return GoogleMap(
                                   initialCameraPosition: CameraPosition(
                                     target: _currentLocation ?? dropOffLocation,
-                                    zoom: 14,
+                                    zoom: 13.5,
                                   ),
                                   style: 'assets/konek2move_map_style.json',
                                   buildingsEnabled: true,
                                   mapType: MapType.normal,
                                   markers: markers,
                                   polylines: polylines,
-                                  myLocationEnabled: true,
+                                  myLocationEnabled: false,
                                   zoomControlsEnabled: false,
                                   myLocationButtonEnabled: false,
 

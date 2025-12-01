@@ -38,6 +38,7 @@ import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:konek2move/core/routes/app_routes.dart';
 import 'package:konek2move/ui/splash/internet_connection_screen.dart';
+import 'package:location/location.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 
@@ -79,6 +80,20 @@ Future<void> _initializePermissions() async {
   }
 }
 
+Future<void> _ensureLocationAccuracy() async {
+  final location = Location();
+
+  bool serviceEnabled = await location.serviceEnabled();
+  if (!serviceEnabled) {
+    serviceEnabled = await location.requestService();
+  }
+
+  // Request Google Location Accuracy (HIGH)
+  final accuracy = await location.changeSettings(
+    accuracy: LocationAccuracy.high,
+  );
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -94,12 +109,14 @@ Future<void> main() async {
   );
 
   await _initializePermissions();
+  await _ensureLocationAccuracy();
 
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => ChatProvider()),
       ],
       child: const MyApp(),
     ),

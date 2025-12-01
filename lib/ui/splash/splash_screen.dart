@@ -66,28 +66,34 @@ class _SplashScreenState extends State<SplashScreen>
                 child: SlideTransition(
                   position: _slideRightAnimation,
                   child: Image.asset(
-                    "assets/images/rider.png",
+                    "assets/images/splash.png",
                     height: size.height * 0.40,
                   ),
                 ),
               ),
               const SizedBox(height: 30),
               Text(
-                "Konek2Move",
+                "Ready to Move with",
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w800,
-                  color: kPrimaryColor,
-                ),
+                style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800),
+              ),
+              Text(
+                "Konek2Move?",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800),
               ),
 
               const SizedBox(height: 16),
 
               const Text(
-                "Empowering your business with seamless logistics. We ensure your orders travel safely from CARD Indogrosir straight to your store.",
+                "Seamless logistics that move your CARD Indogrosir orders safety to your store.",
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: Colors.grey, height: 1.7),
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey,
+                  height: 1.7,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
 
               const Spacer(),
@@ -106,9 +112,10 @@ class _SplashScreenState extends State<SplashScreen>
 
               CustomButton(
                 horizontalPadding: 0,
-                text: "Sign in",
-                color: kLightButtonColor,
+                text: "Login",
+                color: kWhiteButtonColor,
                 textColor: kPrimaryColor,
+                borderColor: kPrimaryColor,
                 onTap: () {
                   Navigator.pushReplacementNamed(context, '/login');
                 },

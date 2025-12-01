@@ -7,6 +7,7 @@ class CustomButton extends StatelessWidget {
   final VoidCallback? onTap;
   final double horizontalPadding;
   final IconData? icon;
+  final Color? borderColor; // <-- NEW (optional)
 
   const CustomButton({
     super.key,
@@ -16,6 +17,7 @@ class CustomButton extends StatelessWidget {
     required this.onTap,
     this.horizontalPadding = 24.0,
     this.icon,
+    this.borderColor, // <-- NEW
   });
 
   @override
@@ -30,10 +32,13 @@ class CustomButton extends StatelessWidget {
             backgroundColor: color,
             foregroundColor: textColor,
             padding: const EdgeInsets.symmetric(vertical: 16),
+            elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
+              side: borderColor != null
+                  ? BorderSide(color: borderColor!, width: 1.5)
+                  : BorderSide.none,
             ),
-            elevation: 0,
           ),
           child: icon == null
               ? Text(
