@@ -250,6 +250,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -290,6 +291,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
 
   StreamSubscription? _notifSub;
   BitmapDescriptor? _truckIcon;
+  BitmapDescriptor? _dropOffIcon;
 
   final String userCode = "DRV-000003";
   final String userType = "driver";
@@ -331,6 +333,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     _initLocationAndMap();
     _loadMapStyle();
     _loadTruckIcon();
+    _loadDropOffIcon();
 
     // 🔥 GLOBAL LIVE CHAT NOTIFICATION LISTENER
     Future.microtask(() {
@@ -355,14 +358,36 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   }
 
   Future<void> _loadTruckIcon() async {
-    final icon = await BitmapDescriptor.fromAssetImage(
-      const ImageConfiguration(size: Size(100, 100)), // icon size
-      'assets/images/truck.png',
-    );
+    final ByteData data = await rootBundle.load('assets/images/truck.png');
+    final Uint8List bytes = data.buffer.asUint8List();
+
+    // Resize to your preferred width (e.g., 80px)
+    final Uint8List resizedBytes = await _resizeImage(bytes, 80);
 
     setState(() {
-      _truckIcon = icon;
+      _truckIcon = BitmapDescriptor.fromBytes(resizedBytes);
     });
+  }
+
+  Future<void> _loadDropOffIcon() async {
+    final ByteData data = await rootBundle.load('assets/images/drop_off.png');
+    final Uint8List bytes = data.buffer.asUint8List();
+
+    // Resize the image to a smaller width (e.g., 80px)
+    final Uint8List resizedBytes = await _resizeImage(bytes, 80);
+
+    setState(() {
+      _dropOffIcon = BitmapDescriptor.fromBytes(resizedBytes);
+    });
+  }
+
+  Future<Uint8List> _resizeImage(Uint8List data, int targetWidth) async {
+    final codec = await instantiateImageCodec(data, targetWidth: targetWidth);
+    final frame = await codec.getNextFrame();
+    final ByteData? byteData = await frame.image.toByteData(
+      format: ImageByteFormat.png,
+    );
+    return byteData!.buffer.asUint8List();
   }
 
   // ---------------------------
@@ -546,7 +571,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     final drop = Marker(
       markerId: const MarkerId('dropoff'),
       position: dropOffLocation,
-      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+      icon:
+          _dropOffIcon ??
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
       infoWindow: const InfoWindow(title: 'Drop-off'),
       zIndex: 1,
     );
@@ -1031,6 +1058,49 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                 icon: const Icon(Icons.phone, color: kPrimaryColor),
               ),
               const SizedBox(height: 6),
+              // Consumer<ChatProvider>(
+              //   builder: (_, provider, __) {
+              //     return Stack(
+              //       clipBehavior: Clip.none,
+              //       children: [
+              //         IconButton(
+              //           onPressed: () {
+              //             provider.clearUnread();
+              //
+              //             Navigator.push(
+              //               context,
+              //               MaterialPageRoute(
+              //                 builder: (_) => const OrderChatScreen(),
+              //               ),
+              //             );
+              //           },
+              //           icon: const Icon(Icons.message, color: kPrimaryColor),
+              //         ),
+              //
+              //         if (provider.unreadCount > 0)
+              //           Positioned(
+              //             right: 4,
+              //             top: 4,
+              //             child: Container(
+              //               padding: const EdgeInsets.all(4),
+              //               decoration: const BoxDecoration(
+              //                 color: Colors.red,
+              //                 shape: BoxShape.circle,
+              //               ),
+              //               child: Text(
+              //                 provider.unreadCount.toString(),
+              //                 style: const TextStyle(
+              //                   color: Colors.white,
+              //                   fontSize: 10,
+              //                   fontWeight: FontWeight.bold,
+              //                 ),
+              //               ),
+              //             ),
+              //           ),
+              //       ],
+              //     );
+              //   },
+              // ),
               Consumer<ChatProvider>(
                 builder: (_, provider, __) {
                   return Stack(
@@ -1039,7 +1109,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                       IconButton(
                         onPressed: () {
                           provider.clearUnread();
-
                           Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -1127,7 +1196,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                                 return GoogleMap(
                                   initialCameraPosition: CameraPosition(
                                     target: _currentLocation ?? dropOffLocation,
-                                    zoom: 13.5,
+                                    zoom: 14,
                                   ),
                                   style: 'assets/konek2move_map_style.json',
                                   buildingsEnabled: true,

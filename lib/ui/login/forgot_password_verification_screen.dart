@@ -206,45 +206,7 @@ class _ForgotEmailVerificationScreenState
       body: Column(
         children: [
           // Custom AppBar
-          Container(
-            height: 80,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(20),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Positioned(
-                  left: 16,
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.black),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ),
-                const Center(
-                  child: Text(
-                    "Verification",
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _buildHeader(),
 
           // Form
           Expanded(
@@ -322,6 +284,54 @@ class _ForgotEmailVerificationScreenState
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      height: 80,
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(24),
+          bottomRight: Radius.circular(24),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Stack(
+          alignment: Alignment.bottomCenter,
+          children: [
+            const Text(
+              "Verification",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            Positioned(
+              left: 16,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.arrow_back, size: 20),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

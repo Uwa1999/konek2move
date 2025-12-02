@@ -390,19 +390,54 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
   final String userCode = "DRV-000003"; // your driver code
   final String userType = "driver";
 
+  // @override
+  // void initState() {
+  //   super.initState();
+  //
+  //   Future.microtask(() async {
+  //     final provider = Provider.of<ChatProvider>(context, listen: false);
+  //     provider.setChatOpen(true);
+  //     // provider.markAsRead(widget.chatId);
+  //     await provider.loadMessages(chatId);
+  //     scrollToBottom(force: true);
+  //
+  //     ApiServices().markChatAsRead(chatId);
+  //
+  //     // Start SSE Listener
+  //     notifSub = ApiServices()
+  //         .listenNotifications(userCode: userCode, userType: userType)
+  //         .listen(handleRealtime);
+  //   });
+  // }
+  //
+  // @override
+  // void dispose() {
+  //   notifSub?.cancel();
+  //   Provider.of<ChatProvider>(context, listen: false).setChatOpen(false);
+  //
+  //   super.dispose();
+  // }
   @override
   void initState() {
     super.initState();
 
     Future.microtask(() async {
-      final provider = context.read<ChatProvider>();
+      final provider = Provider.of<ChatProvider>(context, listen: false);
 
+      // Mark chat as active to prevent unread increments from SSE
+      provider.setChatOpen(true);
+
+      // Load messages first
       await provider.loadMessages(chatId);
       scrollToBottom(force: true);
 
-      ApiServices().markChatAsRead(chatId);
+      // Mark ALL messages as read on backend
+      await ApiServices().markChatAsRead(chatId);
 
-      // Start SSE Listener
+      // Also update provider badge (instant clear)
+      provider.clearUnread();
+
+      // Start SSE listener
       notifSub = ApiServices()
           .listenNotifications(userCode: userCode, userType: userType)
           .listen(handleRealtime);
@@ -411,7 +446,12 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
 
   @override
   void dispose() {
+    // Stop SSE when leaving chat
     notifSub?.cancel();
+
+    // IMPORTANT: set to false so unread increments again
+    Provider.of<ChatProvider>(context, listen: false).setChatOpen(false);
+
     super.dispose();
   }
 
@@ -475,6 +515,51 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
 
   // ========================= PICK IMAGE =========================
 
+  // Future<void> _pickImage(ChatProvider provider) async {
+  //   final source = await showModalBottomSheet<ImageSource>(
+  //     context: context,
+  //     backgroundColor: Colors.white,
+  //     shape: const RoundedRectangleBorder(
+  //       borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+  //     ),
+  //     builder: (_) => _imagePickerBottomSheet(),
+  //   );
+  //
+  //   if (source == null) return;
+  //
+  //   final XFile? picked = await picker.pickImage(
+  //     source: source,
+  //     imageQuality: 70,
+  //   );
+  //
+  //   if (picked == null) return;
+  //
+  //   final file = File(picked.path);
+  //
+  //   // FIX: senderCode must match SSE senderCode
+  //   final tempMsg = ChatMessage(
+  //     id: 0,
+  //     senderType: "driver",
+  //     senderCode: userCode,
+  //     messageType: "image",
+  //     attachmentUrl: file.path,
+  //     createdAt: DateTime.now(),
+  //   );
+  //
+  //   provider.addLocal(tempMsg);
+  //   scrollToBottom();
+  //
+  //   await ApiServices().uploadChatImage(
+  //     chatId: chatId,
+  //     orderNo: "SO-100001",
+  //     file: file,
+  //   );
+  //
+  //   provider.removeLocal(tempMsg);
+  //
+  //   // SSE gives real message
+  //   scrollToBottom();
+  // }
   Future<void> _pickImage(ChatProvider provider) async {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
@@ -487,37 +572,47 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
 
     if (source == null) return;
 
-    final XFile? picked = await picker.pickImage(
-      source: source,
-      imageQuality: 70,
-    );
+    final picked = await picker.pickImage(source: source, imageQuality: 70);
 
     if (picked == null) return;
 
     final file = File(picked.path);
 
-    // FIX: senderCode must match SSE senderCode
+    // TEMP MESSAGE (id = 0)
     final tempMsg = ChatMessage(
       id: 0,
       senderType: "driver",
       senderCode: userCode,
       messageType: "image",
-      attachmentUrl: file.path,
+      attachmentUrl: file.path, // LOCAL PATH
       createdAt: DateTime.now(),
     );
 
+    // 1️⃣ Add temp bubble immediately
     provider.addLocal(tempMsg);
     scrollToBottom();
 
-    await ApiServices().uploadChatImage(
+    // 2️⃣ Upload image
+    final success = await ApiServices().uploadChatImage(
       chatId: chatId,
       orderNo: "SO-100001",
       file: file,
     );
 
+    // If upload failed → Stop temp removal
+    if (success == false) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Upload failed. Try again.")),
+      );
+      return;
+    }
+
+    // 3️⃣ Remove temp bubble after real upload (before SSE arrives)
     provider.removeLocal(tempMsg);
 
-    // SSE gives real message
+    // OPTIONAL (if you want instant refresh before SSE)
+    await provider.refreshAfterSend(chatId);
+
     scrollToBottom();
   }
 
@@ -633,7 +728,17 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
             Positioned(
               left: 16,
               child: GestureDetector(
-                onTap: () => Navigator.pop(context),
+                onTap: () {
+                  final provider = Provider.of<ChatProvider>(
+                    context,
+                    listen: false,
+                  );
+
+                  provider.clearUnread();
+                  provider.setChatOpen(false);
+
+                  Navigator.pop(context);
+                },
                 child: Container(
                   width: 32,
                   height: 32,
@@ -810,7 +915,7 @@ class ChatBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isImage = msg.messageType == "image";
+    final isImage = msg.messageType == "image" || msg.messageType == "file";
     final isSending = msg.id == 0 && msg.attachmentUrl != null;
 
     return Align(
@@ -841,13 +946,27 @@ class ChatBubble extends StatelessWidget {
           ),
 
           // timestamp
-          Text(
-            "${msg.createdAt.hour.toString().padLeft(2, '0')}:${msg.createdAt.minute.toString().padLeft(2, '0')}",
-            style: const TextStyle(fontSize: 11, color: Colors.black45),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Time
+              Text(
+                formatTime(msg.createdAt),
+                style: const TextStyle(fontSize: 11, color: Colors.black45),
+              ),
+            ],
           ),
         ],
       ),
     );
+  }
+
+  String formatTime(DateTime time) {
+    final hour = time.hour % 12 == 0 ? 12 : time.hour % 12;
+    final minute = time.minute.toString().padLeft(2, '0');
+    final period = time.hour >= 12 ? "PM" : "AM";
+
+    return "$hour:$minute $period";
   }
 
   Widget _text(ChatMessage msg) {
@@ -863,7 +982,7 @@ class ChatBubble extends StatelessWidget {
   // FAST Image Loader (NO packages)
   Widget _image(ChatMessage msg, bool isSending) {
     final path = msg.attachmentUrl ?? "";
-    final isNetwork = path.startsWith("http");
+    final isNetwork = path.startsWith("https");
 
     return Stack(
       children: [
@@ -943,4 +1062,93 @@ class ChatBubble extends StatelessWidget {
       ),
     );
   }
+}
+
+// TIME FORMATTER AM/PM
+String formatTime(DateTime time) {
+  final hour = time.hour % 12 == 0 ? 12 : time.hour % 12;
+  final minute = time.minute.toString().padLeft(2, '0');
+  final period = time.hour >= 12 ? "PM" : "AM";
+  return "$hour:$minute $period";
+}
+
+// FAST Image Loader
+Widget _image(ChatMessage msg, bool isSending) {
+  final path = msg.attachmentUrl ?? "";
+  final isNetwork = path.startsWith("http");
+
+  return Stack(
+    children: [
+      ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(
+          width: 230,
+          height: 230,
+          child: isNetwork
+              ? FadeInImage(
+                  placeholder: MemoryImage(kTransparentImage),
+                  image: NetworkImage(path),
+                  fit: BoxFit.cover,
+                  fadeInDuration: const Duration(milliseconds: 180),
+                  placeholderErrorBuilder: (_, __, ___) => _loadingShimmer(),
+                  imageErrorBuilder: (_, __, ___) => _imageErrorPlaceholder(),
+                )
+              : Image.file(
+                  File(path),
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _imageErrorPlaceholder(),
+                ),
+        ),
+      ),
+
+      if (isSending)
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.black38,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Center(
+              child: SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  valueColor: AlwaysStoppedAnimation(Colors.white),
+                ),
+              ),
+            ),
+          ),
+        ),
+    ],
+  );
+}
+
+Widget _loadingShimmer() {
+  return Shimmer.fromColors(
+    baseColor: Colors.grey.shade300,
+    highlightColor: Colors.grey.shade100,
+    child: Container(
+      width: 230,
+      height: 230,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade300,
+        borderRadius: BorderRadius.circular(12),
+      ),
+    ),
+  );
+}
+
+Widget _imageErrorPlaceholder() {
+  return Container(
+    width: 230,
+    height: 230,
+    decoration: BoxDecoration(
+      color: Colors.grey.shade300,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: const Center(
+      child: Icon(Icons.broken_image, size: 40, color: Colors.black38),
+    ),
+  );
 }

@@ -274,27 +274,123 @@ class ConnectivityProvider extends ChangeNotifier {
   }
 }
 
+// class ChatProvider extends ChangeNotifier {
+//   final ApiServices api = ApiServices();
+//
+//   List<ChatMessage> messages = [];
+//   bool initialLoad = true;
+//
+//   int unreadCount = 0; // 🔥 ADDED NOTIFICATION COUNTER
+//
+//   List<ChatMessage> get allMessages => messages;
+//
+//   // =====================================================
+//   // LOAD MESSAGES
+//   // =====================================================
+//   Future<void> loadMessages(int chatId) async {
+//     try {
+//       final res = await api.getChatMessages(chatId);
+//
+//       messages = res.data;
+//
+//       // Sort oldest → newest
+//       messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+//
+//       initialLoad = false;
+//       notifyListeners();
+//     } catch (e) {
+//       print("Chat load error: $e");
+//     }
+//   }
+//
+//   // =====================================================
+//   // TEMP LOCAL MESSAGE (bubble before real send)
+//   // =====================================================
+//   void addLocal(ChatMessage msg) {
+//     messages.add(msg);
+//     messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+//     notifyListeners();
+//   }
+//
+//   // =====================================================
+//   // REMOVE TEMP BUBBLE AFTER SUCCESSFUL SEND
+//   // =====================================================
+//   void removeLocal(ChatMessage temp) {
+//     messages.removeWhere((m) {
+//       return m.id == 0 &&
+//           m.senderType == temp.senderType &&
+//           m.senderCode == temp.senderCode &&
+//           m.messageType == temp.messageType &&
+//           ((temp.messageType == "text" && m.message == temp.message) ||
+//               (temp.messageType == "image"));
+//     });
+//
+//     notifyListeners();
+//   }
+//
+//   // =====================================================
+//   // REMOVE TEMP WHEN REAL MESSAGE FROM SSE ARRIVES
+//   // =====================================================
+//   void removeTempIfMatched(ChatMessage real) {
+//     messages.removeWhere((m) {
+//       return m.id == 0 &&
+//           m.senderType == real.senderType &&
+//           m.senderCode == real.senderCode &&
+//           m.messageType == real.messageType &&
+//           ((real.messageType == "text" && m.message == real.message) ||
+//               (real.messageType == "image"));
+//     });
+//
+//     notifyListeners();
+//   }
+//
+//   // =====================================================
+//   // 🔥 NOTIFICATION BADGE FUNCTIONS
+//   // =====================================================
+//
+//   // Increase badge number (called on SSE new message FROM CUSTOMER)
+//   void incrementUnread() {
+//     unreadCount++;
+//     notifyListeners();
+//   }
+//
+//   // Reset badge when opening chat screen
+//   void clearUnread() {
+//     unreadCount = 0;
+//     notifyListeners();
+//   }
+//
+//   // If you ever need to manually set the count:
+//   void setUnread(int count) {
+//     unreadCount = count;
+//     notifyListeners();
+//   }
+// }
 class ChatProvider extends ChangeNotifier {
   final ApiServices api = ApiServices();
 
   List<ChatMessage> messages = [];
   bool initialLoad = true;
 
-  int unreadCount = 0; // 🔥 ADDED NOTIFICATION COUNTER
+  int unreadCount = 0;
+
+  // Track if chat screen is open
+  bool isChatOpen = false;
 
   List<ChatMessage> get allMessages => messages;
 
   // =====================================================
-  // LOAD MESSAGES
+  // LOAD / RELOAD MESSAGES
   // =====================================================
   Future<void> loadMessages(int chatId) async {
     try {
       final res = await api.getChatMessages(chatId);
 
-      messages = res.data;
+      final loaded = res.data;
 
-      // Sort oldest → newest
-      messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      loaded.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+      messages = loaded;
 
       initialLoad = false;
       notifyListeners();
@@ -304,7 +400,7 @@ class ChatProvider extends ChangeNotifier {
   }
 
   // =====================================================
-  // TEMP LOCAL MESSAGE (bubble before real send)
+  // ADD TEMP BUBBLE BEFORE SEND
   // =====================================================
   void addLocal(ChatMessage msg) {
     messages.add(msg);
@@ -313,54 +409,94 @@ class ChatProvider extends ChangeNotifier {
   }
 
   // =====================================================
-  // REMOVE TEMP BUBBLE AFTER SUCCESSFUL SEND
+  // REMOVE TEMP AFTER SEND SUCCESS
   // =====================================================
   void removeLocal(ChatMessage temp) {
-    messages.removeWhere((m) {
-      return m.id == 0 &&
+    messages.removeWhere(
+      (m) =>
+          m.id == 0 &&
           m.senderType == temp.senderType &&
-          m.senderCode == temp.senderCode &&
           m.messageType == temp.messageType &&
           ((temp.messageType == "text" && m.message == temp.message) ||
-              (temp.messageType == "image"));
-    });
+              (temp.messageType == "image")),
+    );
+    notifyListeners();
+  }
+
+  // =====================================================
+  // 🔥 REAL MESSAGE FROM SSE
+  // =====================================================
+  void appendFromServer(ChatMessage real) {
+    removeTempIfMatched(real);
+
+    if (messages.any((m) => m.id == real.id)) return;
+
+    messages.add(real);
+    messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+    // Increase unread only if chat screen is NOT open
+    if (!isChatOpen) {
+      unreadCount++;
+    }
 
     notifyListeners();
   }
 
   // =====================================================
-  // REMOVE TEMP WHEN REAL MESSAGE FROM SSE ARRIVES
+  // REMOVE TEMP WHEN REAL ARRIVES
   // =====================================================
   void removeTempIfMatched(ChatMessage real) {
-    messages.removeWhere((m) {
-      return m.id == 0 &&
+    messages.removeWhere(
+      (m) =>
+          m.id == 0 &&
           m.senderType == real.senderType &&
-          m.senderCode == real.senderCode &&
           m.messageType == real.messageType &&
           ((real.messageType == "text" && m.message == real.message) ||
-              (real.messageType == "image"));
-    });
-
+              (real.messageType == "image")),
+    );
     notifyListeners();
   }
 
   // =====================================================
-  // 🔥 NOTIFICATION BADGE FUNCTIONS
+  // 🔥 REFRESH AFTER SEND
   // =====================================================
+  Future<void> refreshAfterSend(int chatId) async {
+    await loadMessages(chatId);
+  }
 
-  // Increase badge number (called on SSE new message FROM CUSTOMER)
+  // =====================================================
+  // 🔥 MARK CHAT AS READ
+  // =====================================================
+  Future<void> markAsRead(int chatId) async {
+    try {
+      await api.markChatAsRead(chatId);
+
+      unreadCount = 0; // Reset badge
+      notifyListeners();
+    } catch (e) {
+      print("Mark as read error: $e");
+    }
+  }
+
+  // =====================================================
+  // CHAT OPEN / CLOSE
+  // =====================================================
+  void setChatOpen(bool value) {
+    isChatOpen = value;
+    notifyListeners();
+  }
+
+  // Legacy (still useful)
   void incrementUnread() {
     unreadCount++;
     notifyListeners();
   }
 
-  // Reset badge when opening chat screen
   void clearUnread() {
     unreadCount = 0;
     notifyListeners();
   }
 
-  // If you ever need to manually set the count:
   void setUnread(int count) {
     unreadCount = count;
     notifyListeners();

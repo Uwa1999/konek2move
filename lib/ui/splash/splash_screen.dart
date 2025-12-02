@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
+import 'package:konek2move/ui/login/login_screen.dart';
+import 'package:konek2move/ui/register/terms_and_condition_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -104,7 +106,12 @@ class _SplashScreenState extends State<SplashScreen>
                 color: kPrimaryColor,
                 textColor: Colors.white,
                 onTap: () {
-                  Navigator.pushReplacementNamed(context, '/terms');
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => TermsAndConditionScreen(),
+                    ),
+                  );
                 },
               ),
 
@@ -117,11 +124,14 @@ class _SplashScreenState extends State<SplashScreen>
                 textColor: kPrimaryColor,
                 borderColor: kPrimaryColor,
                 onTap: () {
-                  Navigator.pushReplacementNamed(context, '/login');
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => LoginScreen()),
+                  );
                 },
               ),
 
-              const SizedBox(height: 30),
+              const SizedBox(height: 50),
             ],
           ),
         ),
@@ -129,3 +139,117 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 }
+
+// import 'package:flutter/material.dart';
+// import 'package:konek2move/core/constants/app_colors.dart';
+// import 'package:konek2move/core/widgets/custom_button.dart';
+// import 'package:konek2move/ui/login/login_screen.dart';
+// import 'package:konek2move/ui/register/terms_and_condition_screen.dart';
+//
+// class SplashScreen extends StatefulWidget {
+//   const SplashScreen({super.key});
+//
+//   @override
+//   State<SplashScreen> createState() => _SplashScreenState();
+// }
+//
+// class _SplashScreenState extends State<SplashScreen> {
+//   @override
+//   void initState() {
+//     super.initState();
+//
+//     // Run precache AFTER first frame to avoid lag
+//     WidgetsBinding.instance.addPostFrameCallback((_) {
+//       precacheImage(
+//         const AssetImage("assets/images/splash.png"),
+//         context,
+//       ).then((_) {});
+//     });
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final size = MediaQuery.of(context).size;
+//
+//     return Scaffold(
+//       backgroundColor: Colors.white,
+//       body: SafeArea(
+//         child: Padding(
+//           padding: const EdgeInsets.symmetric(horizontal: 24),
+//           child: Column(
+//             children: [
+//               const SizedBox(height: 50),
+//
+//               // NO ANIMATION → Instant, smooth
+//               Image.asset(
+//                 "assets/images/splash.png",
+//                 height: size.height * 0.40,
+//                 filterQuality: FilterQuality.low,
+//               ),
+//
+//               const SizedBox(height: 30),
+//               const Text(
+//                 "Ready to Move with",
+//                 textAlign: TextAlign.center,
+//                 style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800),
+//               ),
+//               const Text(
+//                 "Konek2Move?",
+//                 textAlign: TextAlign.center,
+//                 style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800),
+//               ),
+//
+//               const SizedBox(height: 16),
+//
+//               const Text(
+//                 "Seamless logistics that move your CARD Indogrosir orders safely to your store.",
+//                 textAlign: TextAlign.center,
+//                 style: TextStyle(
+//                   fontSize: 16,
+//                   color: Colors.grey,
+//                   height: 1.7,
+//                   fontWeight: FontWeight.w500,
+//                 ),
+//               ),
+//
+//               const Spacer(),
+//
+//               CustomButton(
+//                 horizontalPadding: 0,
+//                 text: "Get Started",
+//                 color: kPrimaryColor,
+//                 textColor: Colors.white,
+//                 onTap: () {
+//                   Navigator.push(
+//                     context,
+//                     MaterialPageRoute(
+//                       builder: (_) => TermsAndConditionScreen(),
+//                     ),
+//                   );
+//                 },
+//               ),
+//
+//               const SizedBox(height: 12),
+//
+//               CustomButton(
+//                 horizontalPadding: 0,
+//                 text: "Login",
+//                 color: kWhiteButtonColor,
+//                 textColor: kPrimaryColor,
+//                 borderColor: kPrimaryColor,
+//                 onTap: () {
+//                   Navigator.push(
+//                     context,
+//                     MaterialPageRoute(builder: (_) => LoginScreen()),
+//                   );
+//                 },
+//               ),
+//
+//               const SizedBox(height: 50),
+//             ],
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+// }

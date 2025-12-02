@@ -9,6 +9,7 @@ import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/services/api_services.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
 import 'package:konek2move/ui/login/progress_tracker_screen.dart';
+import 'package:konek2move/ui/register/email.dart';
 
 class RegisterScreen extends StatefulWidget {
   final String email;
@@ -352,7 +353,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          _buildAppBar(),
+          _buildHeader(),
           _buildProgressSteps(),
 
           Expanded(
@@ -375,44 +376,55 @@ class _RegisterScreenState extends State<RegisterScreen> {
   // ---------------------------------------------------------
   // APP BAR
   // ---------------------------------------------------------
-  Widget _buildAppBar() {
+  Widget _buildHeader() {
     return Container(
       height: 80,
-      decoration: BoxDecoration(
+      width: double.infinity,
+      decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(20),
-          bottomRight: Radius.circular(20),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(24),
+          bottomRight: Radius.circular(24),
         ),
         boxShadow: [
           BoxShadow(
             color: Colors.black12,
-            blurRadius: 8,
-            offset: const Offset(0, 3),
+            blurRadius: 10,
+            offset: Offset(0, 3),
           ),
         ],
       ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Positioned(
-            left: 16,
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.black),
-              onPressed: () => Navigator.pushReplacementNamed(context, '/'),
-            ),
-          ),
-          const Center(
-            child: Text(
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Stack(
+          alignment: Alignment.bottomCenter,
+          children: [
+            const Text(
               "Registration",
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            Positioned(
+              left: 16,
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => EmailScreen()),
+                  );
+                },
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.arrow_back, size: 20),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -196,6 +196,106 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+  // Widget _buildAppBar(NotificationProvider notifProvider) {
+  //   final statusBar = MediaQuery.of(context).padding.top;
+  //   final safeHeight = kToolbarHeight + statusBar; // 56 + status bar height
+  //
+  //   return Positioned(
+  //     top: 0,
+  //     left: 0,
+  //     right: 0,
+  //     child: Container(
+  //       height: safeHeight,
+  //       decoration: BoxDecoration(
+  //         color: Colors.white,
+  //         borderRadius: const BorderRadius.only(
+  //           bottomLeft: Radius.circular(24),
+  //           bottomRight: Radius.circular(24),
+  //         ),
+  //         boxShadow: [
+  //           BoxShadow(
+  //             color: Colors.black12,
+  //             blurRadius: 10,
+  //             offset: const Offset(0, 3),
+  //           ),
+  //         ],
+  //       ),
+  //       child: Padding(
+  //         padding: EdgeInsets.only(bottom: 12, top: statusBar),
+  //         child: Stack(
+  //           alignment: Alignment.bottomCenter,
+  //           children: [
+  //             Text(
+  //               _getTitle(),
+  //               style: const TextStyle(
+  //                 fontSize: 20,
+  //                 fontWeight: FontWeight.bold,
+  //                 color: Colors.black,
+  //               ),
+  //             ),
+  //
+  //             Positioned(
+  //               right: 16,
+  //               child: GestureDetector(
+  //                 onTap: () =>
+  //                     Navigator.pushReplacementNamed(context, '/notification'),
+  //                 child: Stack(
+  //                   clipBehavior: Clip.none,
+  //                   children: [
+  //                     Center(
+  //                       child: Container(
+  //                         width: 30,
+  //                         height: 30,
+  //                         decoration: BoxDecoration(
+  //                           color: kPrimaryColor.withOpacity(0.06),
+  //                           borderRadius: BorderRadius.circular(12),
+  //                         ),
+  //                         child: SvgPicture.asset(
+  //                           "assets/icons/notification.svg",
+  //                           width: 30,
+  //                           height: 30,
+  //                           colorFilter: const ColorFilter.mode(
+  //                             kPrimaryColor,
+  //                             BlendMode.srcIn,
+  //                           ),
+  //                         ),
+  //                       ),
+  //                     ),
+  //
+  //                     if (notifProvider.unreadCount > 0)
+  //                       Positioned(
+  //                         right: -4,
+  //                         top: -4,
+  //                         child: Container(
+  //                           padding: const EdgeInsets.all(4),
+  //                           decoration: BoxDecoration(
+  //                             color: Colors.red,
+  //                             shape: BoxShape.circle,
+  //                             border: Border.all(
+  //                               color: Colors.white,
+  //                               width: 1.5,
+  //                             ),
+  //                           ),
+  //                           child: Text(
+  //                             '${notifProvider.unreadCount}',
+  //                             style: const TextStyle(
+  //                               color: Colors.white,
+  //                               fontSize: 10,
+  //                               fontWeight: FontWeight.bold,
+  //                             ),
+  //                           ),
+  //                         ),
+  //                       ),
+  //                   ],
+  //                 ),
+  //               ),
+  //             ),
+  //           ],
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
 
   Widget _buildBottomNav() {
     return Align(

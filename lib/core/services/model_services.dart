@@ -221,6 +221,7 @@ class ModelChatResponse {
 
 class ChatMessage {
   final int id;
+
   final String senderType;
   final String senderCode;
   final String? message;
@@ -230,6 +231,7 @@ class ChatMessage {
 
   ChatMessage({
     required this.id,
+
     required this.senderType,
     required this.senderCode,
     this.message,

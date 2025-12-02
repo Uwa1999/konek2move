@@ -11,7 +11,6 @@ class ProgressTrackerScreen extends StatefulWidget {
 }
 
 class _ProgressTrackerScreenState extends State<ProgressTrackerScreen> {
-  // Keep current step fixed at 4
   final int _currentStep = 4;
 
   final List<String> steps = [
@@ -28,7 +27,7 @@ class _ProgressTrackerScreenState extends State<ProgressTrackerScreen> {
     "Fill in your contact details",
     "Add your vehicle information",
     "Create a secure password",
-    "Review your application details",
+    "Review your application",
     "Your account is now active",
   ];
 
@@ -37,7 +36,6 @@ class _ProgressTrackerScreenState extends State<ProgressTrackerScreen> {
   @override
   void initState() {
     super.initState();
-    // Simulate initial loading
     Future.delayed(const Duration(seconds: 2), () {
       setState(() => isLoading = false);
     });
@@ -46,10 +44,7 @@ class _ProgressTrackerScreenState extends State<ProgressTrackerScreen> {
   Future<void> _refreshProgress() async {
     setState(() => isLoading = true);
     await Future.delayed(const Duration(seconds: 2));
-    setState(() {
-      // Keep _currentStep static
-      isLoading = false;
-    });
+    setState(() => isLoading = false);
   }
 
   @override
@@ -58,215 +53,212 @@ class _ProgressTrackerScreenState extends State<ProgressTrackerScreen> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 "Application Progress",
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
                   color: Colors.black87,
                 ),
               ),
-              const SizedBox(height: 24),
+
+              const SizedBox(height: 10),
+              Text(
+                "Track your onboarding progress",
+                style: TextStyle(fontSize: 14, color: Colors.black54),
+              ),
+
+              const SizedBox(height: 20),
+
               Expanded(
                 child: RefreshIndicator(
                   color: kPrimaryColor,
                   onRefresh: _refreshProgress,
                   child: ListView.builder(
+                    padding: const EdgeInsets.only(top: 10),
                     itemCount: steps.length,
                     itemBuilder: (context, index) {
                       if (isLoading) {
-                        // Shimmer placeholder
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Shimmer.fromColors(
-                                baseColor: Colors.grey.shade300,
-                                highlightColor: Colors.grey.shade100,
-                                child: Container(
-                                  width: 30,
-                                  height: 30,
-                                  decoration: const BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Shimmer.fromColors(
-                                      baseColor: Colors.grey.shade300,
-                                      highlightColor: Colors.grey.shade100,
-                                      child: Container(
-                                        height: 18,
-                                        width: double.infinity,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Shimmer.fromColors(
-                                      baseColor: Colors.grey.shade300,
-                                      highlightColor: Colors.grey.shade100,
-                                      child: Container(
-                                        height: 14,
-                                        width:
-                                            MediaQuery.of(context).size.width *
-                                            0.6,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
+                        return _loadingShimmer();
                       }
 
-                      // Actual progress tracker
                       bool isCompleted = index < _currentStep;
                       bool isCurrent = index == _currentStep;
 
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Column(
-                            children: [
-                              // Step Circle
-                              Container(
-                                width: 30,
-                                height: 30,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: isCompleted
-                                      ? LinearGradient(
-                                          colors: [
-                                            kPrimaryColor,
-                                            kPrimaryColor.withOpacity(0.7),
-                                          ],
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        )
-                                      : null,
-                                  color: !isCompleted && !isCurrent
-                                      ? Colors.grey[300]
-                                      : null,
-                                  border: Border.all(
-                                    color: isCurrent || isCompleted
-                                        ? kPrimaryColor
-                                        : Colors.grey,
-                                    width: 2,
-                                  ),
-                                  boxShadow: isCurrent
-                                      ? [
-                                          BoxShadow(
-                                            color: kPrimaryColor.withOpacity(
-                                              0.3,
-                                            ),
-                                            spreadRadius: 2,
-                                            blurRadius: 6,
-                                            offset: const Offset(0, 3),
-                                          ),
-                                        ]
-                                      : null,
-                                ),
-                                child: isCompleted
-                                    ? const Icon(
-                                        Icons.check,
-                                        color: Colors.white,
-                                        size: 18,
-                                      )
-                                    : isCurrent
-                                    ? Center(
-                                        child: Container(
-                                          width: 10,
-                                          height: 10,
-                                          decoration: const BoxDecoration(
-                                            color: kPrimaryColor,
-                                            shape: BoxShape.circle,
-                                          ),
-                                        ),
-                                      )
-                                    : null,
-                              ),
-                              // Connecting Line
-                              if (index != steps.length - 1)
-                                Container(
-                                  width: 2,
-                                  height: 70,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: isCompleted
-                                          ? [
-                                              kPrimaryColor,
-                                              kPrimaryColor.withOpacity(0.5),
-                                            ]
-                                          : [
-                                              Colors.grey[300]!,
-                                              Colors.grey[300]!,
-                                            ],
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  steps[index],
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: isCurrent
-                                        ? FontWeight.bold
-                                        : FontWeight.w500,
-                                    color: isCompleted || isCurrent
-                                        ? Colors.black87
-                                        : Colors.grey,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                if (isCurrent || isCompleted)
-                                  Text(
-                                    stepDescriptions[index],
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.black54,
-                                    ),
-                                  ),
-                                const SizedBox(height: 24),
-                              ],
-                            ),
-                          ),
-                        ],
+                      return _progressTile(
+                        title: steps[index],
+                        description: stepDescriptions[index],
+                        isCompleted: isCompleted,
+                        isCurrent: isCurrent,
+                        isLast: index == steps.length - 1,
                       );
                     },
                   ),
                 ),
               ),
+
+              const SizedBox(height: 10),
               CustomButton(
                 text: "Exit",
-                horizontalPadding: 0,
                 color: kPrimaryColor,
                 textColor: Colors.white,
+                horizontalPadding: 0,
                 onTap: () => Navigator.pushReplacementNamed(context, "/login"),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  // --------------------------------------
+  // SIMPLE MODERN SHIMMER
+  // --------------------------------------
+  Widget _loadingShimmer() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Row(
+        children: [
+          Shimmer.fromColors(
+            baseColor: Colors.grey.shade300,
+            highlightColor: Colors.grey.shade100,
+            child: Container(
+              width: 26,
+              height: 26,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Shimmer.fromColors(
+                  baseColor: Colors.grey.shade300,
+                  highlightColor: Colors.grey.shade100,
+                  child: Container(
+                    height: 16,
+                    width: double.infinity,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Shimmer.fromColors(
+                  baseColor: Colors.grey.shade300,
+                  highlightColor: Colors.grey.shade100,
+                  child: Container(height: 12, width: 160, color: Colors.white),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --------------------------------------
+  // CLEAN PROGRESS TILE
+  // --------------------------------------
+  Widget _progressTile({
+    required String title,
+    required String description,
+    required bool isCompleted,
+    required bool isCurrent,
+    required bool isLast,
+  }) {
+    return Column(
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Step Circle
+            Column(
+              children: [
+                Container(
+                  width: 26,
+                  height: 26,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isCompleted
+                        ? kPrimaryColor
+                        : isCurrent
+                        ? kPrimaryColor.withOpacity(0.15)
+                        : Colors.grey.shade300,
+                    border: Border.all(
+                      color: isCompleted || isCurrent
+                          ? kPrimaryColor
+                          : Colors.grey.shade400,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: isCompleted
+                      ? const Icon(Icons.check, color: Colors.white, size: 16)
+                      : isCurrent
+                      ? Center(
+                          child: Container(
+                            width: 10,
+                            height: 10,
+                            decoration: BoxDecoration(
+                              color: kPrimaryColor,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        )
+                      : null,
+                ),
+
+                if (!isLast)
+                  Container(
+                    width: 2,
+                    height: 50,
+                    color: isCompleted ? kPrimaryColor : Colors.grey.shade300,
+                  ),
+              ],
+            ),
+
+            const SizedBox(width: 14),
+
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: isCurrent
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        color: isCompleted || isCurrent
+                            ? Colors.black87
+                            : Colors.grey,
+                      ),
+                    ),
+                    if (isCompleted || isCurrent) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        description,
+                        style: TextStyle(fontSize: 13, color: Colors.black54),
+                      ),
+                    ],
+                    const SizedBox(height: 22),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
