@@ -302,7 +302,7 @@ class _HomeScreenState extends State<HomeScreen> {
       alignment: Alignment.bottomCenter,
       child: Container(
         height: 90,
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        // margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(24),
@@ -315,7 +315,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             _navItem("assets/icons/home.svg", "Home", 0),
             _navItem("assets/icons/order.svg", "Orders", 1),

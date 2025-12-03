@@ -404,26 +404,37 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    emailController.addListener(_validateInputs);
-    passwordController.addListener(_validateInputs);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkBiometricEnabled();
+
+    // Delay heavy tasks and biometric checks until AFTER UI renders
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _preloadImage();
+      _initPreferences();
     });
+
+    emailController.addListener(() => _validateInputs());
+    passwordController.addListener(() => _validateInputs());
   }
 
-  Future<void> _checkBiometricEnabled() async {
+  /// PRELOAD IMAGE to prevent “first decode” lag
+  Future<void> _preloadImage() async {
+    await precacheImage(const AssetImage("assets/images/login.png"), context);
+  }
+
+  /// Load SharedPreferences + check biometrics (NON BLOCKING)
+  Future<void> _initPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     final enabled = prefs.getBool("biometric_enabled") ?? false;
 
     if (!mounted) return;
-
     setState(() => showBiometric = enabled);
 
+    // Delay biometric popup slightly so UI is stable first
     if (enabled) {
-      _biometricLogin();
+      Future.delayed(const Duration(milliseconds: 200), _biometricLogin);
     }
   }
 
+  /// NON-BLOCKING BIOMETRIC LOGIN
   Future<void> _biometricLogin() async {
     final LocalAuthentication auth = LocalAuthentication();
 
@@ -441,8 +452,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (email == null || password == null) {
         _showTopMessage(
-          context,
-          message: "No saved credentials for biometric login",
+          "No saved credentials for biometric login",
           isError: true,
         );
         return;
@@ -465,37 +475,32 @@ class _LoginScreenState extends State<LoginScreen> {
 
         Navigator.pushReplacementNamed(context, "/home");
       } else {
-        _showTopMessage(context, message: response.error, isError: true);
+        _showTopMessage(response.error, isError: true);
       }
-    } catch (e) {
-      _showTopMessage(
-        context,
-        message: "Use fingerprint or FaceID to login",
-        isError: true,
-      );
     } finally {
-      setState(() => isLoading = false);
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
+  /// VALIDATE INPUTS (NO heavy setState spam)
   void _validateInputs() {
-    final emailText = emailController.text.trim();
-    final passwordText = passwordController.text;
+    final email = emailController.text.trim();
+    final password = passwordController.text;
 
-    setState(() {
-      isEmailValid =
-          emailText.isNotEmpty &&
-          emailText.toLowerCase().endsWith('@gmail.com');
-      isPasswordNotEmpty = passwordText.isNotEmpty;
-    });
+    final validEmail =
+        email.isNotEmpty && email.toLowerCase().endsWith("@gmail.com");
+
+    final validPassword = password.isNotEmpty;
+
+    if (validEmail != isEmailValid || validPassword != isPasswordNotEmpty) {
+      setState(() {
+        isEmailValid = validEmail;
+        isPasswordNotEmpty = validPassword;
+      });
+    }
   }
 
-  void _togglePasswordVisibility() {
-    setState(() {
-      isPasswordVisible = !isPasswordVisible;
-    });
-  }
-
+  /// LOGIN
   void _onLogin() async {
     if (!isEmailValid || !isPasswordNotEmpty || isLoading) return;
 
@@ -508,74 +513,80 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (response.retCode == '201') {
-        final token = response.data.jwtToken;
-        final firstName = response.data.driver.firstName;
-        final driverCode = response.data.driver.driverCode;
-        final activeStatus = response.data.driver.active;
-
         SharedPreferences prefs = await SharedPreferences.getInstance();
-        await prefs.setString("first_name", firstName);
         await prefs.setString("email", emailController.text.trim());
         await prefs.setString("password", passwordController.text.trim());
-        await prefs.setString("jwt_token", token);
-        await prefs.setString("driver_code", driverCode);
-        await prefs.setBool("active", activeStatus);
+        await prefs.setString("jwt_token", response.data.jwtToken);
+        await prefs.setString("first_name", response.data.driver.firstName);
+        await prefs.setString("driver_code", response.data.driver.driverCode);
+        await prefs.setBool("active", response.data.driver.active);
 
-        _showTopMessage(context, message: "Login successful!");
+        _showTopMessage("Login successful!");
+
         Navigator.pushReplacementNamed(context, "/home");
       } else {
-        _showTopMessage(context, message: response.error, isError: true);
+        _showTopMessage(response.error, isError: true);
       }
     } catch (e) {
-      _showTopMessage(context, message: "Error: $e", isError: true);
+      _showTopMessage("Error: $e", isError: true);
     } finally {
-      setState(() => isLoading = false);
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
-  void _showTopMessage(
-    BuildContext context, {
-    required String message,
-    bool isError = false,
-  }) {
-    final color = isError ? Colors.redAccent : Colors.green;
-    final icon = isError ? Icons.error_outline : Icons.check_circle_outline;
-
+  /// ENHANCED NON-LAG FLUSHBAR
+  void _showTopMessage(String message, {bool isError = false}) {
     Flushbar(
-      margin: EdgeInsets.all(16),
+      backgroundColor: isError ? Colors.redAccent : Colors.green,
+      margin: const EdgeInsets.all(16),
       borderRadius: BorderRadius.circular(12),
-      backgroundColor: color,
-      icon: Icon(icon, color: Colors.white, size: 28),
       message: message,
-      duration: Duration(seconds: 3),
+      duration: const Duration(seconds: 2),
       flushbarPosition: FlushbarPosition.TOP,
-      animationDuration: Duration(milliseconds: 1), // <-- almost instant
+      animationDuration: const Duration(milliseconds: 180),
     ).show(context);
-  }
-
-  @override
-  void dispose() {
-    emailController.dispose();
-    passwordController.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    final isButtonEnabled = isEmailValid && isPasswordNotEmpty;
+
+    final bool canLogin = isEmailValid && isPasswordNotEmpty && !isLoading;
 
     return Scaffold(
       backgroundColor: Colors.white,
+
+      // FIXED FOOTER — DOES NOT MOVE WHEN TYPING
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.only(bottom: 20),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                "Konek2Move v1.0.0",
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                "Powered by FSA Asya Philippines Inc | FDSAP.",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+              ),
+            ],
+          ),
+        ),
+      ),
+
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+
             children: [
               const SizedBox(height: 50),
 
-              /// 🔥 NO MORE ANIMATION — just simple image
               Center(
                 child: Image.asset(
                   "assets/images/login.png",
@@ -586,14 +597,19 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 50),
 
               Text(
-                "Lets get you Login!",
-                style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800),
+                "Let's get you Login!",
+                style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
+
               const SizedBox(height: 5),
               Text(
                 "Login now and get your deliveries on the go!",
                 style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
               ),
+
               const SizedBox(height: 35),
 
               CustomInputField(
@@ -603,7 +619,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 prefixSvg: "assets/icons/email.svg",
               ),
 
-              SizedBox(height: 15),
+              const SizedBox(height: 15),
+
               CustomInputField(
                 label: "Password",
                 hint: "Enter your password",
@@ -611,12 +628,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 obscure: !isPasswordVisible,
                 prefixSvg: "assets/icons/lock.svg",
                 suffixSvg: isPasswordVisible
-                    ? "assets/icons/close_eye.svg"
-                    : "assets/icons/open_eye.svg",
-                onSuffixTap: _togglePasswordVisibility,
+                    ? "assets/icons/open_eye.svg"
+                    : "assets/icons/close_eye.svg",
+                onSuffixTap: () =>
+                    setState(() => isPasswordVisible = !isPasswordVisible),
               ),
 
               const SizedBox(height: 12),
+
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
@@ -627,7 +646,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     );
                   },
                   child: Text(
-                    "Forgot Password?",
+                    'Forgot Password?',
                     style: TextStyle(
                       color: kPrimaryColor,
                       fontWeight: FontWeight.w500,
@@ -655,16 +674,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
 
-              if (showBiometric) const SizedBox(height: 25),
+              const SizedBox(height: 20),
 
               CustomButton(
                 text: isLoading ? "Logging in..." : "Login",
                 horizontalPadding: 0,
-                color: (isButtonEnabled && !isLoading)
-                    ? kPrimaryColor
-                    : Colors.grey,
+                color: canLogin ? kPrimaryColor : Colors.grey.shade400,
                 textColor: Colors.white,
-                onTap: (isButtonEnabled && !isLoading) ? _onLogin : null,
+                onTap: canLogin ? _onLogin : null,
               ),
 
               const SizedBox(height: 20),
@@ -674,7 +691,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   Text(
                     "Don't have an account? ",
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+                    style: TextStyle(color: Colors.grey.shade500, fontSize: 15),
                   ),
                   GestureDetector(
                     onTap: () {

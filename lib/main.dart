@@ -38,78 +38,27 @@ import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:konek2move/core/routes/app_routes.dart';
 import 'package:konek2move/ui/splash/internet_connection_screen.dart';
-import 'package:location/location.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 
 import 'core/services/provider_services.dart';
 
-Future<void> _initializePermissions() async {
-  // 1. Camera
-  if (await Permission.location.request().isDenied) {
-    debugPrint("Location permission denied");
-  }
-
-  // 2. Location (foreground)
-  if (await Permission.camera.request().isDenied) {
-    // Optionally show rationale
-    debugPrint("Camera permission denied");
-  }
-
-  // // 3. Location (background)
-  // if (await Permission.locationAlways.request().isDenied) {
-  //   debugPrint("Background location permission denied");
-  // }
-
-  // 4. Notifications (Android 13+)
-  if (await Permission.notification.request().isDenied) {
-    debugPrint("Notification permission denied");
-  }
-
-  // 5. Storage / Photos
-  if (await Permission.photos.request().isDenied) {
-    debugPrint("Photos permission denied");
-  }
-
-  if (await Permission.storage.request().isDenied) {
-    debugPrint("Storage permission denied");
-  }
-  // 8. Sensors
-  if (await Permission.sensors.request().isDenied) {
-    debugPrint("Sensors permission denied");
-  }
-}
-
-Future<void> _ensureLocationAccuracy() async {
-  final location = Location();
-
-  bool serviceEnabled = await location.serviceEnabled();
-  if (!serviceEnabled) {
-    serviceEnabled = await location.requestService();
-  }
-
-  // Request Google Location Accuracy (HIGH)
-  final accuracy = await location.changeSettings(
-    accuracy: LocationAccuracy.high,
-  );
-}
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  /// Required for Google Maps Android performance optimization
   AndroidGoogleMapsFlutter.useAndroidViewSurface = true;
 
-  // Force PORTRAIT-ONLY
+  /// Force PORTRAIT only
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
-  // Show only TOP system UI (status bar)
+  /// Show only top bar
   SystemChrome.setEnabledSystemUIMode(
     SystemUiMode.manual,
     overlays: [SystemUiOverlay.top],
   );
 
-  await _initializePermissions();
-  await _ensureLocationAccuracy();
+  /// ❌ REMOVED heavy permission requests here
+  /// They will run inside SplashScreen AFTER the UI loads.
 
   runApp(
     MultiProvider(
@@ -128,7 +77,6 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Listen to the provider
     final connectivityProvider = Provider.of<ConnectivityProvider>(context);
 
     return MaterialApp(
@@ -140,14 +88,10 @@ class MyApp extends StatelessWidget {
       ),
       initialRoute: AppRoutes.splash,
       routes: AppRoutes.routes,
-      // The builder wraps the entire application widget tree
       builder: (context, child) {
-        // Global connectivity banner using a Stack
         return Stack(
           children: [
-            // 1. The main content of the app
             child!,
-            // 2. The overlay banner, visible only when not connected
             if (!connectivityProvider.isChecking &&
                 !connectivityProvider.isConnected)
               NoInternetScreen(),
