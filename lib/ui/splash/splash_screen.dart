@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
 import 'package:konek2move/ui/login/login_screen.dart';
+import 'package:konek2move/ui/register/register_screen.dart';
 import 'package:konek2move/ui/register/terms_and_condition_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -14,8 +15,8 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideRightAnimation;
+  late Animation<double> _fade;
+  late Animation<Offset> _slide;
 
   @override
   void initState() {
@@ -23,22 +24,20 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 450),
     );
 
-    // Fade In
-    _fadeAnimation = Tween<double>(
-      begin: 0,
-      end: 1,
+    _fade = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
+
+    _slide = Tween<Offset>(
+      begin: const Offset(-0.3, 0),
+      end: Offset.zero,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
-    // Slide from LEFT → RIGHT
-    _slideRightAnimation = Tween<Offset>(
-      begin: const Offset(-0.8, 0), // start far left
-      end: const Offset(0, 0), // end at normal position
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-
-    _controller.forward();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      precacheImage(const AssetImage("assets/images/splash.png"), context);
+      if (mounted) _controller.forward();
+    });
   }
 
   @override
@@ -50,30 +49,35 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
+    final top = MediaQuery.of(context).padding.top;
+    final bottom = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: top, // ✅ Standard AppBar height
+            bottom: bottom + 24, // ✅ Bottom safe-area + spacing
+          ),
+
           child: Column(
             children: [
-              const SizedBox(height: 50),
-
-              /// -------------------------------
-              /// RIDER ANIMATION (LEFT → RIGHT)
-              /// -------------------------------
               FadeTransition(
-                opacity: _fadeAnimation,
+                opacity: _fade,
                 child: SlideTransition(
-                  position: _slideRightAnimation,
+                  position: _slide,
                   child: Image.asset(
                     "assets/images/splash.png",
                     height: size.height * 0.40,
                   ),
                 ),
               ),
-              const SizedBox(height: 30),
+
+              const SizedBox(height: 24),
+
               Text(
                 "Ready to Move with",
                 textAlign: TextAlign.center,
@@ -100,6 +104,7 @@ class _SplashScreenState extends State<SplashScreen>
 
               const Spacer(),
 
+              // ===== BUTTONS =====
               CustomButton(
                 horizontalPadding: 0,
                 text: "Get Started",
@@ -109,13 +114,13 @@ class _SplashScreenState extends State<SplashScreen>
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => TermsAndConditionScreen(),
+                      builder: (_) => RegisterScreen(email: ''),
                     ),
                   );
                 },
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
 
               CustomButton(
                 horizontalPadding: 0,
@@ -130,8 +135,6 @@ class _SplashScreenState extends State<SplashScreen>
                   );
                 },
               ),
-
-              const SizedBox(height: 50),
             ],
           ),
         ),

@@ -29,13 +29,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   late DriverLocationService _locationService;
 
-  void _onItemTapped(int index) => setState(() => _selectedIndex = index);
-
   @override
   void initState() {
     super.initState();
 
-    // Initialize notifications after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final prefs = await SharedPreferences.getInstance();
       final userCode = prefs.getString("driver_code") ?? "";
@@ -43,20 +40,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
       final notifProvider = context.read<NotificationProvider>();
 
-      // Fetch existing notifications
-      await notifProvider.fetchNotifications(
-        // userCode: userCode,
-        // userType: 'driver',
-      );
-
-      // Listen for live notifications
+      await notifProvider.fetchNotifications();
       notifProvider.listenLiveNotifications(
         userCode: userCode,
         userType: 'driver',
       );
     });
 
-    // Initialize driver location service
     _locationService = DriverLocationService();
     _locationService.startMonitoring();
   }
@@ -69,7 +59,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Wrap the whole Scaffold with Listener to detect user activity
+    final top = MediaQuery.of(context).padding.top;
+    final bottom = MediaQuery.of(context).padding.bottom;
+
     return Listener(
       onPointerDown: (_) => _locationService.userActivityDetected(),
       onPointerMove: (_) => _locationService.userActivityDetected(),
@@ -78,20 +70,23 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Consumer<NotificationProvider>(
           builder: (context, notifProvider, _) {
             return Scaffold(
-              backgroundColor: Colors.grey[100],
+              backgroundColor: Colors.white,
               body: Stack(
                 children: [
-                  // Main content
+                  // MAIN CONTENT (RESPECT SPACE FOR APPBAR & BOTTOM NAV)
                   Padding(
-                    padding: const EdgeInsets.only(top: 80, bottom: 110),
+                    padding: EdgeInsets.only(
+                      top: top + 60,
+                      bottom: bottom + 70,
+                    ),
                     child: _screens[_selectedIndex],
                   ),
 
-                  // Custom AppBar
-                  _buildAppBar(notifProvider),
+                  // TOP APP BAR
+                  _buildAppBar(notifProvider, top),
 
-                  // Floating Bottom Navigation
-                  _buildBottomNav(),
+                  // BOTTOM NAVIGATION
+                  _buildBottomNav(bottom),
                 ],
               ),
             );
@@ -101,221 +96,83 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildAppBar(NotificationProvider notifProvider) {
+  // ------------------------------------------------------------
+  // APP BAR (MATCH SIZE OF _buildHeader, FIX BADGE CUT)
+  // ------------------------------------------------------------
+  Widget _buildAppBar(NotificationProvider notifProvider, double top) {
     return Positioned(
-      top: 0,
       left: 0,
       right: 0,
+      top: 0,
       child: Container(
-        height: 80,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: const BorderRadius.only(
-            bottomLeft: Radius.circular(24),
-            bottomRight: Radius.circular(24),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black12,
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
+        padding: EdgeInsets.only(
+          left: 24,
+          right: 24,
+          bottom: 12,
+          top: top + 12,
         ),
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Stack(
-            alignment: Alignment.bottomCenter,
-            children: [
-              Text(
-                _getTitle(),
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-              ),
-              Positioned(
-                right: 16,
-                child: GestureDetector(
-                  onTap: () =>
-                      Navigator.pushReplacementNamed(context, '/notification'),
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Center(
-                        child: Container(
-                          width: 30,
-                          height: 30,
-                          decoration: BoxDecoration(
-                            color: kPrimaryColor.withOpacity(0.06),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: SvgPicture.asset(
-                            "assets/icons/notification.svg",
-                            width: 30,
-                            height: 30,
-                            colorFilter: const ColorFilter.mode(
-                              kPrimaryColor,
-                              BlendMode.srcIn,
-                            ),
-                          ),
-                        ),
-                      ),
-                      if (notifProvider.unreadCount > 0)
-                        Positioned(
-                          right: -4,
-                          top: -4,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.white,
-                                width: 1.5,
-                              ),
-                            ),
-                            child: Text(
-                              '${notifProvider.unreadCount}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-  // Widget _buildAppBar(NotificationProvider notifProvider) {
-  //   final statusBar = MediaQuery.of(context).padding.top;
-  //   final safeHeight = kToolbarHeight + statusBar; // 56 + status bar height
-  //
-  //   return Positioned(
-  //     top: 0,
-  //     left: 0,
-  //     right: 0,
-  //     child: Container(
-  //       height: safeHeight,
-  //       decoration: BoxDecoration(
-  //         color: Colors.white,
-  //         borderRadius: const BorderRadius.only(
-  //           bottomLeft: Radius.circular(24),
-  //           bottomRight: Radius.circular(24),
-  //         ),
-  //         boxShadow: [
-  //           BoxShadow(
-  //             color: Colors.black12,
-  //             blurRadius: 10,
-  //             offset: const Offset(0, 3),
-  //           ),
-  //         ],
-  //       ),
-  //       child: Padding(
-  //         padding: EdgeInsets.only(bottom: 12, top: statusBar),
-  //         child: Stack(
-  //           alignment: Alignment.bottomCenter,
-  //           children: [
-  //             Text(
-  //               _getTitle(),
-  //               style: const TextStyle(
-  //                 fontSize: 20,
-  //                 fontWeight: FontWeight.bold,
-  //                 color: Colors.black,
-  //               ),
-  //             ),
-  //
-  //             Positioned(
-  //               right: 16,
-  //               child: GestureDetector(
-  //                 onTap: () =>
-  //                     Navigator.pushReplacementNamed(context, '/notification'),
-  //                 child: Stack(
-  //                   clipBehavior: Clip.none,
-  //                   children: [
-  //                     Center(
-  //                       child: Container(
-  //                         width: 30,
-  //                         height: 30,
-  //                         decoration: BoxDecoration(
-  //                           color: kPrimaryColor.withOpacity(0.06),
-  //                           borderRadius: BorderRadius.circular(12),
-  //                         ),
-  //                         child: SvgPicture.asset(
-  //                           "assets/icons/notification.svg",
-  //                           width: 30,
-  //                           height: 30,
-  //                           colorFilter: const ColorFilter.mode(
-  //                             kPrimaryColor,
-  //                             BlendMode.srcIn,
-  //                           ),
-  //                         ),
-  //                       ),
-  //                     ),
-  //
-  //                     if (notifProvider.unreadCount > 0)
-  //                       Positioned(
-  //                         right: -4,
-  //                         top: -4,
-  //                         child: Container(
-  //                           padding: const EdgeInsets.all(4),
-  //                           decoration: BoxDecoration(
-  //                             color: Colors.red,
-  //                             shape: BoxShape.circle,
-  //                             border: Border.all(
-  //                               color: Colors.white,
-  //                               width: 1.5,
-  //                             ),
-  //                           ),
-  //                           child: Text(
-  //                             '${notifProvider.unreadCount}',
-  //                             style: const TextStyle(
-  //                               color: Colors.white,
-  //                               fontSize: 10,
-  //                               fontWeight: FontWeight.bold,
-  //                             ),
-  //                           ),
-  //                         ),
-  //                       ),
-  //                   ],
-  //                 ),
-  //               ),
-  //             ),
-  //           ],
-  //         ),
-  //       ),
-  //     ),
-  //   );
-  // }
-
-  Widget _buildBottomNav() {
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: Container(
-        height: 90,
-        // margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: Colors.black12,
-              blurRadius: 10,
-              offset: const Offset(0, -3),
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 18,
+              offset: const Offset(0, -2),
             ),
           ],
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // LEFT placeholder (keeps title centered)
+            const SizedBox(width: 40),
+
+            // CENTER TITLE
+            Expanded(
+              child: Center(
+                child: Text(
+                  _getTitle(),
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+            ),
+
+            // RIGHT NOTIF ICON
+            _notificationIcon(notifProvider),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------
+  // BOTTOM NAVIGATION
+  // ------------------------------------------------------------
+  Widget _buildBottomNav(double bottom) {
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 0,
+      child: Container(
+        padding: EdgeInsets.only(left: 24, right: 24, bottom: bottom, top: 5),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 18,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             _navItem("assets/icons/home.svg", "Home", 0),
             _navItem("assets/icons/order.svg", "Orders", 1),
@@ -327,6 +184,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ------------------------------------------------------------
+  // PAGE TITLE
+  // ------------------------------------------------------------
   String _getTitle() {
     switch (_selectedIndex) {
       case 0:
@@ -342,14 +202,17 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // ------------------------------------------------------------
+  // NAV ITEMS
+  // ------------------------------------------------------------
   Widget _navItem(String icon, String label, int index) {
-    bool isSelected = _selectedIndex == index;
+    bool selected = _selectedIndex == index;
 
     return Expanded(
       child: InkWell(
         splashColor: Colors.transparent,
         highlightColor: Colors.transparent,
-        onTap: () => _onItemTapped(index),
+        onTap: () => setState(() => _selectedIndex = index),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 10),
           child: Column(
@@ -359,7 +222,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 duration: const Duration(milliseconds: 200),
                 width: 50,
                 height: 50,
-                decoration: isSelected
+                decoration: selected
                     ? BoxDecoration(
                         color: kPrimaryColor.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(16),
@@ -371,7 +234,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     width: 35,
                     height: 35,
                     colorFilter: ColorFilter.mode(
-                      isSelected ? kPrimaryColor : Colors.grey,
+                      selected ? kPrimaryColor : Colors.grey,
                       BlendMode.srcIn,
                     ),
                   ),
@@ -380,14 +243,65 @@ class _HomeScreenState extends State<HomeScreen> {
               Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? kPrimaryColor : Colors.grey,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: selected ? kPrimaryColor : Colors.grey,
+                  fontWeight: selected ? FontWeight.bold : FontWeight.normal,
                   fontSize: 12,
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _notificationIcon(NotificationProvider notifProvider) {
+    return GestureDetector(
+      onTap: () => Navigator.pushReplacementNamed(context, '/notification'),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: kPrimaryColor.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: SvgPicture.asset(
+              "assets/icons/notification.svg",
+              width: 26,
+              height: 26,
+              colorFilter: const ColorFilter.mode(
+                kPrimaryColor,
+                BlendMode.srcIn,
+              ),
+            ),
+          ),
+
+          if (notifProvider.unreadCount > 0)
+            Positioned(
+              right: -4,
+              top: -4,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+                child: Text(
+                  '${notifProvider.unreadCount}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

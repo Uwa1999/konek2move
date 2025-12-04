@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/services/api_services.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
+import 'package:konek2move/core/widgets/custom_fields.dart';
 import 'package:konek2move/ui/login/forgot_password_verification_screen.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
@@ -106,14 +107,20 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final top = MediaQuery.of(context).padding.top;
+    final bottom = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          _buildHeader(),
+          _buildHeader(top), // ⭐ pass top padding to header
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 24,
+              ), // ⭐ clean page padding
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -121,26 +128,38 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     "Forgot Password",
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 6),
+
+                  const SizedBox(height: 8),
+
                   Text(
                     "Please enter the registered mobile number to reset your password",
-                    style: TextStyle(color: Colors.grey, fontSize: 15),
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
                   ),
-                  const SizedBox(height: 40),
-                  _buildLabel("Email Address"),
-                  const SizedBox(height: 5),
-                  _buildEmailField(),
-                  const SizedBox(height: 20), // Space before bottom button
+
+                  const SizedBox(height: 32),
+
+                  CustomInputField(
+                    label: "Email",
+                    hint: "Enter your email",
+                    controller: forgotEmailController,
+                    prefixSvg: "assets/icons/email.svg",
+                  ), // ⭐ consistent bottom spacing before button
                 ],
               ),
             ),
           ),
+
+          // ⭐ Dynamic + consistent footer spacing
           Padding(
-            padding: const EdgeInsets.only(bottom: 24, left: 24, right: 24),
+            padding: EdgeInsets.only(
+              left: 24,
+              right: 24,
+              bottom: bottom + 16, // ⭐ dynamic safe-area + consistent spacing
+            ),
             child: CustomButton(
               text: isLoading ? "Sending..." : "Continue",
               horizontalPadding: 0,
-              color: isEmailValid ? kPrimaryColor : Colors.grey,
+              color: isEmailValid ? kPrimaryColor : Colors.grey.shade400,
               textColor: Colors.white,
               onTap: isEmailValid && !isLoading ? _onSendCode : null,
             ),
@@ -150,78 +169,45 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(double top) {
     return Container(
-      height: 80,
       width: double.infinity,
-      decoration: const BoxDecoration(
+      padding: EdgeInsets.only(top: top + 12, bottom: 16),
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.only(
+        borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(24),
           bottomRight: Radius.circular(24),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black12,
-            blurRadius: 10,
-            offset: Offset(0, 3),
+            color: Colors.black.withOpacity(0.04), // ⭐ softer & cleaner
+            blurRadius: 16, // ⭐ smooth shadow
+            offset: const Offset(0, 4), // ⭐ subtle elevation
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Stack(
-          alignment: Alignment.bottomCenter,
-          children: [
-            const Text(
-              "Forgot Password",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            Positioned(
-              left: 16,
-              child: GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.06),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.arrow_back, size: 20),
-                ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          const Text(
+            "Forgot Password",
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+
+          Positioned(
+            left: 16,
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                child: const Icon(Icons.arrow_back, size: 24),
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLabel(String text) {
-    return Text(
-      text,
-      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-    );
-  }
-
-  Widget _buildEmailField() {
-    return TextField(
-      controller: forgotEmailController,
-      keyboardType: TextInputType.emailAddress,
-      decoration: InputDecoration(
-        hintStyle: TextStyle(color: Colors.grey.shade600),
-        hintText: "Enter your email",
-        filled: true,
-        fillColor: Colors.grey.shade100,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
-        ),
+          ),
+        ],
       ),
     );
   }

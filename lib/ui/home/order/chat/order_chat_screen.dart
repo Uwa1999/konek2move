@@ -673,7 +673,7 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => scrollToBottom());
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: Colors.white,
       body: Column(
         children: [
           _buildHeader(),

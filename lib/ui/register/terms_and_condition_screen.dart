@@ -16,28 +16,31 @@ class _TermsAndConditionScreenState extends State<TermsAndConditionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final top = MediaQuery.of(context).padding.top;
+    final bottom = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          // Top AppBar
-          _buildHeader(),
+          _buildHeader(top),
 
           // Scrollable Content
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Top Image
                   Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.3),
-                          blurRadius: 10,
-                          offset: Offset(0, 3),
+                          color: Colors.black.withOpacity(0.12),
+                          blurRadius: 12,
+                          offset: Offset(0, 4),
                         ),
                       ],
                     ),
@@ -49,7 +52,9 @@ class _TermsAndConditionScreenState extends State<TermsAndConditionScreen> {
                       ),
                     ),
                   ),
-                  SizedBox(height: 20),
+
+                  const SizedBox(height: 32), // ⭐ better spacing
+                  // Terms Sections
                   _TermsSection(
                     title: "1. Introduction",
                     content:
@@ -97,7 +102,7 @@ class _TermsAndConditionScreenState extends State<TermsAndConditionScreen> {
 
           // Bottom Agreement & Button
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            padding: EdgeInsets.fromLTRB(24, 16, 24, bottom + 16),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: const BorderRadius.only(
@@ -127,10 +132,11 @@ class _TermsAndConditionScreenState extends State<TermsAndConditionScreen> {
                             });
                           },
                           activeColor: kPrimaryColor,
-                          shape: CircleBorder(), // makes the checkbox round
+                          shape: const CircleBorder(),
                         );
                       },
                     ),
+
                     const Expanded(
                       child: Text(
                         "I have read and agree to all the Terms & Conditions",
@@ -139,7 +145,9 @@ class _TermsAndConditionScreenState extends State<TermsAndConditionScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+
+                const SizedBox(height: 16),
+
                 CustomButton(
                   text: "Continue",
                   color: isAccepted ? kPrimaryColor : Colors.grey,
@@ -154,6 +162,7 @@ class _TermsAndConditionScreenState extends State<TermsAndConditionScreen> {
                         }
                       : null,
                 ),
+
                 const SizedBox(height: 12),
               ],
             ),
@@ -163,10 +172,14 @@ class _TermsAndConditionScreenState extends State<TermsAndConditionScreen> {
     );
   }
 
-  Widget _buildHeader() {
+  // ⭐ FIXED HEADER WITH DYNAMIC SPACING
+  Widget _buildHeader(double top) {
     return Container(
-      height: 80,
       width: double.infinity,
+      padding: EdgeInsets.only(
+        top: top + 12, // ⭐ dynamic safe-area + spacing
+        bottom: 16,
+      ),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.only(
@@ -181,37 +194,30 @@ class _TermsAndConditionScreenState extends State<TermsAndConditionScreen> {
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Stack(
-          alignment: Alignment.bottomCenter,
-          children: [
-            const Text(
-              "Terms & Conditions",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            Positioned(
-              left: 16,
-              child: GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => SplashScreen()),
-                  );
-                },
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.06),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.arrow_back, size: 20),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          const Text(
+            "Terms & Conditions",
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+
+          Positioned(
+            left: 16, // or 24 depending on design
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                width: 40, // ⭐ ideal tap target size
+                height: 40, // ⭐ ideal tap target size
+                alignment: Alignment.center,
+                child: const Icon(
+                  Icons.arrow_back,
+                  size: 24, // ⭐ standard icon size
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

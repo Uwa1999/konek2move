@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/services/api_services.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
+import 'package:konek2move/core/widgets/custom_fields.dart';
 import 'package:konek2move/ui/register/email_verification_screen.dart';
 import 'package:konek2move/ui/splash/splash_screen.dart';
 
@@ -104,14 +105,18 @@ class _EmailScreenState extends State<EmailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final top = MediaQuery.of(context).padding.top;
+    final bottom = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          _buildHeader(),
+          _buildHeader(top), // ⭐ pass dynamic top spacing
+
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -119,25 +124,34 @@ class _EmailScreenState extends State<EmailScreen> {
                     "Email Verification",
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 6),
+
+                  const SizedBox(height: 8),
+
                   Text(
                     "Please enter an email address that is not yet registered to continue.",
-                    style: TextStyle(color: Colors.grey, fontSize: 15),
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
                   ),
-                  const SizedBox(height: 30),
-                  _buildLabel("Email"),
-                  const SizedBox(height: 10),
-                  _buildEmailField(),
+
+                  const SizedBox(height: 32), // ⭐ section spacing
+
+                  CustomInputField(
+                    label: "Email",
+                    hint: "Enter your email",
+                    controller: emailController,
+                    prefixSvg: "assets/icons/email.svg",
+                  ),
                 ],
               ),
             ),
           ),
+
+          // ⭐ Footer spacing dynamic + clean
           Padding(
-            padding: const EdgeInsets.only(bottom: 24, left: 24, right: 24),
+            padding: EdgeInsets.fromLTRB(24, 0, 24, bottom + 16),
             child: CustomButton(
               text: isLoading ? "Sending..." : "Continue",
               horizontalPadding: 0,
-              color: isEmailValid ? kPrimaryColor : Colors.grey,
+              color: isEmailValid ? kPrimaryColor : Colors.grey.shade400,
               textColor: Colors.white,
               onTap: isEmailValid && !isLoading ? _onSendCode : null,
             ),
@@ -147,11 +161,14 @@ class _EmailScreenState extends State<EmailScreen> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(double top) {
     return Container(
-      height: 80,
       width: double.infinity,
-      decoration: const BoxDecoration(
+      padding: EdgeInsets.only(
+        top: top + 12, // ⭐ dynamic safe-area spacing
+        bottom: 16, // ⭐ consistent bottom padding
+      ),
+      decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(24),
@@ -159,71 +176,34 @@ class _EmailScreenState extends State<EmailScreen> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black12,
-            blurRadius: 10,
-            offset: Offset(0, 3),
+            color: Colors.black.withOpacity(0.04), // ⭐ softer & cleaner
+            blurRadius: 16, // ⭐ smooth shadow
+            offset: const Offset(0, 4), // ⭐ subtle elevation
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Stack(
-          alignment: Alignment.bottomCenter,
-          children: [
-            const Text(
-              "Verification",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            Positioned(
-              left: 16,
-              child: GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => SplashScreen()),
-                  );
-                },
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.06),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.arrow_back, size: 20),
-                ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          const Text(
+            "Registration",
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+
+          // ⭐ Standard back button size and padding
+          Positioned(
+            left: 16,
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                child: const Icon(Icons.arrow_back, size: 24),
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLabel(String text) {
-    return Text(
-      text,
-      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-    );
-  }
-
-  Widget _buildEmailField() {
-    return TextField(
-      controller: emailController,
-      keyboardType: TextInputType.emailAddress,
-      decoration: InputDecoration(
-        hintStyle: TextStyle(color: Colors.grey.shade600),
-        hintText: "Enter your email",
-        filled: true,
-        fillColor: Colors.grey.shade100,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
-        ),
+          ),
+        ],
       ),
     );
   }

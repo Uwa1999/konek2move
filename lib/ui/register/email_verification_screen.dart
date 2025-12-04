@@ -207,31 +207,40 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final top = MediaQuery.of(context).padding.top;
+    final bottom = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          // Custom AppBar
-          _buildHeader(),
+          _buildHeader(top),
 
-          // Form
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
+
                   Text(
                     "Verification Email",
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
+
                   const SizedBox(height: 12),
+
                   Text(
                     "Enter the code we just sent to email",
                     style: TextStyle(color: Colors.grey.shade600),
                   ),
+
                   const SizedBox(height: 6),
+
                   Text(
                     maskEmailAddress(widget.email),
                     style: const TextStyle(
@@ -239,18 +248,22 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                       fontSize: 16,
                     ),
                   ),
-                  const SizedBox(height: 32),
+
+                  const SizedBox(height: 32), // ⭐ section spacing
+
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(
                       6,
                       (i) => Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 3),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
                         child: _otpBox(i),
                       ),
                     ),
                   ),
+
                   const SizedBox(height: 24),
+
                   _secondsRemaining == 0
                       ? Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -272,20 +285,21 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                           "Resend available in $_secondsRemaining seconds",
                           style: TextStyle(color: Colors.grey.shade600),
                         ),
+
                   const SizedBox(height: 20),
                 ],
               ),
             ),
           ),
 
-          // Bottom Continue button
+          // ⭐ Bottom button spacing
           Padding(
-            padding: const EdgeInsets.only(bottom: 24, left: 24, right: 24),
+            padding: EdgeInsets.fromLTRB(24, 0, 24, bottom + 16),
             child: CustomButton(
               text: isLoading ? "Sending..." : "Continue",
               horizontalPadding: 0,
-              color: isOtpComplete ? kPrimaryColor : Colors.grey,
-              textColor: isOtpComplete ? Colors.white : Colors.grey.shade600,
+              color: isOtpComplete ? kPrimaryColor : Colors.grey.shade400,
+              textColor: Colors.white,
               onTap: isOtpComplete && !isLoading ? _verifyOtp : null,
             ),
           ),
@@ -294,55 +308,51 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(double top) {
     return Container(
-      height: 80,
       width: double.infinity,
-      decoration: const BoxDecoration(
+      padding: EdgeInsets.only(
+        top: top + 12, // ⭐ dynamic safe-area + spacing
+        bottom: 16, // ⭐ clean balanced bottom padding
+      ),
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.only(
+        borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(24),
           bottomRight: Radius.circular(24),
         ),
+
+        // ⭐ PREMIUM SOFT SHADOW
         boxShadow: [
           BoxShadow(
-            color: Colors.black12,
-            blurRadius: 10,
-            offset: Offset(0, 3),
+            color: Colors.black.withOpacity(0.05), // much softer
+            blurRadius: 18, // smoother spread
+            offset: const Offset(0, 4), // subtle lift
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Stack(
-          alignment: Alignment.bottomCenter,
-          children: [
-            const Text(
-              "Verification",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            Positioned(
-              left: 16,
-              child: GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => SplashScreen()),
-                  );
-                },
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.06),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.arrow_back, size: 20),
-                ),
+
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          const Text(
+            "Verification",
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+
+          Positioned(
+            left: 16,
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                child: const Icon(Icons.arrow_back, size: 24),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

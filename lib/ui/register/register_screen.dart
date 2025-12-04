@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:another_flushbar/flushbar.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/svg.dart';
@@ -8,8 +9,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/services/api_services.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
+import 'package:konek2move/core/widgets/custom_dropdown.dart';
+import 'package:konek2move/core/widgets/custom_fields.dart';
 import 'package:konek2move/ui/login/progress_tracker_screen.dart';
-import 'package:konek2move/ui/register/email.dart';
 
 class RegisterScreen extends StatefulWidget {
   final String email;
@@ -45,7 +47,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       TextEditingController();
 
   bool isMobileValid = false;
-  bool isPasswordVisible = false;
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
   String? selectedSuffix;
@@ -66,29 +67,48 @@ class _RegisterScreenState extends State<RegisterScreen> {
     BuildContext context,
   ) async {
     final ImagePicker picker = ImagePicker();
+    final bottom = MediaQuery.of(context).padding.bottom;
 
-    final source = await showModalBottomSheet<ImageSource>(
+    await showModalBottomSheet<ImageSource>(
       context: context,
       backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
+      builder: (_) {
         return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+          padding: EdgeInsets.fromLTRB(16, 16, 16, bottom + 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                "Select Image",
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              // --- DRAG HANDLE (Same as CustomDropdownField) ---
+              Container(
+                height: 5,
+                width: 50,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
-              SizedBox(height: 10),
+
+              // --- TITLE ---
+              const Text(
+                "Select Image",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+
+              const SizedBox(height: 12),
+
+              // --- SUBTITLE ---
               Text(
                 "Choose where to get your image from",
-                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
               ),
-              SizedBox(height: 20),
+
+              const SizedBox(height: 24),
+
+              // --- GRID OPTIONS (Camera / Gallery) ---
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
@@ -97,16 +117,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     child: Column(
                       children: [
                         CircleAvatar(
-                          radius: 30,
+                          radius: 32,
                           backgroundColor: Colors.blue[50],
                           child: SvgPicture.asset(
-                            'assets/icons/camera.svg',
-                            width: 35,
-                            height: 35,
+                            "assets/icons/camera.svg",
+                            width: 32,
+                            height: 32,
                           ),
                         ),
-                        SizedBox(height: 8),
-                        Text("Camera", style: TextStyle(fontSize: 14)),
+                        const SizedBox(height: 8),
+                        const Text("Camera", style: TextStyle(fontSize: 14)),
                       ],
                     ),
                   ),
@@ -115,27 +135,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     child: Column(
                       children: [
                         CircleAvatar(
-                          radius: 30,
+                          radius: 32,
                           backgroundColor: Colors.green[50],
                           child: SvgPicture.asset(
-                            'assets/icons/gallery.svg',
-                            width: 35,
-                            height: 35,
+                            "assets/icons/gallery.svg",
+                            width: 32,
+                            height: 32,
                           ),
                         ),
-                        SizedBox(height: 8),
-                        Text("Gallery", style: TextStyle(fontSize: 14)),
+                        const SizedBox(height: 8),
+                        const Text("Gallery", style: TextStyle(fontSize: 14)),
                       ],
                     ),
                   ),
                 ],
               ),
-              SizedBox(height: 20),
-              Divider(),
-              SizedBox(height: 10),
+
+              const SizedBox(height: 28),
+
+              const Divider(),
+
+              // --- CANCEL BUTTON ---
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: Text(
+                child: const Text(
                   "Cancel",
                   style: TextStyle(color: Colors.red, fontSize: 16),
                 ),
@@ -144,18 +167,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         );
       },
-    );
+    ).then((source) async {
+      if (source != null) {
+        final XFile? pickedFile = await picker.pickImage(
+          source: source,
+          imageQuality: 80,
+        );
 
-    if (source != null) {
-      final XFile? pickedFile = await picker.pickImage(
-        source: source,
-        imageQuality: 80,
-      );
-
-      if (pickedFile != null) {
-        onImagePicked(File(pickedFile.path));
+        if (pickedFile != null) {
+          onImagePicked(File(pickedFile.path));
+        }
       }
-    }
+    });
   }
 
   @override
@@ -349,22 +372,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final top = MediaQuery.of(context).padding.top;
+    final bottom = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          _buildHeader(),
+          _buildHeader(top),
           _buildProgressSteps(),
-
           Expanded(
             child: PageView(
               controller: _pageController,
-              physics: NeverScrollableScrollPhysics(), // lock swipe
+              physics: const NeverScrollableScrollPhysics(),
               children: [
-                _buildPersonalInfoStep(),
-                _buildContactInfoStep(),
-                _buildVehicleInfoStep(),
-                _buildSetupPasswordStep(),
+                _buildPersonalInfoStep(bottom),
+                _buildContactInfoStep(bottom),
+                _buildVehicleInfoStep(bottom),
+                _buildSetupPasswordStep(bottom),
               ],
             ),
           ),
@@ -374,68 +400,65 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   // ---------------------------------------------------------
-  // APP BAR
+  // HEADER WITH SOFT SHADOW + SPACING
   // ---------------------------------------------------------
-  Widget _buildHeader() {
+  Widget _buildHeader(double top) {
     return Container(
-      height: 80,
       width: double.infinity,
-      decoration: const BoxDecoration(
+      padding: EdgeInsets.only(
+        top: top + 12, // ⭐ dynamic safe-area spacing
+        bottom: 16, // ⭐ balanced bottom spacing
+      ),
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.only(
+        borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(24),
           bottomRight: Radius.circular(24),
         ),
+
+        // ⭐ Modern Soft Shadow
         boxShadow: [
           BoxShadow(
-            color: Colors.black12,
-            blurRadius: 10,
-            offset: Offset(0, 3),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Stack(
-          alignment: Alignment.bottomCenter,
-          children: [
-            const Text(
-              "Registration",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            Positioned(
-              left: 16,
-              child: GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => EmailScreen()),
-                  );
-                },
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.06),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.arrow_back, size: 20),
-                ),
+
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          const Text(
+            "Registration",
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+
+          Positioned(
+            left: 16,
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                child: const Icon(Icons.arrow_back, size: 24),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   // ---------------------------------------------------------
-  // PROGRESS STEPS
+  // STEP PROGRESS INDICATOR WITH CONSISTENT SPACING
   // ---------------------------------------------------------
   Widget _buildProgressSteps() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           _modernStep(0, "Personal Info"),
           _stepConnector(0),
@@ -515,21 +538,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  // ---------------------------------------------------------
-  // STEP 1 — PERSONAL INFO
-  // ---------------------------------------------------------
-  Widget _buildPersonalInfoStep() {
+  Widget _buildPersonalInfoStep(double bottom) {
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Column(
         children: [
-          // Scrollable content
           Expanded(
             child: SingleChildScrollView(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Expanded(
                         child: Text(
@@ -541,6 +564,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                         ),
                       ),
+                      const SizedBox(width: 12),
                       Image.asset(
                         "assets/images/register.png",
                         height: 120,
@@ -548,104 +572,98 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ],
                   ),
-                  SizedBox(height: 30),
-                  _buildSectionTitle("First Name", required: true),
-                  const SizedBox(height: 10),
-                  _buildTextField(_fnameController, "First Name"),
-                  const SizedBox(height: 15),
-                  _buildSectionTitle("Middle Name"),
-                  const SizedBox(height: 10),
-                  _buildTextField(_mnameController, "Middle Name (Optional)"),
-                  const SizedBox(height: 15),
+
+                  const SizedBox(height: 16),
+
+                  CustomInputField(
+                    required: true,
+                    label: "First Name",
+                    hint: "First Name",
+                    controller: _fnameController,
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  CustomInputField(
+                    label: "Middle Name",
+                    hint: "Middle Name (Optional)",
+                    controller: _mnameController,
+                  ),
+
+                  const SizedBox(height: 16),
+
                   Row(
                     children: [
                       Expanded(
                         flex: 2,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildSectionTitle("Last Name", required: true),
-                            const SizedBox(height: 10),
-                            _buildTextField(_lnameController, "Last Name"),
-                          ],
+                        child: CustomInputField(
+                          required: true,
+                          label: "Last Name",
+                          hint: "Last Name",
+                          controller: _lnameController,
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 16),
                       Expanded(
                         flex: 1,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildSectionTitle("Suffix"),
-                            const SizedBox(height: 10),
-                            // _buildDropdownFields(
-                            //   "Suffix",
-                            //   suffixOptions.isEmpty
-                            //       ? ["Loading..."]
-                            //       : suffixOptions,
-                            //   selectedSuffix,
-                            //   (value) {
-                            //     setState(() {
-                            //       selectedSuffix = value;
-                            //       _suffixController.text = value ?? "";
-                            //     });
-                            //   },
-                            // ),
-                            _buildDropdownFields(
-                              context,
-                              "Suffix",
-                              suffixOptions.isEmpty
-                                  ? ["Loading.."]
-                                  : suffixOptions,
-                              selectedSuffix,
-                              (value) {
-                                setState(() {
-                                  selectedSuffix = value;
-                                  _suffixController.text = value ?? "";
-                                });
-                              },
-                            ),
-                          ],
+                        child: CustomDropdownField(
+                          label: "Suffix",
+                          hint: "Suffix",
+                          options: suffixOptions,
+                          value: selectedSuffix,
+                          onChanged: (val) {
+                            setState(() {
+                              selectedSuffix = val;
+                              _suffixController.text = val ?? "";
+                            });
+                          },
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 15),
-                  _buildSectionTitle("Gender", required: true),
-                  const SizedBox(height: 10),
-                  _buildDropdownFields(
-                    context,
-                    "Select Gender",
-                    genderOptions.isEmpty ? ["Loading..."] : genderOptions,
-                    selectedGender,
-                    (value) {
+
+                  const SizedBox(height: 16),
+
+                  CustomDropdownField(
+                    label: "Gender",
+                    hint: "Select Gender",
+                    options: genderOptions,
+                    value: selectedGender,
+                    required: true,
+                    onChanged: (val) {
                       setState(() {
-                        selectedGender = value;
-                        _genderController.text = value ?? "";
+                        selectedGender = val;
+                        _genderController.text = val ?? "";
                       });
                     },
                   ),
-                  const SizedBox(height: 30),
+
+                  const SizedBox(height: 32),
                 ],
               ),
             ),
           ),
-          // Button at the bottom
-          CustomButton(
-            text: "Next",
-            horizontalPadding: 0,
-            color: _isPersonalInfoValid() ? kPrimaryColor : Colors.grey,
-            textColor: Colors.white,
-            onTap: _isPersonalInfoValid()
-                ? () {
-                    setState(() => _currentStep = 1);
-                    _pageController.animateToPage(
-                      1,
-                      duration: Duration(milliseconds: 300),
-                      curve: Curves.easeOut,
-                    );
-                  }
-                : null,
+
+          // BUTTON AT BOTTOM
+          Padding(
+            padding: EdgeInsets.only(bottom: bottom),
+            child: CustomButton(
+              radius: 30,
+              text: "Next",
+              horizontalPadding: 0,
+              color: _isPersonalInfoValid() ? kPrimaryColor : Colors.grey,
+              textColor: Colors.white,
+              onTap: _isPersonalInfoValid()
+                  ? () {
+                      setState(() => _currentStep = 1);
+                      _pageController.animateToPage(
+                        1,
+                        duration: Duration(milliseconds: 300),
+                        curve: Curves.easeOut,
+                      );
+                    }
+                  : null,
+            ),
           ),
         ],
       ),
@@ -655,18 +673,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
   // ---------------------------------------------------------
   // STEP 2 — CONTACT INFO
   // ---------------------------------------------------------
-  Widget _buildContactInfoStep() {
+  Widget _buildContactInfoStep(double bottom) {
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Column(
         children: [
-          // Scrollable content
           Expanded(
             child: SingleChildScrollView(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Expanded(
                         child: Text(
@@ -678,6 +699,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                         ),
                       ),
+                      const SizedBox(width: 12),
                       Image.asset(
                         "assets/images/contact.png",
                         height: 120,
@@ -685,88 +707,83 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ],
                   ),
-                  SizedBox(height: 30),
-                  _buildSectionTitle("Mobile Number", required: true),
-                  const SizedBox(height: 10),
-                  _buildTextField(
-                    _mobileController,
-                    "e.g., 09123456789",
-                    keyboardType: TextInputType.number,
+
+                  const SizedBox(height: 16),
+
+                  CustomInputField(
+                    required: true,
+                    label: "Mobile Number",
+                    hint: "e.g., 09123456789",
+                    controller: _mobileController,
+                    keyboardType: TextInputType.phone,
                     maxLength: 11,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   ),
-                  const SizedBox(height: 15),
-                  _buildSectionTitle("Email Address", required: true),
-                  const SizedBox(height: 10),
-                  _buildTextField(
-                    _emailController,
-                    "e.g., name@example.com",
+
+                  // ✉ EMAIL ADDRESS
+                  CustomInputField(
+                    required: true,
+                    label: "Email Address",
+                    hint: "name@example.com",
+                    controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                   ),
-                  const SizedBox(height: 15),
-                  _buildSectionTitle("Complete Address", required: true),
-                  const SizedBox(height: 10),
-                  _buildTextField(
-                    _addressController,
-                    "House No., Street, Barangay, City",
+
+                  const SizedBox(height: 16),
+
+                  // 🏠 COMPLETE ADDRESS
+                  CustomInputField(
+                    required: true,
+                    label: "Complete Address",
+                    hint: "House No., Street, Barangay, City",
+                    controller: _addressController,
                   ),
-                  const SizedBox(height: 30),
-                  // _buildSectionTitle("Assign Location", required: true),
-                  // _buildDropdownFields(
-                  //   context,
-                  //   "Select Region",
-                  //   regionOptions.isEmpty ? ["Loading..."] : regionOptions,
-                  //   selectedRegion,
-                  //   (value) {
-                  //     setState(() {
-                  //       selectedRegion = value;
-                  //       _regionController.text = value ?? "";
-                  //     });
-                  //   },
-                  // ),
+
+                  const SizedBox(height: 32),
                 ],
               ),
             ),
           ),
-          // Buttons at the bottom
-          Row(
-            children: [
-              Expanded(
-                child: CustomButton(
-                  horizontalPadding: 0,
-                  text: "Back",
-                  color: Colors.grey,
-                  textColor: Colors.white,
-                  onTap: () {
-                    setState(() => _currentStep = 0);
-                    _pageController.animateToPage(
-                      0,
-                      duration: Duration(milliseconds: 300),
-                      curve: Curves.easeOut,
-                    );
-                  },
+
+          /// ⬅️ BACK / NEXT BUTTONS
+          Padding(
+            padding: EdgeInsets.only(bottom: bottom),
+            child: Row(
+              children: [
+                Expanded(
+                  child: CustomButton(
+                    radius: 30,
+                    icon: Icon(CupertinoIcons.back),
+                    horizontalPadding: 0,
+                    color: Colors.grey,
+                    textColor: Colors.white,
+                    onTap: () {
+                      setState(() => _currentStep = 0);
+                      _pageController.jumpToPage(0);
+                    },
+                  ),
                 ),
-              ),
-              SizedBox(width: 10),
-              Expanded(
-                child: CustomButton(
-                  horizontalPadding: 0,
-                  text: "Next",
-                  color: _isContactInfoValid() ? kPrimaryColor : Colors.grey,
-                  textColor: Colors.white,
-                  onTap: _isContactInfoValid()
-                      ? () {
-                          setState(() => _currentStep = 2);
-                          _pageController.animateToPage(
-                            2,
-                            duration: Duration(milliseconds: 300),
-                            curve: Curves.easeOut,
-                          );
-                        }
-                      : null,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: CustomButton(
+                    radius: 30,
+                    text: "Next Step",
+                    horizontalPadding: 0,
+                    color: _isContactInfoValid() ? kPrimaryColor : Colors.grey,
+                    textColor: Colors.white,
+                    onTap: _isContactInfoValid()
+                        ? () {
+                            setState(() => _currentStep = 2);
+                            _pageController.animateToPage(
+                              2,
+                              duration: Duration(milliseconds: 300),
+                              curve: Curves.easeOut,
+                            );
+                          }
+                        : null,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -776,18 +793,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
   // ---------------------------------------------------------
   // STEP 3 — VEHICLE INFO
   // ---------------------------------------------------------
-  Widget _buildVehicleInfoStep() {
+  Widget _buildVehicleInfoStep(double bottom) {
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Column(
         children: [
-          // Scrollable content
           Expanded(
             child: SingleChildScrollView(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Expanded(
                         child: Text(
@@ -799,6 +819,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                         ),
                       ),
+                      const SizedBox(width: 12),
                       Image.asset(
                         "assets/images/vehicle.png",
                         height: 120,
@@ -806,7 +827,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 30),
+
+                  const SizedBox(height: 16),
+
+                  // FRONT LICENSE
                   _buildDocumentUploadItem(
                     title: "Driving License (Front)",
                     subtitle:
@@ -821,6 +845,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
 
+                  const SizedBox(height: 16),
+
+                  // BACK LICENSE
                   _buildDocumentUploadItem(
                     title: "Driving License (Back)",
                     subtitle:
@@ -834,18 +861,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       }, context);
                     },
                   ),
-                  const SizedBox(height: 15),
-                  _buildSectionTitle("Driver’s License Number", required: true),
-                  const SizedBox(height: 10),
-                  _buildTextField(
-                    _licenseController,
-                    "Driver’s License Number",
+
+                  const SizedBox(height: 16),
+
+                  // DRIVER’S LICENSE NUMBER
+                  CustomInputField(
+                    required: true,
+                    label: "Driver’s License Number",
+                    hint: "Driver’s License Number",
+                    controller: _licenseController,
                     maxLength: 12,
                   ),
-                  const SizedBox(height: 15),
-                  _buildSectionTitle("Vehicle Type", required: true),
-                  const SizedBox(height: 10),
+
+                  // // VEHICLE TYPE
+                  // _buildSectionTitle("Vehicle Type", required: true),
+                  // const SizedBox(height: 10),
+                  //
                   // _buildDropdownFields(
+                  //   context,
                   //   "Select Vehicle Type",
                   //   vehicleOptions.isEmpty ? ["Loading..."] : vehicleOptions,
                   //   selectedVehicle,
@@ -856,64 +889,70 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   //     });
                   //   },
                   // ),
-                  _buildDropdownFields(
-                    context,
-                    "Select Vehicle Type",
-                    vehicleOptions.isEmpty ? ["Loading..."] : vehicleOptions,
-                    selectedVehicle,
-                    (value) {
+                  CustomDropdownField(
+                    label: "Vehicle Type",
+                    hint: "Select Vehicle Type",
+                    options: vehicleOptions,
+                    value: selectedVehicle,
+                    required: true,
+                    onChanged: (val) {
                       setState(() {
-                        selectedVehicle = value;
-                        _vehicleController.text = value ?? "";
+                        selectedVehicle = val;
+                        _vehicleController.text = val ?? "";
                       });
                     },
                   ),
-                  const SizedBox(height: 30),
-                  // -------------------------------------
+
+                  const SizedBox(height: 32),
                 ],
               ),
             ),
           ),
 
-          // Buttons at the bottom
-          Row(
-            children: [
-              Expanded(
-                child: CustomButton(
-                  text: "Back",
-                  horizontalPadding: 0,
-                  color: Colors.grey,
-                  textColor: Colors.white,
-                  onTap: () {
-                    setState(() => _currentStep = 1);
-                    _pageController.animateToPage(
-                      1,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOut,
-                    );
-                  },
+          /// ⬅️ BACK / NEXT BUTTONS
+          Padding(
+            padding: EdgeInsets.only(bottom: bottom),
+            child: Row(
+              children: [
+                Expanded(
+                  child: CustomButton(
+                    radius: 30,
+                    icon: Icon(CupertinoIcons.back),
+                    horizontalPadding: 0,
+                    color: Colors.grey,
+                    textColor: Colors.white,
+                    onTap: () {
+                      setState(() => _currentStep = 1);
+                      _pageController.animateToPage(
+                        1,
+                        duration: Duration(milliseconds: 300),
+                        curve: Curves.easeOut,
+                      );
+                    },
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: CustomButton(
-                  horizontalPadding: 0,
-                  text: "Next",
-                  color: _isVehicleInfoValid() ? kPrimaryColor : Colors.grey,
-                  textColor: Colors.white,
-                  onTap: _isVehicleInfoValid()
-                      ? () {
-                          setState(() => _currentStep = 3);
-                          _pageController.animateToPage(
-                            3,
-                            duration: Duration(milliseconds: 300),
-                            curve: Curves.easeOut,
-                          );
-                        }
-                      : null,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: CustomButton(
+                    radius: 30,
+                    text: "Next Step",
+                    horizontalPadding: 0,
+                    color: _isVehicleInfoValid() ? kPrimaryColor : Colors.grey,
+                    textColor: Colors.white,
+                    onTap: _isVehicleInfoValid()
+                        ? () {
+                            setState(() => _currentStep = 3);
+                            _pageController.animateToPage(
+                              3,
+                              duration: Duration(milliseconds: 300),
+                              curve: Curves.easeOut,
+                            );
+                          }
+                        : null,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -921,20 +960,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   // ---------------------------------------------------------
-  // STEP 4 — SET-UP PASSWORD
+  // STEP 4 — SET UP PASSWORD
   // ---------------------------------------------------------
-  Widget _buildSetupPasswordStep() {
+  Widget _buildSetupPasswordStep(double bottom) {
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Column(
         children: [
-          // Scrollable content
           Expanded(
             child: SingleChildScrollView(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Expanded(
                         child: Text(
@@ -946,6 +988,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                         ),
                       ),
+                      const SizedBox(width: 12),
                       Image.asset(
                         "assets/images/password.png",
                         height: 120,
@@ -953,58 +996,109 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ],
                   ),
-                  SizedBox(height: 30),
-                  _buildSectionTitle("Password", required: true),
-                  const SizedBox(height: 10),
-                  _buildTextField(
-                    _passwordController,
-                    "Enter your password",
-                    isPassword: true,
+
+                  const SizedBox(height: 16),
+
+                  // PASSWORD
+                  CustomInputField(
+                    required: true,
+                    label: "Password",
+                    hint: "Enter your password",
+                    controller: _passwordController,
+                    obscure: !_isPasswordVisible,
+                    prefixSvg: "assets/icons/lock.svg",
+                    suffixSvg: _isPasswordVisible
+                        ? "assets/icons/open_eye.svg"
+                        : "assets/icons/close_eye.svg",
+                    onSuffixTap: () => setState(
+                      () => _isPasswordVisible = !_isPasswordVisible,
+                    ),
                   ),
-                  const SizedBox(height: 15),
-                  _buildSectionTitle("Confirm Password", required: true),
-                  const SizedBox(height: 10),
-                  _buildTextField(
-                    _confirmPasswordController,
-                    "Enter confirm password",
-                    isPassword: true,
-                    isConfirm: true,
+
+                  const SizedBox(height: 16),
+
+                  // CONFIRM PASSWORD
+                  CustomInputField(
+                    required: true,
+                    label: "Confirm Password",
+                    hint: "Re-enter your password",
+                    controller: _confirmPasswordController,
+                    obscure: !_isConfirmPasswordVisible,
+                    prefixSvg: "assets/icons/lock.svg",
+                    suffixSvg: _isConfirmPasswordVisible
+                        ? "assets/icons/open_eye.svg"
+                        : "assets/icons/close_eye.svg",
+                    onSuffixTap: () => setState(
+                      () => _isConfirmPasswordVisible =
+                          !_isConfirmPasswordVisible,
+                    ),
                   ),
-                  const SizedBox(height: 30),
+
+                  // const SizedBox(height: 16),
+                  //
+                  // Container(
+                  //   padding: const EdgeInsets.all(12),
+                  //   decoration: BoxDecoration(
+                  //     color: Colors.grey.shade100,
+                  //     borderRadius: BorderRadius.circular(12),
+                  //     border: Border.all(color: Colors.grey.shade300),
+                  //   ),
+                  //   child: const Text(
+                  //     "Your password must contain at least:\n"
+                  //     "• 8 characters\n"
+                  //     "• 1 uppercase letter\n"
+                  //     "• 1 lowercase letter\n"
+                  //     "• 1 number",
+                  //     style: TextStyle(
+                  //       fontSize: 13,
+                  //       color: Colors.black87,
+                  //       height: 1.4,
+                  //     ),
+                  //   ),
+                  // ),
+                  const SizedBox(height: 32),
                 ],
               ),
             ),
           ),
-          // Buttons at the bottom
-          Row(
-            children: [
-              Expanded(
-                child: CustomButton(
-                  horizontalPadding: 0,
-                  text: "Back",
-                  color: Colors.grey,
-                  textColor: Colors.white,
-                  onTap: () {
-                    setState(() => _currentStep = 2);
-                    _pageController.animateToPage(
-                      2,
-                      duration: Duration(milliseconds: 300),
-                      curve: Curves.easeOut,
-                    );
-                  },
+
+          /// ⬅️ BACK / REGISTER BUTTONS
+          Padding(
+            padding: EdgeInsets.only(bottom: bottom),
+            child: Row(
+              children: [
+                Expanded(
+                  child: CustomButton(
+                    radius: 30,
+                    icon: Icon(CupertinoIcons.back),
+                    horizontalPadding: 0,
+                    color: Colors.grey,
+                    textColor: Colors.white,
+                    onTap: () {
+                      setState(() => _currentStep = 2);
+                      _pageController.animateToPage(
+                        2,
+                        duration: Duration(milliseconds: 300),
+                        curve: Curves.easeOut,
+                      );
+                    },
+                  ),
                 ),
-              ),
-              SizedBox(width: 10),
-              Expanded(
-                child: CustomButton(
-                  text: "Register",
-                  horizontalPadding: 0,
-                  color: _isFormValid() ? kPrimaryColor : Colors.grey,
-                  textColor: Colors.white,
-                  onTap: _isFormValid() ? _onRegister : null,
+
+                const SizedBox(width: 12),
+
+                Expanded(
+                  child: CustomButton(
+                    radius: 30,
+                    text: "Finish",
+                    horizontalPadding: 0,
+                    color: _isFormValid() ? kPrimaryColor : Colors.grey,
+                    textColor: Colors.white,
+                    onTap: _isFormValid() ? _onRegister : null,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -1034,9 +1128,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   text: TextSpan(
                     text: title,
                     style: const TextStyle(
-                      color: Colors.black,
                       fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black87,
                     ),
                     children: const [
                       TextSpan(
@@ -1095,152 +1189,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildSectionTitle(String title, {bool required = false}) {
-    return RichText(
-      text: TextSpan(
-        text: title,
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-          color: Colors.black87,
-        ),
-        children: required
-            ? const [
-                TextSpan(
-                  text: " *",
-                  style: TextStyle(color: Colors.red),
-                ),
-              ]
-            : [],
-      ),
-    );
-  }
-
-  Widget _buildTextField(
-    TextEditingController controller,
-    String hintText, {
-    TextInputType keyboardType = TextInputType.text,
-    int? maxLength,
-    List<TextInputFormatter>? inputFormatters,
-    bool isPassword = false,
-    bool isConfirm = false,
-  }) {
-    bool obscureText =
-        isPassword &&
-        !(isConfirm ? _isConfirmPasswordVisible : _isPasswordVisible);
-
-    return TextField(
-      controller: controller,
-      keyboardType: keyboardType,
-      maxLength: maxLength,
-      obscureText: obscureText,
-      inputFormatters: inputFormatters,
-      decoration: InputDecoration(
-        counterText: "",
-        hintText: hintText,
-        filled: true,
-        fillColor: Colors.grey.shade100,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
-        ),
-        suffixIcon: isPassword
-            ? IconButton(
-                icon: Icon(
-                  obscureText ? Icons.visibility_off : Icons.visibility,
-                  color: Colors.grey,
-                ),
-                onPressed: () {
-                  setState(() {
-                    if (isConfirm) {
-                      _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
-                    } else {
-                      _isPasswordVisible = !_isPasswordVisible;
-                    }
-                  });
-                },
-              )
-            : null,
-      ),
-    );
-  }
-
-  Widget _buildDropdownFields(
-    BuildContext context,
-    String hint,
-    List<String> options,
-    String? selectedValue,
-    Function(String?) onChanged,
-  ) {
-    return GestureDetector(
-      onTap: () {
-        showModalBottomSheet(
-          context: context,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          builder: (_) {
-            return Container(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    height: 5,
-                    width: 50,
-                    margin: EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  Text(
-                    hint,
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 10),
-                  ...options.map((e) {
-                    return ListTile(
-                      title: Text(e),
-                      onTap: () {
-                        Navigator.pop(context);
-                        onChanged(e);
-                      },
-                    );
-                  }),
-                ],
-              ),
-            );
-          },
-        );
-      },
-      child: InputDecorator(
-        decoration: InputDecoration(
-          filled: true,
-          fillColor: Colors.grey.shade100,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide.none,
-          ),
-          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 17),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              selectedValue ?? hint,
-              style: TextStyle(
-                fontSize: 16,
-                color: selectedValue == null ? Colors.black54 : Colors.black,
-              ),
-            ),
-            Icon(Icons.keyboard_arrow_down, color: Colors.grey),
-          ],
-        ),
       ),
     );
   }

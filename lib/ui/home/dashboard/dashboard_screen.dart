@@ -43,7 +43,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: Colors.white,
       body: RefreshIndicator(
         color: kPrimaryColor,
         onRefresh: _refreshDashboard,

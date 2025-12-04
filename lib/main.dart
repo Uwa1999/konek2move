@@ -54,7 +54,7 @@ Future<void> main() async {
   /// Show only top bar
   SystemChrome.setEnabledSystemUIMode(
     SystemUiMode.manual,
-    overlays: [SystemUiOverlay.top],
+    overlays: [SystemUiOverlay.top, SystemUiOverlay.bottom],
   );
 
   /// ❌ REMOVED heavy permission requests here

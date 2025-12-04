@@ -521,16 +521,23 @@ class _LoginScreenState extends State<LoginScreen> {
         await prefs.setString("driver_code", response.data.driver.driverCode);
         await prefs.setBool("active", response.data.driver.active);
 
-        _showTopMessage("Login successful!");
-
+        // 👉 Do NOT reset isLoading — keep "Logging in…" until navigation
+        if (!mounted) return;
         Navigator.pushReplacementNamed(context, "/home");
-      } else {
-        _showTopMessage(response.error, isError: true);
+        return; // Stop execution here
+      }
+
+      _showTopMessage(response.error, isError: true);
+
+      if (mounted) {
+        setState(() => isLoading = false);
       }
     } catch (e) {
       _showTopMessage("Error: $e", isError: true);
-    } finally {
-      if (mounted) setState(() => isLoading = false);
+
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
     }
   }
 
@@ -550,51 +557,57 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
+    final top = MediaQuery.of(context).padding.top; // dynamic notch/status bar
+    final bottom = MediaQuery.of(
+      context,
+    ).padding.bottom; // dynamic nav/home-bar
 
     final bool canLogin = isEmailValid && isPasswordNotEmpty && !isLoading;
 
     return Scaffold(
       backgroundColor: Colors.white,
 
-      // FIXED FOOTER — DOES NOT MOVE WHEN TYPING
+      // FOOTER WITH DYNAMIC SPACING
       bottomNavigationBar: Padding(
-        padding: const EdgeInsets.only(bottom: 20),
-        child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                "Konek2Move v1.0.0",
-                style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                "Powered by FSA Asya Philippines Inc | FDSAP.",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
-              ),
-            ],
-          ),
+        padding: EdgeInsets.only(
+          bottom: bottom + 16, // ⭐ dynamic + clean spacing (not too big)
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              "Konek2Move v1.0.0",
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              "Powered by FSA Asya Philippines Inc | FDSAP.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+            ),
+          ],
         ),
       ),
 
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: top + 24, // ⭐ BEST PRACTICE: dynamic + consistent
+            bottom: 24, // ⭐ internal scroll padding only
+          ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const SizedBox(height: 50),
-
               Center(
                 child: Image.asset(
                   "assets/images/login.png",
-                  height: size.height * 0.10,
+                  height: size.height * 0.12, // ⭐ slightly bigger and cleaner
                 ),
               ),
 
-              const SizedBox(height: 50),
+              const SizedBox(height: 32),
 
               Text(
                 "Let's get you Login!",
@@ -604,13 +617,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
-              const SizedBox(height: 5),
+              const SizedBox(height: 6),
               Text(
                 "Login now and get your deliveries on the go!",
+                textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
               ),
 
-              const SizedBox(height: 35),
+              const SizedBox(height: 32),
 
               CustomInputField(
                 label: "Email",
@@ -619,7 +633,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 prefixSvg: "assets/icons/email.svg",
               ),
 
-              const SizedBox(height: 15),
+              const SizedBox(height: 16),
 
               CustomInputField(
                 label: "Password",
@@ -659,12 +673,21 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 20),
 
               if (showBiometric)
-                Center(
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: kPrimaryColor.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(50),
+                  ),
                   child: TextButton.icon(
+                    style: TextButton.styleFrom(padding: EdgeInsets.zero),
                     onPressed: _biometricLogin,
                     icon: Icon(Icons.fingerprint_rounded, color: kPrimaryColor),
                     label: Text(
-                      "Login with Biometrics",
+                      'Login with Biometrics',
                       style: TextStyle(
                         color: kPrimaryColor,
                         fontWeight: FontWeight.w500,
@@ -674,7 +697,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
 
-              const SizedBox(height: 20),
+              if (showBiometric) const SizedBox(height: 24),
 
               CustomButton(
                 text: isLoading ? "Logging in..." : "Login",
@@ -684,7 +707,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 onTap: canLogin ? _onLogin : null,
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
 
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
