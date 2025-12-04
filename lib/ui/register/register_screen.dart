@@ -402,50 +402,103 @@ class _RegisterScreenState extends State<RegisterScreen> {
   // ---------------------------------------------------------
   // HEADER WITH SOFT SHADOW + SPACING
   // ---------------------------------------------------------
+  // Widget _buildHeader(double top) {
+  //   return Container(
+  //     width: double.infinity,
+  //     padding: EdgeInsets.only(
+  //       top: top + 12, // ⭐ dynamic safe-area spacing
+  //       bottom: 16, // ⭐ balanced bottom spacing
+  //     ),
+  //     decoration: BoxDecoration(
+  //       color: Colors.white,
+  //       borderRadius: const BorderRadius.only(
+  //         bottomLeft: Radius.circular(24),
+  //         bottomRight: Radius.circular(24),
+  //       ),
+  //
+  //       // ⭐ Modern Soft Shadow
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: Colors.black.withOpacity(0.05),
+  //           blurRadius: 18,
+  //           offset: const Offset(0, 4),
+  //         ),
+  //       ],
+  //     ),
+  //
+  //     child: Stack(
+  //       alignment: Alignment.center,
+  //       children: [
+  //         const Text(
+  //           "Registration",
+  //           style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+  //         ),
+  //
+  //         Positioned(
+  //           left: 16,
+  //           child: GestureDetector(
+  //             onTap: () => Navigator.pop(context),
+  //             child: Container(
+  //               width: 40,
+  //               height: 40,
+  //               alignment: Alignment.center,
+  //               child: const Icon(Icons.arrow_back, size: 24),
+  //             ),
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
   Widget _buildHeader(double top) {
     return Container(
-      width: double.infinity,
       padding: EdgeInsets.only(
-        top: top + 12, // ⭐ dynamic safe-area spacing
-        bottom: 16, // ⭐ balanced bottom spacing
+        left: 24,
+        right: 24,
+        bottom: 12,
+        top: top + 12, // dynamic safe-area spacing
       ),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(24),
-          bottomRight: Radius.circular(24),
-        ),
-
-        // ⭐ Modern Soft Shadow
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withOpacity(0.08),
             blurRadius: 18,
-            offset: const Offset(0, 4),
+            offset: const Offset(0, -2),
           ),
         ],
       ),
-
-      child: Stack(
-        alignment: Alignment.center,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
-            "Registration",
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          // LEFT back button
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              child: const Icon(Icons.arrow_back, size: 24),
+            ),
           ),
 
-          Positioned(
-            left: 16,
-            child: GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: Container(
-                width: 40,
-                height: 40,
-                alignment: Alignment.center,
-                child: const Icon(Icons.arrow_back, size: 24),
+          // CENTER TITLE
+          Expanded(
+            child: Center(
+              child: const Text(
+                "Registration",
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
               ),
             ),
           ),
+
+          // RIGHT placeholder (keeps title centered)
+          const SizedBox(width: 40),
         ],
       ),
     );
