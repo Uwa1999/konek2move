@@ -1,3 +1,151 @@
+// import 'package:flutter/material.dart';
+// import 'package:intl/intl.dart';
+// import 'package:konek2move/core/services/model_services.dart';
+
+// class NotificationDetailScreen extends StatelessWidget {
+//   final NotificationModel notification;
+
+//   const NotificationDetailScreen({super.key, required this.notification});
+
+//   String _formatDate(String createdAt) {
+//     try {
+//       final dt = DateTime.parse(createdAt).toLocal();
+//       return DateFormat('MMM dd, yyyy • hh:mm a').format(dt);
+//     } catch (_) {
+//       return createdAt;
+//     }
+//   }
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       backgroundColor: Colors.grey[100],
+
+//       body: Column(
+//         children: [
+//           _buildHeader(context),
+
+//           Expanded(
+//             child: SingleChildScrollView(
+//               padding: const EdgeInsets.all(20),
+//               child: Container(
+//                 padding: const EdgeInsets.all(20),
+//                 decoration: BoxDecoration(
+//                   color: Colors.white,
+//                   borderRadius: BorderRadius.circular(24),
+//                   border: Border.all(color: Colors.grey.shade300),
+//                   boxShadow: [
+//                     BoxShadow(
+//                       color: Colors.black12,
+//                       blurRadius: 6,
+//                       offset: const Offset(0, 3),
+//                     ),
+//                   ],
+//                 ),
+//                 child: Column(
+//                   crossAxisAlignment: CrossAxisAlignment.start,
+//                   children: [
+//                     Text(
+//                       notification.title,
+//                       style: const TextStyle(
+//                         fontSize: 20,
+//                         fontWeight: FontWeight.bold,
+//                         height: 1.2,
+//                       ),
+//                     ),
+
+//                     const SizedBox(height: 20),
+
+//                     // DATE & TIME
+//                     Text(
+//                       _formatDate(notification.createdAt.toString()),
+//                       style: TextStyle(
+//                         fontSize: 14,
+//                         color: Colors.grey.shade600,
+//                       ),
+//                     ),
+
+//                     const SizedBox(height: 20),
+//                     Divider(color: Colors.grey[200], thickness: 1.5),
+//                     const SizedBox(height: 20),
+
+//                     // BODY TEXT
+//                     Text(
+//                       notification.body,
+//                       style: const TextStyle(
+//                         fontSize: 16,
+//                         height: 1.5,
+//                         color: Colors.black87,
+//                       ),
+//                     ),
+//                     const SizedBox(height: 20),
+//                   ],
+//                 ),
+//               ),
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+
+//   Widget _buildHeader(BuildContext context) {
+//     return Container(
+//       height: 80,
+//       width: double.infinity,
+//       decoration: const BoxDecoration(
+//         color: Colors.white,
+//         borderRadius: BorderRadius.only(
+//           bottomLeft: Radius.circular(24),
+//           bottomRight: Radius.circular(24),
+//         ),
+//         boxShadow: [
+//           BoxShadow(
+//             color: Colors.black12,
+//             blurRadius: 10,
+//             offset: Offset(0, 3),
+//           ),
+//         ],
+//       ),
+//       child: Padding(
+//         padding: const EdgeInsets.only(bottom: 12),
+//         child: Stack(
+//           alignment: Alignment.bottomCenter,
+//           children: [
+//             const Text(
+//               "Notification Details",
+//               style: TextStyle(
+//                 fontSize: 20,
+//                 fontWeight: FontWeight.bold,
+//                 color: Colors.black,
+//               ),
+//             ),
+
+//             Positioned(
+//               left: 16,
+//               child: GestureDetector(
+//                 onTap: () => Navigator.pop(context),
+//                 child: Container(
+//                   width: 32,
+//                   height: 32,
+//                   decoration: BoxDecoration(
+//                     color: Colors.black.withOpacity(0.06),
+//                     borderRadius: BorderRadius.circular(12),
+//                   ),
+//                   child: const Icon(
+//                     Icons.arrow_back,
+//                     size: 20,
+//                     color: Colors.black,
+//                   ),
+//                 ),
+//               ),
+//             ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+// }
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
@@ -21,7 +169,6 @@ class NotificationDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
-
       body: Column(
         children: [
           _buildHeader(context),
@@ -37,8 +184,8 @@ class NotificationDetailScreen extends StatelessWidget {
                   border: Border.all(color: Colors.grey.shade300),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 6,
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 8,
                       offset: const Offset(0, 3),
                     ),
                   ],
@@ -46,6 +193,7 @@ class NotificationDetailScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // TITLE
                     Text(
                       notification.title,
                       style: const TextStyle(
@@ -67,7 +215,7 @@ class NotificationDetailScreen extends StatelessWidget {
                     ),
 
                     const SizedBox(height: 20),
-                    Divider(color: Colors.grey[200], thickness: 1.5),
+                    Divider(color: Colors.grey[200], thickness: 1),
                     const SizedBox(height: 20),
 
                     // BODY TEXT
@@ -75,7 +223,7 @@ class NotificationDetailScreen extends StatelessWidget {
                       notification.body,
                       style: const TextStyle(
                         fontSize: 16,
-                        height: 1.5,
+                        height: 1.6,
                         color: Colors.black87,
                       ),
                     ),
@@ -90,59 +238,61 @@ class NotificationDetailScreen extends StatelessWidget {
     );
   }
 
+  // ------------------------------------------------------------
+  // HEADER (MATCHES HOMESCREEN + NOTIFICATION SCREEN)
+  // ------------------------------------------------------------
   Widget _buildHeader(BuildContext context) {
+    final topPad = MediaQuery.of(context).padding.top;
+
     return Container(
-      height: 80,
+      height: topPad + 80,
       width: double.infinity,
-      decoration: const BoxDecoration(
+      padding: EdgeInsets.only(top: topPad, left: 16, right: 16, bottom: 12),
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(24),
-          bottomRight: Radius.circular(24),
-        ),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black12,
-            blurRadius: 10,
-            offset: Offset(0, 3),
+            color: Colors.black.withOpacity(0.10),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Stack(
-          alignment: Alignment.bottomCenter,
-          children: [
-            const Text(
-              "Notification Details",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // TITLE
+          const Text(
+            "Notification Details",
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
             ),
+          ),
 
-            Positioned(
-              left: 16,
-              child: GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.06),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.arrow_back,
-                    size: 20,
-                    color: Colors.black,
-                  ),
+          // BACK BUTTON
+          Positioned(
+            left: 0,
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: kPrimaryColor.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: const Icon(
+                  Icons.arrow_back,
+                  size: 22,
+                  color: Colors.black,
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

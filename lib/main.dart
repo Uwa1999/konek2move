@@ -38,6 +38,7 @@ import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:konek2move/core/routes/app_routes.dart';
 import 'package:konek2move/ui/splash/internet_connection_screen.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 
 import 'core/services/provider_services.dart';
@@ -57,6 +58,8 @@ Future<void> main() async {
     overlays: [SystemUiOverlay.top, SystemUiOverlay.bottom],
   );
 
+  await _initAllPermissions();
+
   /// ❌ REMOVED heavy permission requests here
   /// They will run inside SplashScreen AFTER the UI loads.
 
@@ -70,6 +73,28 @@ Future<void> main() async {
       child: const MyApp(),
     ),
   );
+}
+
+Future<void> _initAllPermissions() async {
+  // Define all permissions you need
+  final permissions = [
+    Permission.location,
+    //  Permission.locationAlways
+  ];
+
+  for (final permission in permissions) {
+    final status = await permission.status;
+
+    if (status.isDenied) {
+      await permission.request();
+    }
+
+    // If permanently denied, you can prompt to open settings
+    if (await permission.isPermanentlyDenied) {
+      // OPTIONAL – DO NOT FORCE USERS
+      // openAppSettings();
+    }
+  }
 }
 
 class MyApp extends StatelessWidget {

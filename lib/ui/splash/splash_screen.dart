@@ -3,7 +3,6 @@ import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
 import 'package:konek2move/ui/login/login_screen.dart';
 import 'package:konek2move/ui/register/register_screen.dart';
-import 'package:konek2move/ui/register/terms_and_condition_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});

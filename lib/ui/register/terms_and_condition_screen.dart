@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
-import 'package:konek2move/ui/splash/splash_screen.dart';
 
 class TermsAndConditionScreen extends StatefulWidget {
   const TermsAndConditionScreen({super.key});
@@ -16,31 +15,28 @@ class _TermsAndConditionScreenState extends State<TermsAndConditionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final top = MediaQuery.of(context).padding.top;
-    final bottom = MediaQuery.of(context).padding.bottom;
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          _buildHeader(top),
+          _header(context),
 
-          // Scrollable Content
+          // ---------- CONTENT ----------
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Top Image
+                  // IMAGE
                   Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.12),
-                          blurRadius: 12,
-                          offset: Offset(0, 4),
+                          color: Colors.black.withOpacity(0.10),
+                          blurRadius: 14,
+                          offset: const Offset(0, 4),
                         ),
                       ],
                     ),
@@ -53,8 +49,9 @@ class _TermsAndConditionScreenState extends State<TermsAndConditionScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 32), // ⭐ better spacing
-                  // Terms Sections
+                  const SizedBox(height: 32),
+
+                  // SECTIONS
                   _TermsSection(
                     title: "1. Introduction",
                     content:
@@ -95,76 +92,70 @@ class _TermsAndConditionScreenState extends State<TermsAndConditionScreen> {
                     content:
                         "For any questions or concerns regarding these terms, please contact our support team via the app or email.",
                   ),
+
+                  const SizedBox(height: 80),
                 ],
               ),
             ),
           ),
 
-          // Bottom Agreement & Button
-          Container(
-            padding: EdgeInsets.fromLTRB(24, 16, 24, bottom + 16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 8,
-                  offset: const Offset(0, -3),
-                ),
-              ],
+          // ---------- BOTTOM ACTION ----------
+          _buildBottomAction(context),
+        ],
+      ),
+    );
+  }
+
+  // ---------- HEADER ----------
+  Widget _header(BuildContext context) {
+    final topPad = MediaQuery.of(context).padding.top;
+
+    return Container(
+      height: topPad + 80,
+      width: double.infinity,
+      padding: EdgeInsets.only(top: topPad, left: 16, right: 16, bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.10),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // TITLE
+          const Text(
+            "Terms & Conditions",
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    StatefulBuilder(
-                      builder: (context, setStateCheckbox) {
-                        return Checkbox(
-                          value: isAccepted,
-                          onChanged: (value) {
-                            setState(() {
-                              isAccepted = value ?? false;
-                            });
-                          },
-                          activeColor: kPrimaryColor,
-                          shape: const CircleBorder(),
-                        );
-                      },
-                    ),
+          ),
 
-                    const Expanded(
-                      child: Text(
-                        "I have read and agree to all the Terms & Conditions",
-                        style: TextStyle(fontSize: 14, color: Colors.black87),
-                      ),
-                    ),
-                  ],
+          // BACK BUTTON
+          Positioned(
+            left: 0,
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: kPrimaryColor.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(30),
                 ),
-
-                const SizedBox(height: 16),
-
-                CustomButton(
-                  text: "Continue",
-                  color: isAccepted ? kPrimaryColor : Colors.grey,
-                  textColor: Colors.white,
-                  horizontalPadding: 0,
-                  onTap: isAccepted
-                      ? () {
-                          Navigator.pushReplacementNamed(
-                            context,
-                            '/email_verification',
-                          );
-                        }
-                      : null,
+                child: const Icon(
+                  Icons.arrow_back,
+                  size: 22,
+                  color: Colors.black,
                 ),
-
-                const SizedBox(height: 12),
-              ],
+              ),
             ),
           ),
         ],
@@ -172,52 +163,80 @@ class _TermsAndConditionScreenState extends State<TermsAndConditionScreen> {
     );
   }
 
-  // ⭐ FIXED HEADER WITH DYNAMIC SPACING
-  Widget _buildHeader(double top) {
+  // ---------- PERFECT BOTTOM ACTION ----------
+  Widget _buildBottomAction(BuildContext context) {
+    final viewPadding = MediaQuery.of(context).viewPadding.bottom;
+    final viewInsets = MediaQuery.of(context).viewInsets.bottom;
+
+    // GLOBAL bottom padding logic from your nav bar
+    final double safeBottom = viewInsets > 0
+        ? 16 // keyboard open → minimal padding
+        : (viewPadding > 0 ? viewPadding : 16);
+
     return Container(
-      width: double.infinity,
-      padding: EdgeInsets.only(
-        top: top + 12, // ⭐ dynamic safe-area + spacing
-        bottom: 16,
-      ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(24),
-          bottomRight: Radius.circular(24),
-        ),
+      decoration: BoxDecoration(
+        color: Colors.transparent,
         boxShadow: [
           BoxShadow(
-            color: Colors.black12,
-            blurRadius: 10,
-            offset: Offset(0, 3),
+            color: Colors.black.withOpacity(0.10),
+            blurRadius: 12,
+            offset: const Offset(0, -2),
           ),
         ],
       ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          const Text(
-            "Terms & Conditions",
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-
-          Positioned(
-            left: 16, // or 24 depending on design
-            child: GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: Container(
-                width: 40, // ⭐ ideal tap target size
-                height: 40, // ⭐ ideal tap target size
-                alignment: Alignment.center,
-                child: const Icon(
-                  Icons.arrow_back,
-                  size: 24, // ⭐ standard icon size
-                ),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        child: Container(
+          color: Colors.white,
+          padding: EdgeInsets.fromLTRB(24, 16, 24, safeBottom),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Checkbox(
+                    value: isAccepted,
+                    onChanged: (val) {
+                      setState(() => isAccepted = val ?? false);
+                    },
+                    activeColor: kPrimaryColor,
+                    shape: const CircleBorder(),
+                  ),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      "I have read and agree to all the Terms & Conditions",
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 1.4,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
+
+              const SizedBox(height: 16),
+
+              CustomButton(
+                text: "Continue",
+                horizontalPadding: 0,
+                textColor: Colors.white,
+                color: isAccepted ? kPrimaryColor : Colors.grey.shade300,
+                onTap: isAccepted
+                    ? () {
+                        Navigator.pushReplacementNamed(
+                          context,
+                          '/email_verification',
+                        );
+                      }
+                    : null,
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -232,7 +251,7 @@ class _TermsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
+      padding: const EdgeInsets.only(bottom: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -244,7 +263,7 @@ class _TermsSection extends StatelessWidget {
               color: kPrimaryColor,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
             content,
             style: const TextStyle(

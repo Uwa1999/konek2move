@@ -315,7 +315,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   bool _isFullScreen = false;
 
   // YOUR API KEY (AS PROVIDED)
-  // Replace or rotate keys as needed; consider secure storage for production.
   final String googleApiKey = "AIzaSyA4eJv1jVmJWrTdOO6SOsEGirFKueKRg98";
 
   // Example receiver info (UI-only)
@@ -498,23 +497,17 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                 ),
               ),
               const SizedBox(height: 20),
-
               const Text(
                 "Cancel Delivery?",
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
-
               const SizedBox(height: 10),
-
               Text(
                 "Are you sure you want to cancel this delivery request?",
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
               ),
-
               const SizedBox(height: 20),
-
-              // Confirm Button
               CustomButton(
                 text: "Yes, Cancel Delivery",
                 color: kPrimaryRedColor,
@@ -524,17 +517,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                   Navigator.pop(context); // Go back to previous screen
                 },
               ),
-
               const SizedBox(height: 10),
-
-              // Close Button
               CustomButton(
                 text: "No, Keep Delivery",
                 color: kLightButtonColor,
                 textColor: kPrimaryColor,
                 onTap: () => Navigator.pop(context),
               ),
-
               const SizedBox(height: 10),
             ],
           ),
@@ -922,85 +911,84 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   }
 
   Widget _buildHeader() {
-    return Container(
-      height: 80,
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(24),
-          bottomRight: Radius.circular(24),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 10,
-            offset: Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Stack(
-          alignment: Alignment.bottomCenter,
-          children: [
-            /// Title
-            const Text(
-              "Order Details",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
+    final safeTop = MediaQuery.of(context).padding.top;
 
-            /// Back button
-            Positioned(
-              left: 16,
-              child: GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.06),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.arrow_back,
-                    size: 20,
-                    color: Colors.black,
-                  ),
+    return PreferredSize(
+      preferredSize: Size.fromHeight(80 + safeTop),
+      child: Container(
+        padding: EdgeInsets.only(top: safeTop, left: 16, right: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(
+            bottom: Radius.circular(24),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.10),
+              blurRadius: 12,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: SizedBox(
+          width: double.infinity,
+          height: 80,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              const Text(
+                "Order Details",
+                style: TextStyle(
+                  fontSize: 20,
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-            ),
-
-            /// Cancel button
-            Positioned(
-              right: 16,
-              child: GestureDetector(
-                onTap: () => _showCancelSheet(),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: kPrimaryRedColor.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text(
-                    'Cancel',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: kPrimaryRedColor,
-                      fontWeight: FontWeight.bold,
+              Positioned(
+                left: 0,
+                child: GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: kPrimaryColor.withOpacity(0.06),
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: const Icon(
+                      Icons.arrow_back,
+                      size: 22,
+                      color: Colors.black,
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+              Positioned(
+                right: 0,
+                child: GestureDetector(
+                  onTap: () => _showCancelSheet(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: kPrimaryRedColor.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Text(
+                      "Cancel",
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: kPrimaryRedColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1052,55 +1040,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // UI-only icons (no external actions)
               IconButton(
                 onPressed: null,
                 icon: const Icon(Icons.phone, color: kPrimaryColor),
               ),
               const SizedBox(height: 6),
-              // Consumer<ChatProvider>(
-              //   builder: (_, provider, __) {
-              //     return Stack(
-              //       clipBehavior: Clip.none,
-              //       children: [
-              //         IconButton(
-              //           onPressed: () {
-              //             provider.clearUnread();
-              //
-              //             Navigator.push(
-              //               context,
-              //               MaterialPageRoute(
-              //                 builder: (_) => const OrderChatScreen(),
-              //               ),
-              //             );
-              //           },
-              //           icon: const Icon(Icons.message, color: kPrimaryColor),
-              //         ),
-              //
-              //         if (provider.unreadCount > 0)
-              //           Positioned(
-              //             right: 4,
-              //             top: 4,
-              //             child: Container(
-              //               padding: const EdgeInsets.all(4),
-              //               decoration: const BoxDecoration(
-              //                 color: Colors.red,
-              //                 shape: BoxShape.circle,
-              //               ),
-              //               child: Text(
-              //                 provider.unreadCount.toString(),
-              //                 style: const TextStyle(
-              //                   color: Colors.white,
-              //                   fontSize: 10,
-              //                   fontWeight: FontWeight.bold,
-              //                 ),
-              //               ),
-              //             ),
-              //           ),
-              //       ],
-              //     );
-              //   },
-              // ),
               Consumer<ChatProvider>(
                 builder: (_, provider, __) {
                   return Stack(
@@ -1118,7 +1062,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                         },
                         icon: const Icon(Icons.message, color: kPrimaryColor),
                       ),
-
                       if (provider.unreadCount > 0)
                         Positioned(
                           right: 4,
@@ -1159,11 +1102,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     final safeBottom = MediaQuery.of(context).padding.bottom;
     final screenHeight = MediaQuery.of(context).size.height;
 
+    final headerHeight = 80.0 + safeTop;
+
     final normalMapHeight = max(220.0, screenHeight * 0.5);
-    final fullMapHeight = max(260.0, screenHeight - 80 - safeTop - safeBottom);
+    // 🔧 FULLSCREEN: fill everything under header, no bottom gap
+    final fullMapHeight = max(260.0, screenHeight - headerHeight);
 
     return Scaffold(
-      backgroundColor: Colors.white,
       body: Column(
         children: [
           _buildHeader(),
@@ -1198,7 +1143,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                                     target: _currentLocation ?? dropOffLocation,
                                     zoom: 14,
                                   ),
-                                  style: 'assets/konek2move_map_style.json',
                                   buildingsEnabled: true,
                                   mapType: MapType.normal,
                                   markers: markers,
@@ -1206,7 +1150,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                                   myLocationEnabled: false,
                                   zoomControlsEnabled: false,
                                   myLocationButtonEnabled: false,
-
+                                  compassEnabled: true,
+                                  trafficEnabled: false,
                                   onMapCreated:
                                       (GoogleMapController controller) async {
                                         if (!_mapController.isCompleted) {
@@ -1260,7 +1205,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                   // Zoom out
                   Positioned(
                     right: 12,
-                    bottom: 12,
+                    bottom: 12 + safeBottom * 0,
                     child: _circleButton(
                       icon: Icons.remove,
                       onTap: () async {

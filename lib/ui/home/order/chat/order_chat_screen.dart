@@ -699,58 +699,60 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
   // ========================= HEADER =========================
 
   Widget _buildHeader() {
-    return Container(
-      height: 80,
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(24),
-          bottomRight: Radius.circular(24),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 10,
-            offset: Offset(0, 3),
+    final safeTop = MediaQuery.of(context).padding.top;
+
+    return PreferredSize(
+      preferredSize: Size.fromHeight(80 + safeTop),
+      child: Container(
+        padding: EdgeInsets.only(top: safeTop, left: 16, right: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(
+            bottom: Radius.circular(24),
           ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Stack(
-          alignment: Alignment.bottomCenter,
-          children: [
-            const Text(
-              "Messages",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            Positioned(
-              left: 16,
-              child: GestureDetector(
-                onTap: () {
-                  final provider = Provider.of<ChatProvider>(
-                    context,
-                    listen: false,
-                  );
-
-                  provider.clearUnread();
-                  provider.setChatOpen(false);
-
-                  Navigator.pop(context);
-                },
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.06),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.arrow_back, size: 20),
-                ),
-              ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.10),
+              blurRadius: 12,
+              offset: const Offset(0, 2),
             ),
           ],
+        ),
+        child: SizedBox(
+          width: double.infinity,
+          height: 80,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              const Text(
+                "Messages",
+                style: TextStyle(
+                  fontSize: 20,
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Positioned(
+                left: 0,
+                child: GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: kPrimaryColor.withOpacity(0.06),
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: const Icon(
+                      Icons.arrow_back,
+                      size: 22,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -759,20 +761,23 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
   // ========================= INPUT BAR =========================
 
   Widget _inputBar(ChatProvider provider) {
+    final safeBottom = MediaQuery.of(context).padding.bottom;
+
     return Container(
-      height: 90,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: const BoxDecoration(
+      padding: EdgeInsets.only(
+        left: 14,
+        right: 14,
+        top: 10,
+        bottom: 10 + safeBottom,
+      ),
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(22),
-          topRight: Radius.circular(22),
-        ),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black12,
-            blurRadius: 8,
-            offset: Offset(0, -2),
+            color: Colors.black.withOpacity(.12),
+            blurRadius: 12,
+            offset: const Offset(0, -2),
           ),
         ],
       ),
@@ -782,20 +787,24 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
             onTap: () => _pickImage(provider),
             child: CircleAvatar(
               radius: 22,
-              backgroundColor: kPrimaryColor.withOpacity(.15),
+              backgroundColor: kPrimaryColor.withOpacity(.16),
               child: const Icon(Icons.add_circle, color: kPrimaryColor),
             ),
           ),
-          const SizedBox(width: 10),
+
+          const SizedBox(width: 12),
+
           Expanded(
             child: TextField(
               controller: _msgCtrl,
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) => _send(provider),
               decoration: InputDecoration(
-                hintText: "Message…",
+                hintText: "Message...",
                 filled: true,
                 fillColor: Colors.grey.shade200,
                 contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
+                  horizontal: 18,
                   vertical: 14,
                 ),
                 border: OutlineInputBorder(
@@ -803,16 +812,17 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
                   borderSide: BorderSide.none,
                 ),
               ),
-              onSubmitted: (_) => _send(provider),
             ),
           ),
-          const SizedBox(width: 10),
+
+          const SizedBox(width: 12),
+
           GestureDetector(
             onTap: () => _send(provider),
             child: CircleAvatar(
               radius: 24,
               backgroundColor: kPrimaryColor,
-              child: const Icon(Icons.send, color: Colors.white),
+              child: const Icon(Icons.send, color: Colors.white, size: 20),
             ),
           ),
         ],
