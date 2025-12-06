@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:konek2move/core/services/api_services.dart';
 import 'package:konek2move/core/services/model_services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -229,12 +230,64 @@ class NotificationProvider extends ChangeNotifier {
   }
 }
 
+// class ConnectivityProvider extends ChangeNotifier {
+//   Set<ConnectivityResult> _connectivityStatus = {};
+//   bool _isChecking = true;
+
+//   bool get isConnected =>
+//       !_connectivityStatus.contains(ConnectivityResult.none);
+
+//   bool get isChecking => _isChecking;
+
+//   late StreamSubscription<List<ConnectivityResult>> _subscription;
+//   final Connectivity _connectivity = Connectivity();
+
+//   ConnectivityProvider() {
+//     _initConnectivity();
+//   }
+
+//   void _initConnectivity() async {
+//     // Start checking
+//     _isChecking = true;
+//     notifyListeners();
+
+//     // Initial check
+//     final initialStatus = await _connectivity.checkConnectivity();
+//     _connectivityStatus = initialStatus.toSet();
+
+//     // Done checking
+//     _isChecking = false;
+//     notifyListeners();
+
+//     // Listen for changes
+//     _subscription = _connectivity.onConnectivityChanged.listen((
+//       List<ConnectivityResult> results,
+//     ) {
+//       _connectivityStatus = results.toSet();
+//       notifyListeners();
+//     });
+//   }
+
+//   @override
+//   void dispose() {
+//     _subscription.cancel();
+//     super.dispose();
+//   }
+// }
 class ConnectivityProvider extends ChangeNotifier {
   Set<ConnectivityResult> _connectivityStatus = {};
   bool _isChecking = true;
+  bool _hasRealInternet = false;
+  bool _canReachServer = false;
 
   bool get isConnected =>
       !_connectivityStatus.contains(ConnectivityResult.none);
+
+  bool get hasRealInternet => _hasRealInternet;
+  bool get canReachServer => _canReachServer;
+
+  bool get isRestrictedInternet =>
+      isConnected && !_hasRealInternet; // EXAMPLE: TikTok-only data
 
   bool get isChecking => _isChecking;
 
@@ -246,25 +299,62 @@ class ConnectivityProvider extends ChangeNotifier {
   }
 
   void _initConnectivity() async {
-    // Start checking
     _isChecking = true;
     notifyListeners();
 
-    // Initial check
     final initialStatus = await _connectivity.checkConnectivity();
     _connectivityStatus = initialStatus.toSet();
 
-    // Done checking
+    await _runFullCheck();
+
     _isChecking = false;
     notifyListeners();
 
-    // Listen for changes
-    _subscription = _connectivity.onConnectivityChanged.listen((
-      List<ConnectivityResult> results,
-    ) {
+    _subscription = _connectivity.onConnectivityChanged.listen((results) async {
       _connectivityStatus = results.toSet();
       notifyListeners();
+
+      await _runFullCheck();
     });
+  }
+
+  /// 🔍 Step 1: Check if internet is real (Google)
+  Future<bool> _checkRealInternet() async {
+    try {
+      final res = await http
+          .get(Uri.parse("https://www.google.com"))
+          .timeout(const Duration(seconds: 4));
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 🔍 Step 2: Check if your API is reachable
+  Future<bool> _checkServer() async {
+    try {
+      final res = await http
+          .get(Uri.parse("https://dev-hestia-p1.fortress-asya.com"))
+          .timeout(const Duration(seconds: 4));
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Run both checks and update UI
+  Future<void> _runFullCheck() async {
+    if (!isConnected) {
+      _hasRealInternet = false;
+      _canReachServer = false;
+      notifyListeners();
+      return;
+    }
+
+    _hasRealInternet = await _checkRealInternet();
+    _canReachServer = _hasRealInternet ? await _checkServer() : false;
+
+    notifyListeners();
   }
 
   @override

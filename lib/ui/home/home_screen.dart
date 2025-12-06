@@ -308,17 +308,18 @@
 // }
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
-import 'package:konek2move/core/services/driver_location_services.dart';
-import 'package:konek2move/core/widgets/custom_button.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
+import 'package:konek2move/core/services/driver_location_services.dart';
 import 'package:konek2move/core/services/provider_services.dart';
-import 'package:konek2move/ui/home/dashboard/dashboard_screen.dart';
-import 'package:konek2move/ui/home/map/map_screen.dart';
-import 'package:konek2move/ui/home/order/order_screen.dart';
-import 'package:konek2move/ui/home/setting/setting_screen.dart';
+import 'package:konek2move/core/widgets/custom_home_appbar.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'dashboard/dashboard_screen.dart';
+import 'order/order_screen.dart';
+import 'map/map_screen.dart';
+import 'setting/setting_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -342,6 +343,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final prefs = await SharedPreferences.getInstance();
       final userCode = prefs.getString("driver_code") ?? "";
@@ -368,7 +370,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: false, // Always block default back behavior
+      canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) {
           _showExitConfirmation(context);
@@ -380,54 +382,43 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Consumer<NotificationProvider>(
           builder: (context, notifProvider, _) {
             return Scaffold(
-              appBar: PreferredSize(
-                preferredSize: Size.fromHeight(
-                  80 + MediaQuery.of(context).padding.top,
-                ),
-                child: Container(
-                  padding: EdgeInsets.only(
-                    top: MediaQuery.of(context).padding.top,
-                    left: 16,
-                    right: 16,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: const BorderRadius.vertical(
-                      bottom: Radius.circular(24),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.10),
-                        blurRadius: 12,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: SizedBox(
-                    height: 80,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const SizedBox(width: 42),
-                        Text(
-                          _getTitle(),
+              // ---------------- APP BAR ----------------
+              appBar: CustomHomeAppBar(
+                title: _getTitle(),
+                showLeading: false,
+
+                showTrailing: true,
+                trailingSvg: "assets/icons/notification.svg",
+                onTrailingTap: () {
+                  Navigator.pushReplacementNamed(context, '/notification');
+                },
+
+                trailingBadge:
+                    context.watch<NotificationProvider>().unreadCount > 0
+                    ? Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1.5),
+                        ),
+                        child: Text(
+                          "${context.watch<NotificationProvider>().unreadCount}",
                           style: const TextStyle(
-                            fontSize: 20,
-                            color: Colors.black,
+                            fontSize: 10,
+                            color: Colors.white,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        _notificationButton(
-                          context.read<NotificationProvider>(),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                      )
+                    : null,
               ),
 
+              // ---------------- MAIN BODY ----------------
               body: _screens[_selectedIndex],
-              bottomNavigationBar: _buildBottomBar(context),
+
+              // ---------------- BOTTOM NAV BAR ----------------
+              bottomNavigationBar: _buildBottomNav(context),
             );
           },
         ),
@@ -435,113 +426,54 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ------------------------------------------------------------
-  // RESPONSIVE BOTTOM NAV BAR
-  // ------------------------------------------------------------
-  Widget _buildBottomBar(BuildContext context) {
-    final viewPadding = MediaQuery.of(context).viewPadding.bottom;
-    final viewInsets = MediaQuery.of(context).viewInsets.bottom;
+  Widget _buildBottomNav(BuildContext context) {
+    final safeBottom = MediaQuery.of(context).padding.bottom;
 
-    // Final safe bottom padding:
-    // - If gesture bar exists → use that
-    // - If keyboard open → ignore gesture padding
-    // - If 3-button nav → use default 16
-    final double safeBottom = viewInsets > 0
-        ? 16 // keyboard open → minimal padding
-        : (viewPadding > 0 ? viewPadding : 16);
+    // If zero → 3-button navigation → do NOT add SafeArea padding
+    final isThreeButtonNav = safeBottom == 0;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.transparent,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.10),
-            blurRadius: 12,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        child: Container(
-          color: Colors.white,
-          padding: EdgeInsets.fromLTRB(24, 12, 24, safeBottom),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _navItem("assets/icons/home.svg", "Home", 0),
-              _navItem("assets/icons/order.svg", "Orders", 1),
-              _navItem("assets/icons/map.svg", "Maps", 2),
-              _navItem("assets/icons/setting.svg", "Settings", 3),
-            ],
+    final bottomPadding = isThreeButtonNav
+        ? 16.0 // No gap on 3-button nav
+        : safeBottom.clamp(16.0, 32.0); // Gesture nav
+
+    return SafeArea(
+      bottom: !isThreeButtonNav,
+      // 👆 If 3-button nav → disable SafeArea bottom
+      // If gesture nav → SafeArea protects from overlap
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.10),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          child: Container(
+            color: Colors.white,
+            padding: EdgeInsets.fromLTRB(24, 16, 24, bottomPadding),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _navItem("assets/icons/home.svg", "Home", 0),
+                _navItem("assets/icons/order.svg", "Orders", 1),
+                _navItem("assets/icons/map.svg", "Maps", 2),
+                _navItem("assets/icons/setting.svg", "Settings", 3),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  // Widget _buildBottomBar(BuildContext context) {
-  //   final padding = MediaQuery.of(context).padding;
-  //   final bottomInset = padding.bottom; // iOS home indicator
-
-  //   return Container(
-  //     decoration: BoxDecoration(
-  //       color: Colors.transparent,
-  //       boxShadow: [
-  //         BoxShadow(
-  //           color: Colors.black.withOpacity(0.10),
-  //           blurRadius: 12,
-  //           offset: const Offset(0, -2), // shadow above the bar
-  //         ),
-  //       ],
-  //     ),
-  //     child: ClipRRect(
-  //       borderRadius: const BorderRadius.vertical(
-  //         top: Radius.circular(24), // rounded top corners
-  //       ),
-  //       child: Container(
-  //         color: Colors.white,
-  //         padding: EdgeInsets.fromLTRB(
-  //           24,
-  //           12,
-  //           24,
-  //           (bottomInset > 0 ? bottomInset : 16), // perfect on all devices
-  //         ),
-  //         child: Row(
-  //           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  //           children: [
-  //             _navItem("assets/icons/home.svg", "Home", 0),
-  //             _navItem("assets/icons/order.svg", "Orders", 1),
-  //             _navItem("assets/icons/map.svg", "Maps", 2),
-  //             _navItem("assets/icons/setting.svg", "Settings", 3),
-  //           ],
-  //         ),
-  //       ),
-  //     ),
-  //   );
-  // }
-
-  // ------------------------------------------------------------
-  // PAGE TITLE
-  // ------------------------------------------------------------
-  String _getTitle() {
-    switch (_selectedIndex) {
-      case 0:
-        return "Home";
-      case 1:
-        return "Orders";
-      case 2:
-        return "Maps";
-      case 3:
-        return "Settings";
-      default:
-        return "";
-    }
-  }
-
-  // ------------------------------------------------------------
-  // NAVIGATION ITEM
-  // ------------------------------------------------------------
+  // =============================================================
+  // NAV ITEM
+  // =============================================================
   Widget _navItem(String icon, String label, int index) {
     bool selected = _selectedIndex == index;
 
@@ -588,71 +520,42 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ------------------------------------------------------------
-  // NOTIFICATION WITH BADGE
-  // ------------------------------------------------------------
-  Widget _notificationButton(NotificationProvider notifProvider) {
-    return GestureDetector(
-      onTap: () => Navigator.pushReplacementNamed(context, '/notification'),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: kPrimaryColor.withOpacity(0.06),
-              borderRadius: BorderRadius.circular(30),
-            ),
-            child: SvgPicture.asset(
-              "assets/icons/notification.svg",
-              width: 28,
-              height: 28,
-              colorFilter: const ColorFilter.mode(
-                kPrimaryColor,
-                BlendMode.srcIn,
-              ),
-            ),
-          ),
-
-          if (notifProvider.unreadCount > 0)
-            Positioned(
-              top: -2,
-              right: -2,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Colors.red,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 1.8),
-                ),
-                child: Text(
-                  "${notifProvider.unreadCount}",
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
+  // =============================================================
+  // TITLE FOR EACH TAB
+  // =============================================================
+  String _getTitle() {
+    switch (_selectedIndex) {
+      case 0:
+        return "Home";
+      case 1:
+        return "Orders";
+      case 2:
+        return "Maps";
+      case 3:
+        return "Settings";
+      default:
+        return "";
+    }
   }
 
+  // =============================================================
+  // EXIT CONFIRMATION
+  // =============================================================
   void _showExitConfirmation(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (_) {
         return Padding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            24,
+            24,
+            MediaQuery.of(context).padding.bottom + 24,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -668,47 +571,25 @@ class _HomeScreenState extends State<HomeScreen> {
 
               const Text(
                 "Exit App?",
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 8),
 
+              const SizedBox(height: 8),
               const Text(
                 "Are you sure you want to close the app?",
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 15, color: Colors.black54),
+                style: TextStyle(fontSize: 15),
               ),
+
               const SizedBox(height: 24),
-
-              // EXIT BUTTON
-              CustomButton(
-                text: "Exit",
-                color: kPrimaryRedColor,
-                textColor: kWhiteButtonColor,
-                borderColor: kPrimaryColor,
-                onTap: () {
-                  Navigator.of(context).pop();
-                  Future.delayed(const Duration(milliseconds: 100), () {
-                    // Exit app
-                    Navigator.of(context).pop(true);
-                  });
-                },
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text("Exit"),
               ),
-              const SizedBox(height: 12),
-
-              // CANCEL BUTTON
-              CustomButton(
-                text: "Cancel",
-                color: kWhiteButtonColor,
-                textColor: kPrimaryColor,
-                borderColor: kPrimaryColor,
-                onTap: () => Navigator.pop(context),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Cancel"),
               ),
-
-              SizedBox(height: MediaQuery.of(context).padding.bottom + 12),
             ],
           ),
         );

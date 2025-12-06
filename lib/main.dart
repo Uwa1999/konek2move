@@ -97,6 +97,50 @@ Future<void> _initAllPermissions() async {
   }
 }
 
+// class MyApp extends StatelessWidget {
+//   const MyApp({super.key});
+
+//   @override
+//   Widget build(BuildContext context) {
+//     final connectivityProvider = Provider.of<ConnectivityProvider>(context);
+
+//     return MaterialApp(
+//       debugShowCheckedModeBanner: false,
+//       title: 'Konek2Move',
+//       theme: ThemeData(
+//         colorScheme: ColorScheme.fromSeed(seedColor: Colors.white),
+//         useMaterial3: false,
+//       ),
+//       initialRoute: AppRoutes.splash,
+//       routes: AppRoutes.routes,
+//       builder: (context, child) {
+//         return Stack(
+//           children: [
+//             child!,
+
+//             // ❌ Completely no connection
+//             if (!connectivityProvider.isChecking &&
+//                 !connectivityProvider.isConnected)
+//               const NoInternetScreen(),
+
+//             // ⚠️ Internet restricted (EX: TikTok-only data)
+//             if (!connectivityProvider.isChecking &&
+//                 connectivityProvider.isConnected &&
+//                 !connectivityProvider.hasRealInternet)
+//               const NoInternetScreen(),
+
+//             // ❌ Can reach internet but NOT your backend
+//             if (!connectivityProvider.isChecking &&
+//                 connectivityProvider.hasRealInternet &&
+//                 !connectivityProvider.canReachServer)
+//               const NoInternetScreen(),
+//           ],
+//         );
+//       },
+//     );
+//   }
+// }
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
