@@ -2,6 +2,7 @@ import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/services/api_services.dart';
+import 'package:konek2move/core/widgets/custom_appbar.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
 import 'package:konek2move/core/widgets/custom_fields.dart';
 import 'package:konek2move/ui/login/forgot_password_verification_screen.dart';
@@ -107,107 +108,70 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final top = MediaQuery.of(context).padding.top;
-    final bottom = MediaQuery.of(context).padding.bottom;
+    final safeBottom = MediaQuery.of(context).padding.bottom;
+
+    // ⭐ Clamp bottom spacing (minimum 16, maximum 32)
+    final bottomPadding = safeBottom.clamp(16.0, 32.0);
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          _buildHeader(top), // ⭐ pass top padding to header
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 24,
-              ), // ⭐ clean page padding
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "Forgot Password",
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
 
-                  const SizedBox(height: 8),
-
-                  Text(
-                    "Please enter the registered mobile number to reset your password",
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  CustomInputField(
-                    label: "Email",
-                    hint: "Enter your email",
-                    controller: forgotEmailController,
-                    prefixSvg: "assets/icons/email.svg",
-                  ), // ⭐ consistent bottom spacing before button
-                ],
-              ),
-            ),
-          ),
-
-          // ⭐ Dynamic + consistent footer spacing
-          Padding(
-            padding: EdgeInsets.only(
-              left: 24,
-              right: 24,
-              bottom: bottom + 16, // ⭐ dynamic safe-area + consistent spacing
-            ),
-            child: CustomButton(
-              text: isLoading ? "Sending..." : "Continue",
-              horizontalPadding: 0,
-              color: isEmailValid ? kPrimaryColor : Colors.grey.shade400,
-              textColor: Colors.white,
-              onTap: isEmailValid && !isLoading ? _onSendCode : null,
-            ),
-          ),
-        ],
+      // ---------- APP BAR ----------
+      appBar: const CustomAppBar(
+        title: "Forgot Password",
+        leadingIcon: Icons.arrow_back,
       ),
-    );
-  }
 
-  Widget _buildHeader(double top) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.only(top: top + 12, bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(24),
-          bottomRight: Radius.circular(24),
+      // ---------- BODY ----------
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Forgot Password",
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+
+            const SizedBox(height: 8),
+
+            Text(
+              "Please enter the registered mobile number to reset your password",
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
+            ),
+
+            const SizedBox(height: 32),
+
+            CustomInputField(
+              label: "Email",
+              hint: "Enter your email",
+              controller: forgotEmailController,
+              prefixSvg: "assets/icons/email.svg",
+            ),
+
+            const SizedBox(height: 120),
+          ],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04), // ⭐ softer & cleaner
-            blurRadius: 16, // ⭐ smooth shadow
-            offset: const Offset(0, 4), // ⭐ subtle elevation
-          ),
-        ],
       ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          const Text(
-            "Forgot Password",
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
 
-          Positioned(
-            left: 16,
-            child: GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: Container(
-                width: 40,
-                height: 40,
-                alignment: Alignment.center,
-                child: const Icon(Icons.arrow_back, size: 24),
-              ),
-            ),
+      // ---------- BOTTOM BUTTON ----------
+      bottomNavigationBar: SafeArea(
+        bottom: true,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            24,
+            16,
+            24,
+            bottomPadding, // ⭐ clamped bottom padding
           ),
-        ],
+          child: CustomButton(
+            text: isLoading ? "Sending..." : "Continue",
+            horizontalPadding: 0,
+            color: isEmailValid ? kPrimaryColor : Colors.grey.shade400,
+            textColor: Colors.white,
+            onTap: isEmailValid && !isLoading ? _onSendCode : null,
+          ),
+        ),
       ),
     );
   }

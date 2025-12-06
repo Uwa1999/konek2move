@@ -557,75 +557,80 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    final top = MediaQuery.of(context).padding.top; // dynamic notch/status bar
-    final bottom = MediaQuery.of(
-      context,
-    ).padding.bottom; // dynamic nav/home-bar
+    final top = MediaQuery.of(context).padding.top;
+    final bottom = MediaQuery.of(context).padding.bottom;
 
     final bool canLogin = isEmailValid && isPasswordNotEmpty && !isLoading;
+
+    // Standard footer spacing (16–32)
+    final bottomPadding = bottom.clamp(16.0, 32.0);
 
     return Scaffold(
       backgroundColor: Colors.white,
 
-      // FOOTER WITH DYNAMIC SPACING
-      bottomNavigationBar: Padding(
-        padding: EdgeInsets.only(
-          bottom: bottom + 16, // ⭐ dynamic + clean spacing (not too big)
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              "Konek2Move v1.0.0",
-              style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              "Powered by FSA Asya Philippines Inc | FDSAP.",
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
-            ),
-          ],
+      bottomNavigationBar: SafeArea(
+        bottom: true,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(24, 16, 24, bottomPadding),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                "Konek2Move v1.0.0",
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 10),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                "Powered by FSA Asya Philippines Inc | FDSAP.",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 10),
+              ),
+            ],
+          ),
         ),
       ),
 
+      // ------------ BODY ------------
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: EdgeInsets.only(
-            left: 24,
-            right: 24,
-            top: top + 24, // ⭐ BEST PRACTICE: dynamic + consistent
-            bottom: 24, // ⭐ internal scroll padding only
-          ),
+          padding: EdgeInsets.fromLTRB(24, top + 32, 24, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              // HERO IMAGE
               Center(
                 child: Image.asset(
                   "assets/images/login.png",
-                  height: size.height * 0.12, // ⭐ slightly bigger and cleaner
+                  height: size.height * 0.12,
                 ),
               ),
 
               const SizedBox(height: 32),
 
-              Text(
+              // TITLE
+              const Text(
                 "Let's get you Login!",
-                style: const TextStyle(
-                  fontSize: 32,
+                style: TextStyle(
+                  fontSize: 30, // ⭐ Standard large title
                   fontWeight: FontWeight.w800,
                 ),
               ),
 
               const SizedBox(height: 6),
+
+              // SUBTITLE
               Text(
                 "Login now and get your deliveries on the go!",
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
+                style: TextStyle(
+                  fontSize: 15, // ⭐ Standard subtitle
+                  color: Colors.grey.shade500,
+                ),
               ),
 
               const SizedBox(height: 32),
 
+              // EMAIL INPUT
               CustomInputField(
                 label: "Email",
                 hint: "Enter your email",
@@ -635,6 +640,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 16),
 
+              // PASSWORD INPUT
               CustomInputField(
                 label: "Password",
                 hint: "Enter your password",
@@ -650,6 +656,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 12),
 
+              // FORGOT PASSWORD
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
@@ -664,14 +671,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: TextStyle(
                       color: kPrimaryColor,
                       fontWeight: FontWeight.w500,
-                      fontSize: 15,
+                      fontSize: 15, // ⭐ Standard link/tab size
                     ),
                   ),
                 ),
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
 
+              // BIOMETRIC LOGIN
               if (showBiometric)
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -691,7 +699,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: TextStyle(
                         color: kPrimaryColor,
                         fontWeight: FontWeight.w500,
-                        fontSize: 15,
+                        fontSize: 15, // ⭐ Standard button text
                       ),
                     ),
                   ),
@@ -699,6 +707,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               if (showBiometric) const SizedBox(height: 24),
 
+              // LOGIN BUTTON
               CustomButton(
                 text: isLoading ? "Logging in..." : "Login",
                 horizontalPadding: 0,
@@ -709,6 +718,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 24),
 
+              // SIGN UP
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -729,8 +739,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       "Sign Up",
                       style: TextStyle(
                         color: kPrimaryColor,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15, // ⭐ Standard action link
                       ),
                     ),
                   ),
