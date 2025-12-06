@@ -104,14 +104,13 @@ class _EmailScreenState extends State<EmailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final top = MediaQuery.of(context).padding.top;
     final bottom = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          _buildHeader(top), // ⭐ pass dynamic top spacing
+          _header(context), // ⭐ pass dynamic top spacing
 
           Expanded(
             child: SingleChildScrollView(
@@ -145,60 +144,60 @@ class _EmailScreenState extends State<EmailScreen> {
           ),
 
           // ⭐ Footer spacing dynamic + clean
-          Padding(
-            padding: EdgeInsets.fromLTRB(24, 0, 24, bottom + 16),
-            child: CustomButton(
-              text: isLoading ? "Sending..." : "Continue",
-              horizontalPadding: 0,
-              color: isEmailValid ? kPrimaryColor : Colors.grey.shade400,
-              textColor: Colors.white,
-              onTap: isEmailValid && !isLoading ? _onSendCode : null,
-            ),
-          ),
+          _buildBottomAction(context),
         ],
       ),
     );
   }
 
-  Widget _buildHeader(double top) {
+  Widget _header(BuildContext context) {
+    final topPad = MediaQuery.of(context).padding.top;
+
     return Container(
+      height: topPad + 80,
       width: double.infinity,
-      padding: EdgeInsets.only(
-        top: top + 12, // ⭐ dynamic safe-area spacing
-        bottom: 16, // ⭐ consistent bottom padding
-      ),
+      padding: EdgeInsets.only(top: topPad, left: 16, right: 16, bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(24),
-          bottomRight: Radius.circular(24),
-        ),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04), // ⭐ softer & cleaner
-            blurRadius: 16, // ⭐ smooth shadow
-            offset: const Offset(0, 4), // ⭐ subtle elevation
+            color: Colors.black.withOpacity(0.10),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Stack(
         alignment: Alignment.center,
         children: [
+          // TITLE
           const Text(
             "Registration",
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
           ),
 
-          // ⭐ Standard back button size and padding
+          // BACK BUTTON
           Positioned(
-            left: 16,
+            left: 0,
             child: GestureDetector(
               onTap: () => Navigator.pop(context),
               child: Container(
                 width: 40,
                 height: 40,
-                alignment: Alignment.center,
-                child: const Icon(Icons.arrow_back, size: 24),
+                decoration: BoxDecoration(
+                  color: kPrimaryColor.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: const Icon(
+                  Icons.arrow_back,
+                  size: 22,
+                  color: Colors.black,
+                ),
               ),
             ),
           ),
@@ -206,4 +205,77 @@ class _EmailScreenState extends State<EmailScreen> {
       ),
     );
   }
+
+  Widget _buildBottomAction(BuildContext context) {
+    final viewPadding = MediaQuery.of(context).viewPadding.bottom;
+    final viewInsets = MediaQuery.of(context).viewInsets.bottom;
+
+    // GLOBAL adaptive padding logic (same as your terms screen)
+    final double safeBottom = viewInsets > 0
+        ? 16
+        : (viewPadding > 0 ? viewPadding : 16);
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      child: Container(
+        color: Colors.white,
+        padding: EdgeInsets.fromLTRB(24, 16, 24, safeBottom),
+        child: CustomButton(
+          radius: 30,
+          text: isLoading ? "Sending..." : "Continue",
+          horizontalPadding: 0,
+          textColor: Colors.white,
+          color: isEmailValid ? kPrimaryColor : Colors.grey.shade300,
+          onTap: isEmailValid && !isLoading ? _onSendCode : null,
+        ),
+      ),
+    );
+  }
+
+  // Widget _buildHeader(double top) {
+  //   return Container(
+  //     width: double.infinity,
+  //     padding: EdgeInsets.only(
+  //       top: top + 12, // ⭐ dynamic safe-area spacing
+  //       bottom: 16, // ⭐ consistent bottom padding
+  //     ),
+  //     decoration: BoxDecoration(
+  //       color: Colors.white,
+  //       borderRadius: BorderRadius.only(
+  //         bottomLeft: Radius.circular(24),
+  //         bottomRight: Radius.circular(24),
+  //       ),
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: Colors.black.withOpacity(0.04), // ⭐ softer & cleaner
+  //           blurRadius: 16, // ⭐ smooth shadow
+  //           offset: const Offset(0, 4), // ⭐ subtle elevation
+  //         ),
+  //       ],
+  //     ),
+  //     child: Stack(
+  //       alignment: Alignment.center,
+  //       children: [
+  //         const Text(
+  //           "Registration",
+  //           style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+  //         ),
+
+  //         // ⭐ Standard back button size and padding
+  //         Positioned(
+  //           left: 16,
+  //           child: GestureDetector(
+  //             onTap: () => Navigator.pop(context),
+  //             child: Container(
+  //               width: 40,
+  //               height: 40,
+  //               alignment: Alignment.center,
+  //               child: const Icon(Icons.arrow_back, size: 24),
+  //             ),
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 }

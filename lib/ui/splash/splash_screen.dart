@@ -3,6 +3,7 @@ import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
 import 'package:konek2move/ui/login/login_screen.dart';
 import 'package:konek2move/ui/register/register_screen.dart';
+import 'package:konek2move/ui/register/terms_and_condition_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -105,6 +106,7 @@ class _SplashScreenState extends State<SplashScreen>
 
               // ===== BUTTONS =====
               CustomButton(
+                radius: 30,
                 horizontalPadding: 0,
                 text: "Get Started",
                 color: kPrimaryColor,
@@ -113,7 +115,7 @@ class _SplashScreenState extends State<SplashScreen>
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => RegisterScreen(email: ''),
+                      builder: (_) => TermsAndConditionScreen(),
                     ),
                   );
                 },
@@ -122,6 +124,7 @@ class _SplashScreenState extends State<SplashScreen>
               const SizedBox(height: 10),
 
               CustomButton(
+                radius: 30,
                 horizontalPadding: 0,
                 text: "Login",
                 color: kWhiteButtonColor,

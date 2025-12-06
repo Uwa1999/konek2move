@@ -28,29 +28,6 @@ class _TermsAndConditionScreenState extends State<TermsAndConditionScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // IMAGE
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.10),
-                          blurRadius: 14,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: Image.asset(
-                        "assets/images/terms.png",
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 32),
-
                   // SECTIONS
                   _TermsSection(
                     title: "1. Introduction",
@@ -196,22 +173,40 @@ class _TermsAndConditionScreenState extends State<TermsAndConditionScreen> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Checkbox(
-                    value: isAccepted,
-                    onChanged: (val) {
-                      setState(() => isAccepted = val ?? false);
-                    },
-                    activeColor: kPrimaryColor,
-                    shape: const CircleBorder(),
+                  Transform.scale(
+                    scale: 1.4, // adjust size here (1.0 = default)
+                    child: Checkbox(
+                      value: isAccepted,
+                      onChanged: (val) {
+                        setState(() => isAccepted = val ?? false);
+                      },
+                      activeColor: kPrimaryColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4), // modern look
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      "I have read and agree to all the Terms & Conditions",
-                      style: TextStyle(
-                        fontSize: 14,
-                        height: 1.4,
-                        color: Colors.black87,
+                  Expanded(
+                    child: RichText(
+                      text: TextSpan(
+                        text: "I have read and agree to all the ",
+                        style: const TextStyle(
+                          fontSize: 14,
+                          height: 1.4,
+                          color: Colors.black87,
+                        ),
+                        children: [
+                          TextSpan(
+                            text: "Terms & Conditions",
+                            style: TextStyle(
+                              fontSize: 14,
+                              height: 1.4,
+                              color: kPrimaryColor, // green highlight
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -221,6 +216,7 @@ class _TermsAndConditionScreenState extends State<TermsAndConditionScreen> {
               const SizedBox(height: 16),
 
               CustomButton(
+                radius: 30,
                 text: "Continue",
                 horizontalPadding: 0,
                 textColor: Colors.white,
