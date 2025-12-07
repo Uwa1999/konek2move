@@ -558,12 +558,12 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final top = MediaQuery.of(context).padding.top;
-    final bottom = MediaQuery.of(context).padding.bottom;
 
     final bool canLogin = isEmailValid && isPasswordNotEmpty && !isLoading;
 
-    // Standard footer spacing (16–32)
-    final bottomPadding = bottom.clamp(16.0, 32.0);
+    final safeBottom = MediaQuery.of(context).padding.bottom;
+    // Detect 3-button navigation (no safe inset)
+    final bool isThreeButtonNav = safeBottom == 0;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -571,7 +571,16 @@ class _LoginScreenState extends State<LoginScreen> {
       bottomNavigationBar: SafeArea(
         bottom: true,
         child: Padding(
-          padding: EdgeInsets.fromLTRB(24, 16, 24, bottomPadding),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            16,
+            24,
+
+            // ⬇️ FINAL BOTTOM PADDING FIX
+            isThreeButtonNav
+                ? 16 // 3-button navigation → add 16 so button is visible
+                : safeBottom - 24, // gesture navbar → add small buffer
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -709,6 +718,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               // LOGIN BUTTON
               CustomButton(
+                radius: 24,
                 text: isLoading ? "Logging in..." : "Login",
                 horizontalPadding: 0,
                 color: canLogin ? kPrimaryColor : Colors.grey.shade400,

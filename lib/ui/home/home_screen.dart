@@ -429,17 +429,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildBottomNav(BuildContext context) {
     final safeBottom = MediaQuery.of(context).padding.bottom;
 
-    // If zero → 3-button navigation → do NOT add SafeArea padding
-    final isThreeButtonNav = safeBottom == 0;
-
-    final bottomPadding = isThreeButtonNav
-        ? 16.0 // No gap on 3-button nav
-        : safeBottom.clamp(16.0, 32.0); // Gesture nav
+    // Detect 3-button navigation
+    final bool isThreeButtonNav = safeBottom == 0;
 
     return SafeArea(
-      bottom: !isThreeButtonNav,
-      // 👆 If 3-button nav → disable SafeArea bottom
-      // If gesture nav → SafeArea protects from overlap
+      bottom: false, // ← SAME FIX as _buildBottomAction
       child: Container(
         decoration: BoxDecoration(
           color: Colors.transparent,
@@ -455,7 +449,16 @@ class _HomeScreenState extends State<HomeScreen> {
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           child: Container(
             color: Colors.white,
-            padding: EdgeInsets.fromLTRB(24, 16, 24, bottomPadding),
+            padding: EdgeInsets.fromLTRB(
+              24,
+              16,
+              24,
+
+              // ⬇️ SAME LOGIC AS YOUR FIXED CODE
+              isThreeButtonNav
+                  ? 16 // 3-button nav → fixed 16 padding
+                  : safeBottom + 24, // gesture nav → safe inset + 16
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [

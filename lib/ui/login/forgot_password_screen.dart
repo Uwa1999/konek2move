@@ -108,11 +108,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final safeBottom = MediaQuery.of(context).padding.bottom;
-
-    // ⭐ Clamp bottom spacing (minimum 16, maximum 32)
-    final bottomPadding = safeBottom.clamp(16.0, 32.0);
-
     return Scaffold(
       backgroundColor: Colors.white,
 
@@ -155,14 +150,31 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       ),
 
       // ---------- BOTTOM BUTTON ----------
-      bottomNavigationBar: SafeArea(
-        bottom: true,
-        child: Padding(
+      bottomNavigationBar: _buildBottomAction(context),
+    );
+  }
+
+  Widget _buildBottomAction(BuildContext context) {
+    final safeBottom = MediaQuery.of(context).padding.bottom;
+
+    // Detect 3-button navigation (no safe inset)
+    final bool isThreeButtonNav = safeBottom == 0;
+
+    return SafeArea(
+      bottom: false, // ← REQUIRED so 3-button nav does NOT cover the UI
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        child: Container(
+          color: Colors.white,
           padding: EdgeInsets.fromLTRB(
             24,
             16,
             24,
-            bottomPadding, // ⭐ clamped bottom padding
+
+            // ⬇️ FINAL BOTTOM PADDING FIX
+            isThreeButtonNav
+                ? 16 // 3-button navigation → add 16 so button is visible
+                : safeBottom + 24, // gesture navbar → add small buffer
           ),
           child: CustomButton(
             text: isLoading ? "Sending..." : "Continue",

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/services/api_services.dart';
+import 'package:konek2move/core/widgets/custom_appbar.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
 import 'package:konek2move/ui/register/register_screen.dart';
 
@@ -154,40 +155,52 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   }
 
   Widget _otpBox(int index) {
-    return Container(
+    return SizedBox(
       width: 48,
       height: 55,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: currentIndex == index ? kPrimaryColor : Colors.grey.shade300,
-          width: 2,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: currentIndex == index ? kPrimaryColor : Colors.grey.shade300,
+            width: 2,
+          ),
+          borderRadius: BorderRadius.circular(12),
         ),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: TextField(
-        controller: _otpControllers[index],
-        focusNode: _focusNodes[index],
-        autofocus: index == 0,
-        keyboardType: TextInputType.number,
-        inputFormatters: [
-          FilteringTextInputFormatter.digitsOnly,
-          LengthLimitingTextInputFormatter(1),
-        ],
-        textAlign: TextAlign.center,
-        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-        decoration: const InputDecoration(border: InputBorder.none),
-        onChanged: (value) {
-          if (value.isNotEmpty && index < 5) {
-            FocusScope.of(context).nextFocus();
-          } else if (value.isEmpty && index > 0) {
-            FocusScope.of(context).previousFocus();
-          }
+        child: Center(
+          child: TextField(
+            controller: _otpControllers[index],
+            focusNode: _focusNodes[index],
+            autofocus: index == 0,
+            keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(1),
+            ],
+            textAlign: TextAlign.center,
+            // textAlignVertical:
+            //     TextAlignVertical.center, // ⭐ Force vertical centering
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              // height: 1.0, // ⭐ Prevents shifting on some AMOLED screens
+            ),
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.zero, // ⭐ Prevents top/bottom shifting
+            ),
+            onChanged: (value) {
+              if (value.isNotEmpty && index < 5) {
+                FocusScope.of(context).nextFocus();
+              } else if (value.isEmpty && index > 0) {
+                FocusScope.of(context).previousFocus();
+              }
 
-          setState(() {
-            isOtpComplete = _otpControllers.every((c) => c.text.isNotEmpty);
-          });
-        },
+              setState(() {
+                isOtpComplete = _otpControllers.every((c) => c.text.isNotEmpty);
+              });
+            },
+          ),
+        ),
       ),
     );
   }
@@ -206,152 +219,115 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final top = MediaQuery.of(context).padding.top;
-    final bottom = MediaQuery.of(context).padding.bottom;
-
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          _buildHeader(top),
 
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 16),
+      appBar: CustomAppBar(
+        title: "Verification",
+        leadingIcon: Icons.arrow_back,
+      ),
 
-                  Text(
-                    "Verification Email",
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const SizedBox(height: 16),
 
-                  const SizedBox(height: 12),
+            const Text(
+              "Verification Email",
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
 
-                  Text(
-                    "Enter the code we just sent to email",
+            const SizedBox(height: 12),
+
+            Text(
+              "Enter the code we just sent to email",
+              style: TextStyle(color: Colors.grey.shade600),
+            ),
+
+            const SizedBox(height: 6),
+
+            Text(
+              maskEmailAddress(widget.email),
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+            ),
+
+            const SizedBox(height: 32),
+
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                6,
+                (i) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: _otpBox(i),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            _secondsRemaining == 0
+                ? Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        "Didn't receive code?",
+                        style: TextStyle(color: Colors.grey.shade600),
+                      ),
+                      TextButton(
+                        onPressed: () => _resendOTP(),
+                        child: const Text(
+                          "Resend",
+                          style: TextStyle(color: kPrimaryColor),
+                        ),
+                      ),
+                    ],
+                  )
+                : Text(
+                    "Resend available in $_secondsRemaining seconds",
                     style: TextStyle(color: Colors.grey.shade600),
                   ),
 
-                  const SizedBox(height: 6),
-
-                  Text(
-                    maskEmailAddress(widget.email),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                    ),
-                  ),
-
-                  const SizedBox(height: 32), // ⭐ section spacing
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(
-                      6,
-                      (i) => Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: _otpBox(i),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  _secondsRemaining == 0
-                      ? Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              "Didn't receive code?",
-                              style: TextStyle(color: Colors.grey.shade600),
-                            ),
-                            TextButton(
-                              onPressed: () => _resendOTP(),
-                              child: const Text(
-                                "Resend",
-                                style: TextStyle(color: kPrimaryColor),
-                              ),
-                            ),
-                          ],
-                        )
-                      : Text(
-                          "Resend available in $_secondsRemaining seconds",
-                          style: TextStyle(color: Colors.grey.shade600),
-                        ),
-
-                  const SizedBox(height: 20),
-                ],
-              ),
-            ),
-          ),
-
-          // ⭐ Bottom button spacing
-          Padding(
-            padding: EdgeInsets.fromLTRB(24, 0, 24, bottom + 16),
-            child: CustomButton(
-              text: isLoading ? "Sending..." : "Continue",
-              horizontalPadding: 0,
-              color: isOtpComplete ? kPrimaryColor : Colors.grey.shade400,
-              textColor: Colors.white,
-              onTap: isOtpComplete && !isLoading ? _verifyOtp : null,
-            ),
-          ),
-        ],
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
+
+      bottomNavigationBar: _buildBottomAction(context),
     );
   }
 
-  Widget _buildHeader(double top) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.only(
-        top: top + 12, // ⭐ dynamic safe-area + spacing
-        bottom: 16, // ⭐ clean balanced bottom padding
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(24),
-          bottomRight: Radius.circular(24),
+  Widget _buildBottomAction(BuildContext context) {
+    final safeBottom = MediaQuery.of(context).padding.bottom;
+
+    // Detect 3-button navigation
+    final bool isThreeButtonNav = safeBottom == 0;
+
+    return SafeArea(
+      bottom: false,
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        child: Container(
+          color: Colors.white,
+          padding: EdgeInsets.fromLTRB(
+            24,
+            16,
+            24,
+            isThreeButtonNav
+                ? 16 // 3-button nav phones
+                : safeBottom + 24, // gesture nav phones
+          ),
+          child: CustomButton(
+            radius: 30,
+            text: isLoading ? "Sending..." : "Continue",
+            horizontalPadding: 0,
+            textColor: Colors.white,
+            color: isOtpComplete ? kPrimaryColor : Colors.grey.shade300,
+            onTap: isOtpComplete && !isLoading ? _verifyOtp : null,
+          ),
         ),
-
-        // ⭐ PREMIUM SOFT SHADOW
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05), // much softer
-            blurRadius: 18, // smoother spread
-            offset: const Offset(0, 4), // subtle lift
-          ),
-        ],
-      ),
-
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          const Text(
-            "Verification",
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-
-          Positioned(
-            left: 16,
-            child: GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: Container(
-                width: 40,
-                height: 40,
-                alignment: Alignment.center,
-                child: const Icon(Icons.arrow_back, size: 24),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

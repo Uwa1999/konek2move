@@ -2,6 +2,7 @@ import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/services/api_services.dart';
+import 'package:konek2move/core/widgets/custom_appbar.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
 import 'package:konek2move/core/widgets/custom_fields.dart';
 import 'package:konek2move/ui/register/email_verification_screen.dart';
@@ -104,129 +105,75 @@ class _EmailScreenState extends State<EmailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bottom = MediaQuery.of(context).padding.bottom;
-
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          _header(context), // ⭐ pass dynamic top spacing
 
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "Email Verification",
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  Text(
-                    "Please enter an email address that is not yet registered to continue.",
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
-                  ),
-
-                  const SizedBox(height: 32), // ⭐ section spacing
-
-                  CustomInputField(
-                    label: "Email",
-                    hint: "Enter your email",
-                    controller: emailController,
-                    prefixSvg: "assets/icons/email.svg",
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // ⭐ Footer spacing dynamic + clean
-          _buildBottomAction(context),
-        ],
+      appBar: CustomAppBar(
+        title: "Registration",
+        leadingIcon: Icons.arrow_back,
       ),
-    );
-  }
-
-  Widget _header(BuildContext context) {
-    final topPad = MediaQuery.of(context).padding.top;
-
-    return Container(
-      height: topPad + 80,
-      width: double.infinity,
-      padding: EdgeInsets.only(top: topPad, left: 16, right: 16, bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.10),
-            blurRadius: 12,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // TITLE
-          const Text(
-            "Registration",
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Email Verification",
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
-          ),
 
-          // BACK BUTTON
-          Positioned(
-            left: 0,
-            child: GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: kPrimaryColor.withOpacity(0.06),
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: const Icon(
-                  Icons.arrow_back,
-                  size: 22,
-                  color: Colors.black,
-                ),
-              ),
+            const SizedBox(height: 8),
+
+            Text(
+              "Please enter an email address that is not yet registered to continue.",
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
             ),
-          ),
-        ],
+
+            const SizedBox(height: 32), // ⭐ section spacing
+
+            CustomInputField(
+              label: "Email",
+              hint: "Enter your email",
+              controller: emailController,
+              prefixSvg: "assets/icons/email.svg",
+            ),
+          ],
+        ),
       ),
+      bottomNavigationBar: _buildBottomAction(context),
     );
   }
 
   Widget _buildBottomAction(BuildContext context) {
-    final viewPadding = MediaQuery.of(context).viewPadding.bottom;
-    final viewInsets = MediaQuery.of(context).viewInsets.bottom;
+    final safeBottom = MediaQuery.of(context).padding.bottom;
 
-    // GLOBAL adaptive padding logic (same as your terms screen)
-    final double safeBottom = viewInsets > 0
-        ? 16
-        : (viewPadding > 0 ? viewPadding : 16);
+    // Detect 3-button navigation (no safe inset)
+    final bool isThreeButtonNav = safeBottom == 0;
 
-    return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      child: Container(
-        color: Colors.white,
-        padding: EdgeInsets.fromLTRB(24, 16, 24, safeBottom),
-        child: CustomButton(
-          radius: 30,
-          text: isLoading ? "Sending..." : "Continue",
-          horizontalPadding: 0,
-          textColor: Colors.white,
-          color: isEmailValid ? kPrimaryColor : Colors.grey.shade300,
-          onTap: isEmailValid && !isLoading ? _onSendCode : null,
+    return SafeArea(
+      bottom: false, // ← REQUIRED so 3-button nav does NOT cover the UI
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        child: Container(
+          color: Colors.white,
+          padding: EdgeInsets.fromLTRB(
+            24,
+            16,
+            24,
+
+            // ⬇️ FINAL BOTTOM PADDING FIX
+            isThreeButtonNav
+                ? 16 // 3-button navigation → add 16 so button is visible
+                : safeBottom + 24, // gesture navbar → add small buffer
+          ),
+          child: CustomButton(
+            radius: 30,
+            text: isLoading ? "Sending..." : "Continue",
+            horizontalPadding: 0,
+            textColor: Colors.white,
+            color: isEmailValid ? kPrimaryColor : Colors.grey.shade300,
+            onTap: isEmailValid && !isLoading ? _onSendCode : null,
+          ),
         ),
       ),
     );

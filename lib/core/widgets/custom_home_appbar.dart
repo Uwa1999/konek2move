@@ -9,25 +9,22 @@ class CustomHomeAppBar extends StatelessWidget implements PreferredSizeWidget {
   final bool showLeading;
   final VoidCallback? onLeadingTap;
   final IconData? leadingIcon;
-  final String? leadingSvg; // SVG support
+  final String? leadingSvg;
 
   // Trailing
   final bool showTrailing;
   final VoidCallback? onTrailingTap;
   final IconData? trailingIcon;
-  final String? trailingSvg; // SVG support
-  final Widget? trailingBadge; // Badge support
+  final String? trailingSvg;
+  final Widget? trailingBadge;
 
   const CustomHomeAppBar({
     super.key,
-
     this.title,
-
     this.showLeading = true,
     this.onLeadingTap,
     this.leadingIcon,
     this.leadingSvg,
-
     this.showTrailing = false,
     this.onTrailingTap,
     this.trailingIcon,
@@ -36,10 +33,10 @@ class CustomHomeAppBar extends StatelessWidget implements PreferredSizeWidget {
   });
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight + 8);
 
-  // Reusable icon builder (SVG or normal icon)
-  Widget _buildIcon({IconData? icon, String? svg, double size = 28}) {
+  // Shared icon builder
+  Widget _buildIcon({IconData? icon, String? svg, double size = 26}) {
     if (svg != null) {
       return SvgPicture.asset(svg, width: size, height: size);
     }
@@ -48,87 +45,79 @@ class CustomHomeAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      bottom: false,
-      child: AppBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        elevation: 4,
-        shadowColor: Colors.black.withOpacity(0.08),
-        centerTitle: true,
+    return AppBar(
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      elevation: 0,
+      shadowColor: Colors.black.withOpacity(0.08),
+      centerTitle: true,
 
-        // Title
-        title: title != null
-            ? Text(
-                title!,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black,
+      // TITLE
+      title: title != null
+          ? Text(
+              title!,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: Colors.black,
+              ),
+            )
+          : const SizedBox.shrink(),
+
+      // LEADING
+      leadingWidth: showLeading ? 64 : 0,
+      leading: showLeading
+          ? Padding(
+              padding: const EdgeInsets.only(left: 16),
+              child: Center(
+                child: _roundedIconButton(
+                  onTap: onLeadingTap ?? () => Navigator.pop(context),
+                  child: _buildIcon(
+                    icon: leadingIcon ?? Icons.arrow_back,
+                    svg: leadingSvg,
+                  ),
                 ),
-              )
-            : const SizedBox.shrink(),
+              ),
+            )
+          : null,
 
-        // LEADING
-        leadingWidth: showLeading ? 64 : 0,
-        leading: showLeading
-            ? Padding(
-                padding: const EdgeInsets.only(left: 16),
+      // TRAILING
+      actions: showTrailing
+          ? [
+              Padding(
+                padding: const EdgeInsets.only(right: 16),
                 child: Center(
-                  child: Container(
-                    height: 40,
-                    width: 40,
-                    decoration: BoxDecoration(
-                      color: kPrimaryColor.withOpacity(0.10),
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      icon: _buildIcon(
-                        icon: leadingIcon ?? Icons.arrow_back,
-                        svg: leadingSvg,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      _roundedIconButton(
+                        onTap: onTrailingTap,
+                        child: _buildIcon(icon: trailingIcon, svg: trailingSvg),
                       ),
-                      onPressed: onLeadingTap ?? () => Navigator.pop(context),
-                    ),
+                      if (trailingBadge != null)
+                        Positioned(right: -2, top: -2, child: trailingBadge!),
+                    ],
                   ),
                 ),
-              )
-            : null,
+              ),
+            ]
+          : [],
+    );
+  }
 
-        // ACTIONS (Trailing)
-        actions: showTrailing
-            ? [
-                Padding(
-                  padding: const EdgeInsets.only(right: 16),
-                  child: Center(
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Container(
-                          height: 40,
-                          width: 40,
-                          decoration: BoxDecoration(
-                            color: kPrimaryColor.withOpacity(0.10),
-                            shape: BoxShape.circle,
-                          ),
-                          child: IconButton(
-                            icon: _buildIcon(
-                              icon: trailingIcon,
-                              svg: trailingSvg,
-                            ),
-                            onPressed: onTrailingTap,
-                          ),
-                        ),
-
-                        // Badge
-                        if (trailingBadge != null)
-                          Positioned(right: -2, top: -2, child: trailingBadge!),
-                      ],
-                    ),
-                  ),
-                ),
-              ]
-            : [],
+  // Rounded circle button used for leading/trailing
+  Widget _roundedIconButton({
+    required Widget child,
+    required VoidCallback? onTap,
+  }) {
+    return Container(
+      height: 40,
+      width: 40,
+      decoration: BoxDecoration(
+        color: kPrimaryColor.withOpacity(0.1),
+        shape: BoxShape.circle,
       ),
+      child: IconButton(onPressed: onTap, icon: child),
     );
   }
 }

@@ -65,7 +65,7 @@ dev_dependencies:
   flutter_native_splash: ^2.4.7
 
 flutter_native_splash:
-  color: "#FFFFFF"
+  color: "#EDF2EF"
   image: assets/splash/konek2move.png
 
   android: true

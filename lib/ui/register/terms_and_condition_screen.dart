@@ -362,11 +362,11 @@ class _TermsAndConditionScreenState extends State<TermsAndConditionScreen> {
   Widget _buildBottomAction(BuildContext context) {
     final safeBottom = MediaQuery.of(context).padding.bottom;
 
-    // 👇 keep bottom padding consistent (between 16 and 32)
-    final bottomPadding = safeBottom.clamp(16.0, 32.0);
+    // Detect 3-button navigation (no safe inset)
+    final bool isThreeButtonNav = safeBottom == 0;
 
     return SafeArea(
-      bottom: true,
+      bottom: false, // ← REQUIRED so 3-button nav does NOT cover the UI
       child: Container(
         decoration: BoxDecoration(
           color: Colors.transparent,
@@ -382,12 +382,20 @@ class _TermsAndConditionScreenState extends State<TermsAndConditionScreen> {
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           child: Container(
             color: Colors.white,
-            padding: EdgeInsets.fromLTRB(24, 16, 24, bottomPadding),
+            padding: EdgeInsets.fromLTRB(
+              24,
+              16,
+              24,
+
+              // ⬇️ FINAL BOTTOM PADDING FIX
+              isThreeButtonNav
+                  ? 16 // 3-button navigation → add 16 so button is visible
+                  : safeBottom + 24, // gesture navbar → add small buffer
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Transform.scale(
                       scale: 1.3,
@@ -395,7 +403,9 @@ class _TermsAndConditionScreenState extends State<TermsAndConditionScreen> {
                         value: isAccepted,
                         activeColor: kPrimaryColor,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(
+                            6,
+                          ), // ← ADD RADIUS HERE
                         ),
                         onChanged: (val) {
                           setState(() => isAccepted = val ?? false);
@@ -435,12 +445,10 @@ class _TermsAndConditionScreenState extends State<TermsAndConditionScreen> {
                   textColor: Colors.white,
                   color: isAccepted ? kPrimaryColor : Colors.grey.shade300,
                   onTap: isAccepted
-                      ? () {
-                          Navigator.pushReplacementNamed(
-                            context,
-                            '/email_verification',
-                          );
-                        }
+                      ? () => Navigator.pushReplacementNamed(
+                          context,
+                          '/email_verification',
+                        )
                       : null,
                 ),
               ],
