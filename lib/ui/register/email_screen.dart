@@ -109,7 +109,7 @@ class _EmailScreenState extends State<EmailScreen> {
       backgroundColor: Colors.white,
 
       appBar: CustomAppBar(
-        title: "Registration",
+        title: "Email Verification",
         leadingIcon: Icons.arrow_back,
       ),
       body: SingleChildScrollView(
@@ -117,19 +117,12 @@ class _EmailScreenState extends State<EmailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              "Email Verification",
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-
-            const SizedBox(height: 8),
-
             Text(
               "Please enter an email address that is not yet registered to continue.",
               style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
             ),
 
-            const SizedBox(height: 32), // ⭐ section spacing
+            const SizedBox(height: 24), // ⭐ section spacing
 
             CustomInputField(
               label: "Email",

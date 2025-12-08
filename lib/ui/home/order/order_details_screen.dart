@@ -259,6 +259,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:konek2move/core/services/api_services.dart';
 import 'package:konek2move/core/services/provider_services.dart';
+import 'package:konek2move/core/widgets/custom_home_appbar.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 
@@ -361,7 +362,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     final Uint8List bytes = data.buffer.asUint8List();
 
     // Resize to your preferred width (e.g., 80px)
-    final Uint8List resizedBytes = await _resizeImage(bytes, 80);
+    final Uint8List resizedBytes = await _resizeImage(bytes, 70);
 
     setState(() {
       _truckIcon = BitmapDescriptor.fromBytes(resizedBytes);
@@ -910,90 +911,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     );
   }
 
-  Widget _buildHeader() {
-    final safeTop = MediaQuery.of(context).padding.top;
-
-    return PreferredSize(
-      preferredSize: Size.fromHeight(80 + safeTop),
-      child: Container(
-        padding: EdgeInsets.only(top: safeTop, left: 16, right: 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: const BorderRadius.vertical(
-            bottom: Radius.circular(24),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.10),
-              blurRadius: 12,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: SizedBox(
-          width: double.infinity,
-          height: 80,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              const Text(
-                "Order Details",
-                style: TextStyle(
-                  fontSize: 20,
-                  color: Colors.black,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Positioned(
-                left: 0,
-                child: GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: kPrimaryColor.withOpacity(0.06),
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: const Icon(
-                      Icons.arrow_back,
-                      size: 22,
-                      color: Colors.black,
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                right: 0,
-                child: GestureDetector(
-                  onTap: () => _showCancelSheet(),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: kPrimaryRedColor.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Text(
-                      "Cancel",
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: kPrimaryRedColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildReceiverCard() {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -1096,6 +1013,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   // ---------------------------
   // Build
   // ---------------------------
+
   @override
   Widget build(BuildContext context) {
     final safeTop = MediaQuery.of(context).padding.top;
@@ -1109,9 +1027,16 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     final fullMapHeight = max(260.0, screenHeight - headerHeight);
 
     return Scaffold(
+      appBar: CustomHomeAppBar(
+        title: "Order Details",
+        showTrailing: true,
+        trailingText: "Cancel",
+        onTrailingTap: () {
+          _showCancelSheet();
+        },
+      ),
       body: Column(
         children: [
-          _buildHeader(),
           AnimatedContainer(
             duration: const Duration(milliseconds: 350),
             curve: Curves.easeInOut,

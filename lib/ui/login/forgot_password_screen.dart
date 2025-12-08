@@ -123,19 +123,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              "Forgot Password",
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-
-            const SizedBox(height: 8),
-
             Text(
               "Please enter the registered mobile number to reset your password",
               style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
             ),
 
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
 
             CustomInputField(
               label: "Email",
@@ -177,6 +170,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 : safeBottom + 24, // gesture navbar → add small buffer
           ),
           child: CustomButton(
+            radius: 24,
             text: isLoading ? "Sending..." : "Continue",
             horizontalPadding: 0,
             color: isEmailValid ? kPrimaryColor : Colors.grey.shade400,

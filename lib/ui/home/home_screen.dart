@@ -529,13 +529,13 @@ class _HomeScreenState extends State<HomeScreen> {
   String _getTitle() {
     switch (_selectedIndex) {
       case 0:
-        return "Home";
+        return "";
       case 1:
         return "Orders";
       case 2:
         return "Maps";
       case 3:
-        return "Settings";
+        return "Account Setting";
       default:
         return "";
     }

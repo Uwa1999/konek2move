@@ -16,6 +16,7 @@ class CustomHomeAppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onTrailingTap;
   final IconData? trailingIcon;
   final String? trailingSvg;
+  final String? trailingText; // 🔥 NEW
   final Widget? trailingBadge;
 
   const CustomHomeAppBar({
@@ -29,6 +30,7 @@ class CustomHomeAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.onTrailingTap,
     this.trailingIcon,
     this.trailingSvg,
+    this.trailingText,
     this.trailingBadge,
   });
 
@@ -36,7 +38,7 @@ class CustomHomeAppBar extends StatelessWidget implements PreferredSizeWidget {
   Size get preferredSize => const Size.fromHeight(kToolbarHeight + 8);
 
   // Shared icon builder
-  Widget _buildIcon({IconData? icon, String? svg, double size = 26}) {
+  Widget _buildIcon({IconData? icon, String? svg, double size = 20}) {
     if (svg != null) {
       return SvgPicture.asset(svg, width: size, height: size);
     }
@@ -70,7 +72,7 @@ class CustomHomeAppBar extends StatelessWidget implements PreferredSizeWidget {
           ? Padding(
               padding: const EdgeInsets.only(left: 16),
               child: Center(
-                child: _roundedIconButton(
+                child: _circleButton(
                   onTap: onLeadingTap ?? () => Navigator.pop(context),
                   child: _buildIcon(
                     icon: leadingIcon ?? Icons.arrow_back,
@@ -82,34 +84,70 @@ class CustomHomeAppBar extends StatelessWidget implements PreferredSizeWidget {
           : null,
 
       // TRAILING
-      actions: showTrailing
-          ? [
-              Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: Center(
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      _roundedIconButton(
-                        onTap: onTrailingTap,
-                        child: _buildIcon(icon: trailingIcon, svg: trailingSvg),
-                      ),
-                      if (trailingBadge != null)
-                        Positioned(right: -2, top: -2, child: trailingBadge!),
-                    ],
-                  ),
-                ),
-              ),
-            ]
-          : [],
+      actions: showTrailing ? [_buildTrailing()] : [],
     );
   }
 
-  // Rounded circle button used for leading/trailing
-  Widget _roundedIconButton({
-    required Widget child,
-    required VoidCallback? onTap,
-  }) {
+  // 🔥 TRAILING BUTTON (supports icon, text, or both)
+  Widget _buildTrailing() {
+    final bool hasText = trailingText != null && trailingText!.isNotEmpty;
+    final bool hasIcon = trailingIcon != null || trailingSvg != null;
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 16),
+      child: Center(
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            InkWell(
+              borderRadius: BorderRadius.circular(50),
+              onTap: onTrailingTap,
+              child: Container(
+                padding: hasText && !hasIcon
+                    ? const EdgeInsets.symmetric(horizontal: 14, vertical: 8)
+                    : const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: hasText && !hasIcon
+                      ? Colors.red.withOpacity(0.08) // 🔥 soft red pill
+                      : kPrimaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(50),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (hasIcon)
+                      _buildIcon(icon: trailingIcon, svg: trailingSvg),
+
+                    if (hasIcon && hasText) const SizedBox(width: 6),
+
+                    if (hasText)
+                      Text(
+                        trailingText!,
+                        style: TextStyle(
+                          color: hasText && !hasIcon
+                              ? Colors
+                                    .red // 🔥 red label (matches sample)
+                              : Colors.black,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Badge (optional)
+            if (trailingBadge != null)
+              Positioned(right: -4, top: -4, child: trailingBadge!),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Rounded leading circle
+  Widget _circleButton({required Widget child, required VoidCallback? onTap}) {
     return Container(
       height: 40,
       width: 40,

@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/services/api_services.dart';
+import 'package:konek2move/core/widgets/custom_appbar.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
+import 'package:konek2move/core/widgets/custom_fields.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
@@ -122,75 +124,91 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          _buildHeader(),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "Change Password",
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    "Please enter your new password. Make sure it is secure and easy for you to remember.",
-                    style: TextStyle(color: Colors.grey, fontSize: 15),
-                  ),
 
-                  const SizedBox(height: 40),
+      appBar: CustomAppBar(
+        title: "Change Password",
+        leadingIcon: Icons.arrow_back,
+      ),
 
-                  _buildSectionTitle("Email Address", required: true),
-                  const SizedBox(height: 10),
-
-                  // Email (auto-filled + read-only)
-                  _buildTextField(
-                    _emailController,
-                    "example@gmail.com",
-                    keyboardType: TextInputType.emailAddress,
-                    readOnly: true,
-                  ),
-
-                  const SizedBox(height: 15),
-
-                  _buildSectionTitle("Password", required: true),
-                  const SizedBox(height: 10),
-                  _buildTextField(
-                    _passwordController,
-                    "Enter your password",
-                    isPassword: true,
-                  ),
-
-                  const SizedBox(height: 15),
-
-                  _buildSectionTitle("Confirm Password", required: true),
-                  const SizedBox(height: 10),
-                  _buildTextField(
-                    _confirmPasswordController,
-                    "Re-enter password",
-                    isPassword: true,
-                    isConfirm: true,
-                  ),
-                ],
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Please enter your new password. Make sure it is secure and easy for you to remember.",
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
+            ),
+            const SizedBox(height: 24),
+            CustomInputField(
+              label: "Email",
+              hint: "Enter your email",
+              controller: _emailController,
+              prefixSvg: "assets/icons/email.svg",
+            ),
+            const SizedBox(height: 16),
+            CustomInputField(
+              required: true,
+              label: "Password",
+              hint: "Enter your password",
+              controller: _passwordController,
+              obscure: !_isPasswordVisible,
+              prefixSvg: "assets/icons/lock.svg",
+              suffixSvg: _isPasswordVisible
+                  ? "assets/icons/open_eye.svg"
+                  : "assets/icons/close_eye.svg",
+              onSuffixTap: () =>
+                  setState(() => _isPasswordVisible = !_isPasswordVisible),
+            ),
+            const SizedBox(height: 16),
+            CustomInputField(
+              required: true,
+              label: "Confirm Password",
+              hint: "Re-enter your password",
+              controller: _confirmPasswordController,
+              obscure: !_isConfirmPasswordVisible,
+              prefixSvg: "assets/icons/lock.svg",
+              suffixSvg: _isConfirmPasswordVisible
+                  ? "assets/icons/open_eye.svg"
+                  : "assets/icons/close_eye.svg",
+              onSuffixTap: () => setState(
+                () => _isConfirmPasswordVisible = !_isConfirmPasswordVisible,
               ),
             ),
-          ),
+          ],
+        ),
+      ),
 
-          // Submit Button
-          Padding(
-            padding: const EdgeInsets.only(bottom: 24, left: 24, right: 24),
-            child: CustomButton(
-              text: isLoading ? "Submitting..." : "Submit",
-              horizontalPadding: 0,
-              color: isValid ? kPrimaryColor : Colors.grey,
-              textColor: Colors.white,
-              onTap: isValid && !isLoading ? _onSubmit : null,
-            ),
+      bottomNavigationBar: _buildBottomAction(context),
+    );
+  }
+
+  Widget _buildBottomAction(BuildContext context) {
+    final safeBottom = MediaQuery.of(context).padding.bottom;
+
+    final bool isThreeButtonNav = safeBottom == 0;
+
+    return SafeArea(
+      bottom: false,
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        child: Container(
+          color: Colors.white,
+          padding: EdgeInsets.fromLTRB(
+            24,
+            16,
+            24,
+            isThreeButtonNav ? 16 : safeBottom + 24,
           ),
-        ],
+          child: CustomButton(
+            radius: 30,
+            text: isLoading ? "Submitting..." : "Submit",
+            horizontalPadding: 0,
+            textColor: Colors.white,
+            color: isValid ? kPrimaryColor : Colors.grey.shade300,
+            onTap: isValid && !isLoading ? _onSubmit : null,
+          ),
+        ),
       ),
     );
   }

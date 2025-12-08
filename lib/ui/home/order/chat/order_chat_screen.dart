@@ -361,6 +361,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:konek2move/core/widgets/custom_appbar.dart';
 import 'package:provider/provider.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/services/api_services.dart';
@@ -674,87 +675,34 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          _buildHeader(),
 
-          Expanded(
-            child: provider.initialLoad
-                ? _shimmer()
-                : ListView.builder(
-                    controller: _scroll,
-                    padding: const EdgeInsets.all(12),
+      // ---------- FIXED DEFAULT APP BAR ----------
+      appBar: CustomAppBar(title: "Messages", leadingIcon: Icons.arrow_back),
+
+      // ---------- MESSAGE LIST ----------
+      body: provider.initialLoad
+          ? _shimmer()
+          : SingleChildScrollView(
+              controller: _scroll,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ListView.builder(
+                    shrinkWrap: true, // IMPORTANT (inside column)
+                    physics: const NeverScrollableScrollPhysics(),
                     itemCount: provider.allMessages.length,
                     itemBuilder: (_, i) =>
                         ChatBubble(msg: provider.allMessages[i]),
                   ),
-          ),
 
-          _inputBar(provider),
-        ],
-      ),
-    );
-  }
-
-  // ========================= HEADER =========================
-
-  Widget _buildHeader() {
-    final safeTop = MediaQuery.of(context).padding.top;
-
-    return PreferredSize(
-      preferredSize: Size.fromHeight(80 + safeTop),
-      child: Container(
-        padding: EdgeInsets.only(top: safeTop, left: 16, right: 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: const BorderRadius.vertical(
-            bottom: Radius.circular(24),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.10),
-              blurRadius: 12,
-              offset: const Offset(0, 2),
+                  const SizedBox(height: 120), // space before input bar
+                ],
+              ),
             ),
-          ],
-        ),
-        child: SizedBox(
-          width: double.infinity,
-          height: 80,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              const Text(
-                "Messages",
-                style: TextStyle(
-                  fontSize: 20,
-                  color: Colors.black,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Positioned(
-                left: 0,
-                child: GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: kPrimaryColor.withOpacity(0.06),
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: const Icon(
-                      Icons.arrow_back,
-                      size: 22,
-                      color: Colors.black,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+
+      // ---------- FIXED INPUT BAR ----------
+      bottomNavigationBar: _inputBar(provider),
     );
   }
 
@@ -763,69 +711,98 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
   Widget _inputBar(ChatProvider provider) {
     final safeBottom = MediaQuery.of(context).padding.bottom;
 
-    return Container(
-      padding: EdgeInsets.only(
-        left: 14,
-        right: 14,
-        top: 10,
-        bottom: 10 + safeBottom,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(.12),
-            blurRadius: 12,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () => _pickImage(provider),
-            child: CircleAvatar(
-              radius: 22,
-              backgroundColor: kPrimaryColor.withOpacity(.16),
-              child: const Icon(Icons.add_circle, color: kPrimaryColor),
+    // Detect 3-button navigation (no bottom inset)
+    final bool isThreeButtonNav = safeBottom == 0;
+
+    return SafeArea(
+      bottom: false, // Prevents overlap with 3-button nav
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.10),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
             ),
-          ),
-
-          const SizedBox(width: 12),
-
-          Expanded(
-            child: TextField(
-              controller: _msgCtrl,
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => _send(provider),
-              decoration: InputDecoration(
-                hintText: "Message...",
-                filled: true,
-                fillColor: Colors.grey.shade200,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 14,
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          child: Container(
+            color: Colors.white,
+            padding: EdgeInsets.fromLTRB(
+              24,
+              16,
+              24,
+              isThreeButtonNav ? 16 : safeBottom + 24,
+            ),
+            child: Row(
+              children: [
+                // ------------ Add Image Button ------------
+                GestureDetector(
+                  onTap: () => _pickImage(provider),
+                  child: Container(
+                    height: 44,
+                    width: 44,
+                    decoration: BoxDecoration(
+                      color: kPrimaryColor.withOpacity(.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.add,
+                      color: kPrimaryColor,
+                      size: 22,
+                    ),
+                  ),
                 ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30),
-                  borderSide: BorderSide.none,
+
+                const SizedBox(width: 12),
+
+                // ------------ Text Field ------------
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    child: TextField(
+                      controller: _msgCtrl,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _send(provider),
+                      decoration: const InputDecoration(
+                        hintText: "Message...",
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+
+                const SizedBox(width: 12),
+
+                // ------------ Send Button ------------
+                GestureDetector(
+                  onTap: () => _send(provider),
+                  child: Container(
+                    height: 46,
+                    width: 46,
+                    decoration: const BoxDecoration(
+                      color: kPrimaryColor,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.send,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-
-          const SizedBox(width: 12),
-
-          GestureDetector(
-            onTap: () => _send(provider),
-            child: CircleAvatar(
-              radius: 24,
-              backgroundColor: kPrimaryColor,
-              child: const Icon(Icons.send, color: Colors.white, size: 20),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

@@ -117,80 +117,66 @@ class _SettingScreenState extends State<SettingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "CONTENT",
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Change Password
-                  _buildActionTile(
-                    icon: Icons.lock_outline,
-                    title: "Change Password",
-                    subtitle: "Update your account password",
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ChangePasswordScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 5),
-
-                  // Driver Status
-                  _buildToggleTile(
-                    icon: CupertinoIcons.person_crop_circle_fill,
-                    title: "Go Online / Offline",
-                    subtitle: "Activate to receive new orders",
-                    value: _isDriverActive,
-                    onChanged: _toggleDriverStatus,
-                    activeColor: kPrimaryColor,
-                  ),
-                  const SizedBox(height: 5),
-
-                  // Biometric
-                  _buildToggleTile(
-                    icon: Icons.fingerprint_rounded,
-                    title: "Biometric Login",
-                    subtitle: "Use fingerprint or FaceID to login",
-                    value: _isBiometricEnabled,
-                    onChanged: _toggleBiometric,
-                  ),
-                  const SizedBox(height: 40),
-                ],
-              ),
-            ),
-          ),
-
-          // Logout Button
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 30),
-            child: CustomButton(
-              horizontalPadding: 0,
-              text: "Log out",
-              color: kPrimaryRedColor,
-              textColor: kLightButtonColor,
+      backgroundColor: Colors.white,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ===== Change Password =====
+            _buildActionTile(
+              icon: Icons.lock_outline,
+              title: "Change Password",
+              subtitle: "Update your account password",
               onTap: () {
-                Navigator.pushReplacementNamed(context, '/login');
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => ChangePasswordScreen()),
+                );
               },
             ),
-          ),
-        ],
+
+            const SizedBox(height: 12),
+
+            // ===== Driver Status =====
+            _buildToggleTile(
+              icon: CupertinoIcons.person_crop_circle_fill,
+              title: "Go Online / Offline",
+              subtitle: "Activate to receive new orders",
+              value: _isDriverActive,
+              onChanged: _toggleDriverStatus,
+              activeColor: kPrimaryColor,
+            ),
+
+            const SizedBox(height: 12),
+
+            // ===== Biometric =====
+            _buildToggleTile(
+              icon: Icons.fingerprint_rounded,
+              title: "Biometric Login",
+              subtitle: "Use fingerprint or FaceID to login",
+              value: _isBiometricEnabled,
+              onChanged: _toggleBiometric,
+            ),
+
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+
+      // ===== Bottom Logout Button =====
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+        child: CustomButton(
+          horizontalPadding: 0,
+          text: "Log out",
+          borderColor: kPrimaryRedColor,
+          color: kWhiteButtonColor,
+          textColor: kPrimaryRedColor,
+          onTap: () {
+            Navigator.pushReplacementNamed(context, '/login');
+          },
+        ),
       ),
     );
   }

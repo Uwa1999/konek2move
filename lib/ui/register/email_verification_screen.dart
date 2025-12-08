@@ -223,7 +223,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
       backgroundColor: Colors.white,
 
       appBar: CustomAppBar(
-        title: "Verification",
+        title: "Email Verification Code",
         leadingIcon: Icons.arrow_back,
       ),
 
@@ -232,15 +232,6 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const SizedBox(height: 16),
-
-            const Text(
-              "Verification Email",
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-
-            const SizedBox(height: 12),
-
             Text(
               "Enter the code we just sent to email",
               style: TextStyle(color: Colors.grey.shade600),
@@ -253,7 +244,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
             ),
 
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
 
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
