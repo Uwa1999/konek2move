@@ -116,60 +116,77 @@ class _CustomDropdownFieldState extends State<CustomDropdownField> {
   // BOTTOM SHEET — turns green on open, resets on close
   // ---------------------------------------------------------
   void _openBottomSheet(BuildContext context) async {
-    final bottom = MediaQuery.of(context).padding.bottom;
-
-    setState(() => isFocused = true); // ⭐ activate green border
+    setState(() => isFocused = true);
 
     await showModalBottomSheet(
       context: context,
+      isScrollControlled: true, // ⭐ allows full safe height
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) {
-        return Padding(
-          padding: EdgeInsets.fromLTRB(16, 16, 16, bottom + 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // --- DRAG HANDLE ---
-              Container(
-                height: 5,
-                width: 50,
-                margin: const EdgeInsets.only(bottom: 20),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(10),
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 16,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight:
+                    MediaQuery.of(context).size.height *
+                    0.6, // ⭐ prevents covering bottom buttons
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // --- DRAG HANDLE ---
+                    Container(
+                      height: 5,
+                      width: 50,
+                      margin: const EdgeInsets.only(bottom: 20),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+
+                    // --- TITLE ---
+                    Text(
+                      widget.hint,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // --- OPTIONS ---
+                    ...widget.options.map(
+                      (e) => ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(e, style: const TextStyle(fontSize: 16)),
+                        onTap: () {
+                          Navigator.pop(context);
+                          widget.onChanged(e);
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
-
-              // --- TITLE ---
-              Text(
-                widget.hint,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // --- OPTIONS ---
-              ...widget.options.map(
-                (e) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(e, style: const TextStyle(fontSize: 16)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    widget.onChanged(e);
-                  },
-                ),
-              ),
-            ],
+            ),
           ),
         );
       },
     );
 
-    setState(() => isFocused = false); // ⭐ remove green border after closing
+    setState(() => isFocused = false);
   }
 }
