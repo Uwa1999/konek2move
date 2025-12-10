@@ -316,13 +316,15 @@ import 'package:konek2move/core/widgets/custom_home_appbar.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/widgets/custom_button.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'order/order_screen.dart';
 import 'map/map_screen.dart';
 import 'setting/setting_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final int initialIndex;
+  const HomeScreen({super.key, this.initialIndex = 0});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -343,7 +345,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-
+    _selectedIndex = widget.initialIndex;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final prefs = await SharedPreferences.getInstance();
       final userCode = prefs.getString("driver_code") ?? "";
@@ -373,7 +375,7 @@ class _HomeScreenState extends State<HomeScreen> {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) {
-          _showExitConfirmation(context);
+          _showExitSheet();
         }
       },
       child: Listener(
@@ -544,59 +546,119 @@ class _HomeScreenState extends State<HomeScreen> {
   // =============================================================
   // EXIT CONFIRMATION
   // =============================================================
-  void _showExitConfirmation(BuildContext context) {
+  void _showExitSheet() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) {
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            24,
-            24,
-            24,
-            MediaQuery.of(context).padding.bottom + 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 50,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(50),
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 20),
-
-              const Text(
-                "Exit App?",
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-
-              const SizedBox(height: 8),
-              const Text(
-                "Are you sure you want to close the app?",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 15),
-              ),
-
-              const SizedBox(height: 24),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text("Exit"),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("Cancel"),
-              ),
-            ],
+                const SizedBox(height: 20),
+                const Text(
+                  "Leave now?",
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  "Are you sure you want to close the app?",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                ),
+                const SizedBox(height: 20),
+                CustomButton(
+                  text: "Confirm Exit",
+                  color: kPrimaryRedColor,
+                  textColor: kDefaultIconLightColor,
+                  onTap: () {
+                    Navigator.pop(context);
+                  },
+                ),
+                const SizedBox(height: 10),
+                CustomButton(
+                  text: "Keep App Open",
+                  color: kLightButtonColor,
+                  textColor: kPrimaryColor,
+                  onTap: () => Navigator.pop(context),
+                ),
+                const SizedBox(height: 10),
+              ],
+            ),
           ),
         );
       },
     );
   }
+
+  // void _showExitConfirmation(BuildContext context) {
+  //   showModalBottomSheet(
+  //     context: context,
+  //     backgroundColor: Colors.white,
+  //     shape: const RoundedRectangleBorder(
+  //       borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+  //     ),
+  //     builder: (_) {
+  //       return Padding(
+  //         padding: EdgeInsets.fromLTRB(
+  //           24,
+  //           24,
+  //           24,
+  //           MediaQuery.of(context).padding.bottom + 24,
+  //         ),
+  //         child: Column(
+  //           mainAxisSize: MainAxisSize.min,
+  //           children: [
+  //             Container(
+  //               width: 50,
+  //               height: 5,
+  //               decoration: BoxDecoration(
+  //                 color: Colors.grey.shade300,
+  //                 borderRadius: BorderRadius.circular(50),
+  //               ),
+  //             ),
+  //             const SizedBox(height: 20),
+  //
+  //             const Text(
+  //               "Exit App?",
+  //               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+  //             ),
+  //
+  //             const SizedBox(height: 8),
+  //             const Text(
+  //               "Are you sure you want to close the app?",
+  //               textAlign: TextAlign.center,
+  //               style: TextStyle(fontSize: 15),
+  //             ),
+  //
+  //             const SizedBox(height: 24),
+  //             TextButton(
+  //               onPressed: () => Navigator.of(context).pop(true),
+  //               child: const Text("Exit"),
+  //             ),
+  //             TextButton(
+  //               onPressed: () => Navigator.pop(context),
+  //               child: const Text("Cancel"),
+  //             ),
+  //           ],
+  //         ),
+  //       );
+  //     },
+  //   );
+  // }
 }

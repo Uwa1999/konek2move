@@ -12,12 +12,12 @@ class NotificationProvider extends ChangeNotifier {
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   // Stored notifications
-  final List<NotificationModel> _notifications = [];
-  List<NotificationModel> get notifications =>
+  final List<NotificationResponse> _notifications = [];
+  List<NotificationResponse> get notifications =>
       List.unmodifiable(_notifications);
 
   // Only unread notifications
-  List<NotificationModel> get unreadNotifications =>
+  List<NotificationResponse> get unreadNotifications =>
       _notifications.where((n) => !n.isRead).toList();
 
   int get unreadCount => unreadNotifications.length;
@@ -65,7 +65,7 @@ class NotificationProvider extends ChangeNotifier {
   // MARK AS READ
   // -----------------------------------------------------------
   Future<void> markAsRead({
-    required NotificationModel notif,
+    required NotificationResponse notif,
     required String userCode,
     required String userType,
   }) async {
@@ -95,46 +95,44 @@ class NotificationProvider extends ChangeNotifier {
     required String userType,
   }) async {
     _sseSubscription?.cancel();
-    _sseSubscription = _api
-        .listenNotifications(userCode: userCode, userType: userType)
-        .listen(
-          (event) {
-            final data = event["data"];
-            if (data == null) {
-              print("⚠️ SSE event missing data field");
-              return;
-            }
+    _sseSubscription = _api.listenNotifications().listen(
+      (event) {
+        final data = event["data"];
+        if (data == null) {
+          print("⚠️ SSE event missing data field");
+          return;
+        }
 
-            totalIncomingNotifications++;
+        totalIncomingNotifications++;
 
-            final notif = NotificationModel.fromJson(data);
+        final notif = NotificationResponse.fromJson(data);
 
-            if (notif.id == 0 || notif.title.isEmpty) return;
+        if (notif.id == 0 || notif.title.isEmpty) return;
 
-            if (_notifications.any((n) => n.id == notif.id)) {
-              return;
-            }
+        if (_notifications.any((n) => n.id == notif.id)) {
+          return;
+        }
 
-            final isRead = _readIds.contains(notif.id);
+        final isRead = _readIds.contains(notif.id);
 
-            // Play sounds for unread notifications
-            if (!isRead) {
-              _playNotificationSound();
-            }
+        // Play sounds for unread notifications
+        if (!isRead) {
+          _playNotificationSound();
+        }
 
-            _notifications.insert(0, notif.copyWith(isRead: isRead));
-            notifyListeners();
-          },
-          onError: (error) async {
-            await Future.delayed(const Duration(seconds: 5));
-            reconnect(userType: userType);
-          },
-          onDone: () async {
-            await Future.delayed(const Duration(seconds: 5));
-            reconnect(userType: userType);
-          },
-          cancelOnError: false,
-        );
+        _notifications.insert(0, notif.copyWith(isRead: isRead));
+        notifyListeners();
+      },
+      onError: (error) async {
+        await Future.delayed(const Duration(seconds: 5));
+        reconnect(userType: userType);
+      },
+      onDone: () async {
+        await Future.delayed(const Duration(seconds: 5));
+        reconnect(userType: userType);
+      },
+      cancelOnError: false,
+    );
 
     // Stop previous subscription
     // _sseSubscription?.cancel();
@@ -230,50 +228,6 @@ class NotificationProvider extends ChangeNotifier {
   }
 }
 
-// class ConnectivityProvider extends ChangeNotifier {
-//   Set<ConnectivityResult> _connectivityStatus = {};
-//   bool _isChecking = true;
-
-//   bool get isConnected =>
-//       !_connectivityStatus.contains(ConnectivityResult.none);
-
-//   bool get isChecking => _isChecking;
-
-//   late StreamSubscription<List<ConnectivityResult>> _subscription;
-//   final Connectivity _connectivity = Connectivity();
-
-//   ConnectivityProvider() {
-//     _initConnectivity();
-//   }
-
-//   void _initConnectivity() async {
-//     // Start checking
-//     _isChecking = true;
-//     notifyListeners();
-
-//     // Initial check
-//     final initialStatus = await _connectivity.checkConnectivity();
-//     _connectivityStatus = initialStatus.toSet();
-
-//     // Done checking
-//     _isChecking = false;
-//     notifyListeners();
-
-//     // Listen for changes
-//     _subscription = _connectivity.onConnectivityChanged.listen((
-//       List<ConnectivityResult> results,
-//     ) {
-//       _connectivityStatus = results.toSet();
-//       notifyListeners();
-//     });
-//   }
-
-//   @override
-//   void dispose() {
-//     _subscription.cancel();
-//     super.dispose();
-//   }
-// }
 class ConnectivityProvider extends ChangeNotifier {
   Set<ConnectivityResult> _connectivityStatus = {};
   bool _isChecking = true;
@@ -364,102 +318,10 @@ class ConnectivityProvider extends ChangeNotifier {
   }
 }
 
-// class ChatProvider extends ChangeNotifier {
-//   final ApiServices api = ApiServices();
-//
-//   List<ChatMessage> messages = [];
-//   bool initialLoad = true;
-//
-//   int unreadCount = 0; // 🔥 ADDED NOTIFICATION COUNTER
-//
-//   List<ChatMessage> get allMessages => messages;
-//
-//   // =====================================================
-//   // LOAD MESSAGES
-//   // =====================================================
-//   Future<void> loadMessages(int chatId) async {
-//     try {
-//       final res = await api.getChatMessages(chatId);
-//
-//       messages = res.data;
-//
-//       // Sort oldest → newest
-//       messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-//
-//       initialLoad = false;
-//       notifyListeners();
-//     } catch (e) {
-//       print("Chat load error: $e");
-//     }
-//   }
-//
-//   // =====================================================
-//   // TEMP LOCAL MESSAGE (bubble before real send)
-//   // =====================================================
-//   void addLocal(ChatMessage msg) {
-//     messages.add(msg);
-//     messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-//     notifyListeners();
-//   }
-//
-//   // =====================================================
-//   // REMOVE TEMP BUBBLE AFTER SUCCESSFUL SEND
-//   // =====================================================
-//   void removeLocal(ChatMessage temp) {
-//     messages.removeWhere((m) {
-//       return m.id == 0 &&
-//           m.senderType == temp.senderType &&
-//           m.senderCode == temp.senderCode &&
-//           m.messageType == temp.messageType &&
-//           ((temp.messageType == "text" && m.message == temp.message) ||
-//               (temp.messageType == "image"));
-//     });
-//
-//     notifyListeners();
-//   }
-//
-//   // =====================================================
-//   // REMOVE TEMP WHEN REAL MESSAGE FROM SSE ARRIVES
-//   // =====================================================
-//   void removeTempIfMatched(ChatMessage real) {
-//     messages.removeWhere((m) {
-//       return m.id == 0 &&
-//           m.senderType == real.senderType &&
-//           m.senderCode == real.senderCode &&
-//           m.messageType == real.messageType &&
-//           ((real.messageType == "text" && m.message == real.message) ||
-//               (real.messageType == "image"));
-//     });
-//
-//     notifyListeners();
-//   }
-//
-//   // =====================================================
-//   // 🔥 NOTIFICATION BADGE FUNCTIONS
-//   // =====================================================
-//
-//   // Increase badge number (called on SSE new message FROM CUSTOMER)
-//   void incrementUnread() {
-//     unreadCount++;
-//     notifyListeners();
-//   }
-//
-//   // Reset badge when opening chat screen
-//   void clearUnread() {
-//     unreadCount = 0;
-//     notifyListeners();
-//   }
-//
-//   // If you ever need to manually set the count:
-//   void setUnread(int count) {
-//     unreadCount = count;
-//     notifyListeners();
-//   }
-// }
 class ChatProvider extends ChangeNotifier {
   final ApiServices api = ApiServices();
 
-  List<ChatMessage> messages = [];
+  List<ChatMessageResponse> messages = [];
   bool initialLoad = true;
 
   int unreadCount = 0;
@@ -467,7 +329,7 @@ class ChatProvider extends ChangeNotifier {
   // Track if chat screen is open
   bool isChatOpen = false;
 
-  List<ChatMessage> get allMessages => messages;
+  List<ChatMessageResponse> get allMessages => messages;
 
   // =====================================================
   // LOAD / RELOAD MESSAGES
@@ -492,7 +354,7 @@ class ChatProvider extends ChangeNotifier {
   // =====================================================
   // ADD TEMP BUBBLE BEFORE SEND
   // =====================================================
-  void addLocal(ChatMessage msg) {
+  void addLocal(ChatMessageResponse msg) {
     messages.add(msg);
     messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
     notifyListeners();
@@ -501,7 +363,7 @@ class ChatProvider extends ChangeNotifier {
   // =====================================================
   // REMOVE TEMP AFTER SEND SUCCESS
   // =====================================================
-  void removeLocal(ChatMessage temp) {
+  void removeLocal(ChatMessageResponse temp) {
     messages.removeWhere(
       (m) =>
           m.id == 0 &&
@@ -516,7 +378,7 @@ class ChatProvider extends ChangeNotifier {
   // =====================================================
   // 🔥 REAL MESSAGE FROM SSE
   // =====================================================
-  void appendFromServer(ChatMessage real) {
+  void appendFromServer(ChatMessageResponse real) {
     removeTempIfMatched(real);
 
     if (messages.any((m) => m.id == real.id)) return;
@@ -535,7 +397,7 @@ class ChatProvider extends ChangeNotifier {
   // =====================================================
   // REMOVE TEMP WHEN REAL ARRIVES
   // =====================================================
-  void removeTempIfMatched(ChatMessage real) {
+  void removeTempIfMatched(ChatMessageResponse real) {
     messages.removeWhere(
       (m) =>
           m.id == 0 &&
@@ -591,4 +453,63 @@ class ChatProvider extends ChangeNotifier {
     unreadCount = count;
     notifyListeners();
   }
+}
+
+class OrderProvider extends ChangeNotifier {
+  bool isLoading = false;
+  OrderResponse? orderResponse;
+
+  // ==== FETCH ALL ORDERS ====
+  Future<void> fetchOrders() async {
+    await _loadOrders(orderNo: "");
+  }
+
+  // ==== SEARCH USING BACKEND ====
+  Future<void> searchOrders(String orderNo) async {
+    await _loadOrders(orderNo: orderNo);
+  }
+
+  // ==== PRIVATE LOADER ====
+  Future<void> _loadOrders({String orderNo = ""}) async {
+    isLoading = true;
+    notifyListeners();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final driverIdString = prefs.getString("id") ?? "0";
+      final driverId = int.tryParse(driverIdString) ?? 0;
+
+      // CALL API WITH order_no
+      final res = await ApiServices().getOrder(driverId, orderNo: orderNo);
+
+      // LOCAL FILTER: assigned + unassigned
+      final filteredRecords = res.data.records.where((order) {
+        final isAssignedToDriver =
+            order.assignedDriverId.toString() == driverIdString;
+        final isUnassigned = order.assignedDriverId == null;
+
+        return isAssignedToDriver || isUnassigned;
+      }).toList();
+
+      orderResponse = OrderResponse(
+        responseTime: res.responseTime,
+        device: res.device,
+        retCode: res.retCode,
+        message: res.message,
+        data: OrderData(
+          currentPage: res.data.currentPage,
+          totalPages: res.data.totalPages,
+          totalCount: filteredRecords.length,
+          records: filteredRecords,
+        ),
+      );
+    } catch (e) {
+      print("ORDER ERROR: $e");
+    }
+
+    isLoading = false;
+    notifyListeners();
+  }
+
+  void resetSearch() => fetchOrders();
 }

@@ -78,7 +78,7 @@ class ApiServices {
   //   }
   // }
 
-  Future<List<NotificationModel>> getNotifications() async {
+  Future<List<NotificationResponse>> getNotifications() async {
     final url = Uri.parse(
       '${GetDNS.getOttokonekHestia()}/api/private/v1/moveapp/notification/index',
     );
@@ -94,18 +94,17 @@ class ApiServices {
     if (response.statusCode == 200) {
       final Map<String, dynamic> jsonBody = json.decode(response.body);
       final List<dynamic> data = jsonBody['data'] ?? [];
-      return data.map((e) => NotificationModel.fromJson(e)).toList();
+      return data.map((e) => NotificationResponse.fromJson(e)).toList();
     } else {
       throw Exception('Failed to fetch notifications: ${response.statusCode}');
     }
   }
 
-  Stream<Map<String, dynamic>> listenNotifications({
-    required String userCode,
-    required String userType,
-  }) async* {
+  Stream<Map<String, dynamic>> listenNotifications() async* {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString("jwt_token") ?? "";
+    final userCode = prefs.getString("driver_code") ?? "";
+    final userType = prefs.getString("user_type") ?? "";
     final url = Uri.parse(
       '${GetDNS.getNotifications()}/api/public/v1/moveapp/notification/listen?user_code=$userCode&user_type=$userType',
     );
@@ -502,6 +501,77 @@ class ApiServices {
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> decodedData = jsonDecode(response.body);
+        return ModelResponse.fromJson(decodedData);
+      } else {
+        throw Exception(
+          'Server returned ${response.statusCode}: ${response.body}',
+        );
+      }
+    } catch (e) {
+      throw Exception('An error occurred: $e');
+    }
+  }
+
+  Future<OrderResponse> getOrder(int driverId, {String orderNo = ""}) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("jwt_token") ?? "";
+
+      final Uri url = Uri.parse(
+        '${GetDNS.getOttokonekHestia()}/api/private/v1/moveapp/orders/index'
+        '?driver_id=$driverId&order_no=$orderNo',
+      );
+
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return OrderResponse.fromJson(jsonDecode(response.body));
+      } else {
+        throw Exception(
+          "Server returned ${response.statusCode}: ${response.body}",
+        );
+      }
+    } catch (e) {
+      throw Exception("Error fetching order: $e");
+    }
+  }
+
+  Future<ModelResponse> updateStatus({
+    required int orderId,
+    required String status,
+    required String lng,
+    required String lat,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("jwt_token") ?? "";
+
+      final Uri url = Uri.parse(
+        '${GetDNS.getOttokonekHestia()}/api/private/v1/moveapp/driver/task/$orderId/status',
+      );
+
+      var request = http.MultipartRequest('PUT', url);
+
+      request.fields['status'] = status;
+      request.fields['lng'] = lng;
+      request.fields['lat'] = lat;
+
+      // Add Authorization header with JWT token
+      request.headers['Authorization'] = 'Bearer $token';
+
+      // Send request
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      print(response.body);
       if (response.statusCode == 200) {
         final Map<String, dynamic> decodedData = jsonDecode(response.body);
         return ModelResponse.fromJson(decodedData);

@@ -105,6 +105,10 @@
 		<!-- Face ID -->
 		<key>NSFaceIDUsageDescription</key>
 		<string>Log in</string>
+		<key>LSApplicationQueriesSchemes</key>
+        <array>
+            <string>tel</string>
+        </array>
 		<!-- Location permissions -->
 		<key>NSLocationWhenInUseUsageDescription</key>
 		<string>This app requires your location to enable delivery tracking.</string>

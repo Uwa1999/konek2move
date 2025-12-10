@@ -40,7 +40,7 @@ class CustomHomeAppBar extends StatelessWidget implements PreferredSizeWidget {
   // Shared icon builder
   Widget _buildIcon({IconData? icon, String? svg, double size = 20}) {
     if (svg != null) {
-      return SvgPicture.asset(svg, width: size, height: size);
+      return SvgPicture.asset(svg, width: 28, height: 28);
     }
     return Icon(icon, size: size, color: Colors.black);
   }
@@ -94,7 +94,7 @@ class CustomHomeAppBar extends StatelessWidget implements PreferredSizeWidget {
     final bool hasIcon = trailingIcon != null || trailingSvg != null;
 
     return Padding(
-      padding: const EdgeInsets.only(right: 16),
+      padding: const EdgeInsets.only(right: 24),
       child: Center(
         child: Stack(
           clipBehavior: Clip.none,

@@ -463,16 +463,20 @@ class _LoginScreenState extends State<LoginScreen> {
       final response = await ApiServices().signin(email, password);
 
       if (response.retCode == '201') {
-        final token = response.data.jwtToken;
-        final firstName = response.data.driver.firstName;
-        final driverCode = response.data.driver.driverCode;
-        final activeStatus = response.data.driver.active;
-
-        await prefs.setString("jwt_token", token);
-        await prefs.setString("first_name", firstName);
-        await prefs.setString("driver_code", driverCode);
-        await prefs.setBool("active", activeStatus);
-
+        await prefs.setString("jwt_token", response.data.jwtToken);
+        await prefs.setString("first_name", response.data.driver.firstName);
+        await prefs.setString("driver_code", response.data.driver.driverCode);
+        await prefs.setBool("active", response.data.driver.active);
+        await prefs.setString("id", response.data.driver.id.toString());
+        await prefs.setString(
+          "assigned_store_code",
+          response.data.driver.assignedStoreCode,
+        );
+        await prefs.setString(
+          "barangay_code",
+          response.data.driver.barangayCode,
+        );
+        await prefs.setString("user_type", response.data.driver.userType);
         Navigator.pushReplacementNamed(context, "/home");
       } else {
         _showTopMessage(response.error, isError: true);
@@ -520,6 +524,16 @@ class _LoginScreenState extends State<LoginScreen> {
         await prefs.setString("first_name", response.data.driver.firstName);
         await prefs.setString("driver_code", response.data.driver.driverCode);
         await prefs.setBool("active", response.data.driver.active);
+        await prefs.setString("id", response.data.driver.id.toString());
+        await prefs.setString(
+          "assigned_store_code",
+          response.data.driver.assignedStoreCode,
+        );
+        await prefs.setString(
+          "barangay_code",
+          response.data.driver.barangayCode,
+        );
+        await prefs.setString("user_type", response.data.driver.userType);
 
         // 👉 Do NOT reset isLoading — keep "Logging in…" until navigation
         if (!mounted) return;
@@ -579,7 +593,7 @@ class _LoginScreenState extends State<LoginScreen> {
             // ⬇️ FINAL BOTTOM PADDING FIX
             isThreeButtonNav
                 ? 16 // 3-button navigation → add 16 so button is visible
-                : safeBottom - 24, // gesture navbar → add small buffer
+                : safeBottom, // gesture navbar → add small buffer
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,

@@ -440,7 +440,7 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
 
       // Start SSE listener
       notifSub = ApiServices()
-          .listenNotifications(userCode: userCode, userType: userType)
+          .listenNotifications()
           .listen(handleRealtime);
     });
   }
@@ -476,7 +476,7 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
     if (meta["chat_id"] != chatId) return;
 
     // Build real server message
-    final msg = ChatMessage(
+    final msg = ChatMessageResponse(
       id: meta["message_id"],
       senderType: meta["sender_type"] ?? "",
       senderCode: meta["sender_code"] ?? "",
@@ -580,7 +580,7 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
     final file = File(picked.path);
 
     // TEMP MESSAGE (id = 0)
-    final tempMsg = ChatMessage(
+    final tempMsg = ChatMessageResponse(
       id: 0,
       senderType: "driver",
       senderCode: userCode,
@@ -624,7 +624,7 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
     if (txt.isEmpty) return;
 
     // TEMP bubble
-    final tempMsg = ChatMessage(
+    final tempMsg = ChatMessageResponse(
       id: 0,
       senderType: "driver",
       senderCode: userCode,
@@ -649,7 +649,7 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
     // provider.removeLocal(tempMsg);
 
     // Convert temp -> "sent" state
-    final real = ChatMessage(
+    final real = ChatMessageResponse(
       id: DateTime.now().millisecondsSinceEpoch, // temporary ID
       senderType: "driver",
       senderCode: userCode,
@@ -895,7 +895,7 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
 }
 
 class ChatBubble extends StatelessWidget {
-  final ChatMessage msg;
+  final ChatMessageResponse msg;
   const ChatBubble({super.key, required this.msg});
 
   bool get isMe => msg.senderType == "driver";
@@ -956,7 +956,7 @@ class ChatBubble extends StatelessWidget {
     return "$hour:$minute $period";
   }
 
-  Widget _text(ChatMessage msg) {
+  Widget _text(ChatMessageResponse msg) {
     return Text(
       msg.message ?? "",
       style: TextStyle(
@@ -967,7 +967,7 @@ class ChatBubble extends StatelessWidget {
   }
 
   // FAST Image Loader (NO packages)
-  Widget _image(ChatMessage msg, bool isSending) {
+  Widget _image(ChatMessageResponse msg, bool isSending) {
     final path = msg.attachmentUrl ?? "";
     final isNetwork = path.startsWith("https");
 
@@ -1060,7 +1060,7 @@ String formatTime(DateTime time) {
 }
 
 // FAST Image Loader
-Widget _image(ChatMessage msg, bool isSending) {
+Widget _image(ChatMessageResponse msg, bool isSending) {
   final path = msg.attachmentUrl ?? "";
   final isNetwork = path.startsWith("http");
 
