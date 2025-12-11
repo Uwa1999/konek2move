@@ -949,29 +949,42 @@
 //     );
 //   }
 // }
+
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ui';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
+import 'package:another_flushbar/flushbar.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_compass/flutter_compass.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
+import 'package:shimmer/shimmer.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/services/api_services.dart';
 import 'package:konek2move/core/services/model_services.dart';
 import 'package:konek2move/core/services/provider_services.dart';
+import 'package:konek2move/core/widgets/custom_button.dart';
 import 'package:konek2move/core/widgets/custom_home_appbar.dart';
 import 'package:konek2move/ui/home/home_screen.dart';
-import 'package:provider/provider.dart';
-import 'package:shimmer/shimmer.dart';
-
-import 'package:konek2move/core/constants/app_colors.dart';
-import 'package:konek2move/core/widgets/custom_button.dart';
-import 'package:url_launcher/url_launcher.dart';
-
 import 'chat/order_chat_screen.dart';
+
+// ---------------------------------------------------------------------------
+// NOTE:
+// - Replace Secrets.googleApiKey! with your secure key management (do NOT hardcode
+//   in production). It is kept here for simplicity only.
+// - This refactor isolates the GoogleMap into its own widget to avoid
+//   rebuilding the map when the rest of the UI updates. It uses ValueNotifiers
+//   for markers and polylines to push changes efficiently.
+// - Heavy operations such as decoding/resizing images happen async off the
+//   main build path and update via notifiers.
+// ---------------------------------------------------------------------------
 
 class OrderDetailScreen extends StatefulWidget {
   final OrderRecord order;
@@ -984,122 +997,79 @@ class OrderDetailScreen extends StatefulWidget {
 
 class _OrderDetailScreenState extends State<OrderDetailScreen>
     with TickerProviderStateMixin {
-  // ---------------------------------------------------------------------------
-  // Constants
-  // ---------------------------------------------------------------------------
+  // Throttle route requests
   static const Duration _routeThrottle = Duration(seconds: 10);
-  static const String _googleApiKey = "AIzaSyA4eJv1jVmJWrTdOO6SOsEGirFKueKRg98";
 
-  // ---------------------------------------------------------------------------
-  // Map, location & state
-  // ---------------------------------------------------------------------------
+  // Map controller and notifiers
   final Completer<GoogleMapController> _mapController = Completer();
 
-  LatLng? _currentLocation;
-  late LatLng dropOffLocation;
-  late LatLng pickupLocation;
-
   final ValueNotifier<bool> _mapLoaded = ValueNotifier(false);
-  final ValueNotifier<Set<Marker>> _markers = ValueNotifier({});
-  final ValueNotifier<Set<Polyline>> _polylines = ValueNotifier({});
+  final ValueNotifier<Set<Marker>> _markers = ValueNotifier(const {});
+  final ValueNotifier<Set<Polyline>> _polylines = ValueNotifier(const {});
+
+  // Locations
+  LatLng? _currentLocation;
+  late final LatLng pickupLocation;
+  late final LatLng dropOffLocation;
+
+  BitmapDescriptor? _truckIcon;
+  BitmapDescriptor? _dropOffIcon;
+  BitmapDescriptor? _pickUpIcon;
+  String? _mapStyle;
 
   StreamSubscription<Position>? _positionStream;
   StreamSubscription? _notifSub;
 
-  BitmapDescriptor? _truckIcon;
-  BitmapDescriptor? _dropOffIcon;
-
-  String? _mapStyle;
-
+  // State
   bool _isFullScreen = false;
   bool _isFetchingRoute = false;
-  bool _isMoving = false;
   bool isLoading = false;
-  bool showDriveButton = false;
 
-  double _finalBearing = 0;
   DateTime _lastRouteUpdate = DateTime.fromMillisecondsSinceEpoch(0);
   DateTime _lastCameraMove = DateTime.fromMillisecondsSinceEpoch(0);
 
-  // ---------------------------------------------------------------------------
   // Delivery state
-  // ---------------------------------------------------------------------------
-  String routeTarget = "pickup"; // pickup → dropoff
+  String routeTarget = 'pickup';
   late String deliveryStatus;
 
-  bool hasPhotoProof = false;
-  bool hasSignature = false;
+  // Distances/durations (strings used for UI)
+  String pickupDistanceKm = '-';
+  String pickupDuration = '-';
 
-  // Rider → Pickup (dynamic)
-  String pickupDistanceKm = "-";
-  String pickupDuration = "-";
+  String riderDropoffDistanceKm = '-';
+  String riderDropoffDuration = '-';
 
-  // Rider → Drop-off (dynamic)
-  String riderDropoffDistanceKm = "-";
-  String riderDropoffDuration = "-";
+  String dropoffDistanceKm = '-';
+  String dropoffDuration = '-';
 
-  // Pickup → Drop-off (static)
-  String dropoffDistanceKm = "-";
-  String dropoffDuration = "-";
+  String get uiStatus => deliveryStatus;
 
-  // Route / ETA (extra, if needed in UI later)
-  String distanceKm = "-";
-  String estimatedTime = "-";
-
-  final bool _showStatusButton = true;
-
-  // ---------------------------------------------------------------------------
-  // Convenience getters
-  // ---------------------------------------------------------------------------
-  String get receiverName {
-    final name = widget.order.customer?.name ?? '';
-    if (name.trim().isEmpty) return "Unknown Customer";
-    return name;
-  }
-
-  String get receiverPhone {
-    final phone = widget.order.customer?.phone ?? widget.order.contactPhone;
-    if (phone.trim().isEmpty) return "-";
-    return phone;
-  }
-
-  String get receiverAddress => widget.order.deliveryAddress;
-  String get status => widget.order.status;
-
-  String get receiverNote => widget.order.contactPhone.isNotEmpty
-      ? "Mobile No: ${widget.order.contactPhone}"
-      : "";
-
-  // ---------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
   // Lifecycle
-  // ---------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
   @override
   void initState() {
     super.initState();
 
-    _initLocationAndMap();
-    _loadMapStyle();
-    _loadTruckIcon();
-    _loadDropOffIcon();
-    _computePickupToDropoff();
-    // Coordinates from order
     pickupLocation = LatLng(widget.order.pickupLat, widget.order.pickupLng);
     dropOffLocation = LatLng(
       widget.order.deliveryLat,
       widget.order.deliveryLng,
     );
 
-    // Delivery status (fallback to "assigned")
-    deliveryStatus = (widget.order.status).toString().toLowerCase();
+    deliveryStatus = widget.order.status.toString().toLowerCase();
 
-    // Live chat notifications
-    Future.microtask(() {
-      final provider = context.read<ChatProvider>();
+    // load assets/styles
+    _prepareIcons();
 
-      _notifSub = ApiServices().listenNotifications().listen((event) {
-        _handleRealtimeChat(event, provider);
-      });
-    });
+    // compute static pickup->drop-off route
+    _computePickupToDropoff().ignore();
+
+    // initialize location (async)
+    _initLocationAndMap();
+
+    // setup realtime notifications listener (microtask to ensure context available)
+    Future.microtask(_listenRealtimeNotifications);
   }
 
   @override
@@ -1112,21 +1082,23 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     super.dispose();
   }
 
-  // ---------------------------------------------------------------------------
-  // Map helpers
-  // ---------------------------------------------------------------------------
-  double _smoothRotate(double oldAngle, double newAngle) {
-    double diff = newAngle - oldAngle;
-    if (diff.abs() > 180) {
-      if (diff > 0) {
-        diff -= 360;
-      } else {
-        diff += 360;
-      }
+  // -------------------------------------------------------------------------
+  // Helpers
+  // -------------------------------------------------------------------------
+  Future<void> _listenRealtimeNotifications() async {
+    final provider = context.read<ChatProvider>();
+    try {
+      _notifSub = ApiServices().listenNotifications().listen((event) {
+        _handleRealtimeChat(event, provider);
+      });
+    } catch (e) {
+      // silent
     }
-    return oldAngle + diff * 0.2;
   }
 
+  // -------------------------------------------------------------------------
+  // Map & location initialization
+  // -------------------------------------------------------------------------
   Future<void> _initLocationAndMap() async {
     LocationPermission permission;
     try {
@@ -1137,14 +1109,15 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
 
     if (permission == LocationPermission.denied ||
         permission == LocationPermission.deniedForever) {
-      // Fallback location
+      // Use fallback coordinates and still show map
       _currentLocation = const LatLng(14.0580, 121.3240);
-      _updateMarkers();
+      _updateMarkers(notify: true);
       _mapLoaded.value = true;
-      await _fetchRoute(force: true);
+      _fetchRoute(force: true).ignore();
       return;
     }
 
+    // Attempt an initial position with a short timeout to avoid blocking
     try {
       final pos = await Geolocator.getCurrentPosition(
         timeLimit: const Duration(seconds: 8),
@@ -1154,64 +1127,61 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
       _currentLocation = const LatLng(14.0580, 121.3240);
     }
 
-    _updateMarkers();
+    _updateMarkers(notify: true);
     _mapLoaded.value = true;
 
-    // Initial route
-    await _fetchRoute(force: true);
+    // initial route
+    _fetchRoute(force: true).ignore();
 
-    // Subscribe to position changes
+    // subscribe to position changes with minimal overhead
     _positionStream =
         Geolocator.getPositionStream(
           locationSettings: const LocationSettings(
             accuracy: LocationAccuracy.bestForNavigation,
-            distanceFilter: 5,
+            distanceFilter: 8, // reduce frequency to avoid too many updates
           ),
         ).listen(
           (Position p) {
             _currentLocation = LatLng(p.latitude, p.longitude);
 
-            _updateMarkers();
-            _moveCameraSmooth();
+            // update marker only (no full rebuild)
+            _updateMarkers(notify: true);
 
-            // Auto set status to "at_pickup"
-            if (deliveryStatus == "accepted" || deliveryStatus == "assigned") {
-              final distanceToPickup = Geolocator.distanceBetween(
-                _currentLocation!.latitude,
-                _currentLocation!.longitude,
-                pickupLocation.latitude,
-                pickupLocation.longitude,
-              );
+            // smooth camera moves throttled
+            _moveCameraSmooth().ignore();
 
-              if (distanceToPickup < 50 && deliveryStatus != "at_pickup") {
-                _setDeliveryStatus("at_pickup");
-              }
-            }
+            // auto transitions
+            _handleAutoTransitions();
 
-            // Auto switch route target pickup → dropoff
-            if (routeTarget == "pickup") {
-              final distanceToPickup = Geolocator.distanceBetween(
-                _currentLocation!.latitude,
-                _currentLocation!.longitude,
-                pickupLocation.latitude,
-                pickupLocation.longitude,
-              );
-
-              if (distanceToPickup < 50) {
-                setState(() {
-                  routeTarget = "dropoff";
-                });
-                _fetchRoute(force: true);
-              }
-            }
-
-            // Normal throttled updates
-            _fetchRoute();
+            // throttle route fetches
+            _fetchRoute().ignore();
           },
           onError: (e) {
-            // Optionally log
+            // ignore silently in production; consider logging to remote service
           },
         );
+  }
+
+  void _handleAutoTransitions() {
+    if (_currentLocation == null) return;
+
+    final distanceToPickup = Geolocator.distanceBetween(
+      _currentLocation!.latitude,
+      _currentLocation!.longitude,
+      pickupLocation.latitude,
+      pickupLocation.longitude,
+    );
+
+    if ((deliveryStatus == 'accepted' || deliveryStatus == 'assigned') &&
+        distanceToPickup < 50 &&
+        deliveryStatus != 'at_pickup') {
+      _setDeliveryStatus('at_pickup').ignore();
+    }
+
+    if (routeTarget == 'pickup' && distanceToPickup < 50) {
+      routeTarget = 'dropoff';
+      _fetchRoute(force: true).ignore();
+    }
   }
 
   Future<void> _moveCameraSmooth() async {
@@ -1233,11 +1203,106 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
           ),
         ),
       );
-    } catch (_) {
-      // Ignore failures
+    } catch (_) {}
+  }
+
+  // -------------------------------------------------------------------------
+  // Markers & icons
+  // -------------------------------------------------------------------------
+  Future<void> _prepareIcons() async {
+    // load icons concurrently but don't block init
+    _loadTruckIcon().ignore();
+    _loadDropOffIcon().ignore();
+    _loadPickUpIcon().ignore();
+  }
+
+  Future<void> _loadTruckIcon() async {
+    try {
+      final ByteData data = await rootBundle.load('assets/images/truck.png');
+      final Uint8List bytes = data.buffer.asUint8List();
+      final Uint8List resized = await _resizeImage(bytes, 70);
+      _truckIcon = BitmapDescriptor.fromBytes(resized);
+      _updateMarkers();
+    } catch (_) {}
+  }
+
+  Future<void> _loadDropOffIcon() async {
+    try {
+      final ByteData data = await rootBundle.load('assets/images/drop_off.png');
+      final Uint8List bytes = data.buffer.asUint8List();
+      final Uint8List resized = await _resizeImage(bytes, 80);
+      _dropOffIcon = BitmapDescriptor.fromBytes(resized);
+      _updateMarkers();
+    } catch (_) {}
+  }
+
+  Future<void> _loadPickUpIcon() async {
+    try {
+      final ByteData data = await rootBundle.load('assets/images/pick_up.png');
+      final Uint8List bytes = data.buffer.asUint8List();
+      final Uint8List resized = await _resizeImage(bytes, 80);
+      _pickUpIcon = BitmapDescriptor.fromBytes(resized);
+      _updateMarkers();
+    } catch (_) {}
+  }
+
+  Future<Uint8List> _resizeImage(Uint8List data, int targetWidth) async {
+    final codec = await ui.instantiateImageCodec(
+      data,
+      targetWidth: targetWidth,
+    );
+    final frame = await codec.getNextFrame();
+    final byteData = await frame.image.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
+    return byteData!.buffer.asUint8List();
+  }
+
+  void _updateMarkers({bool notify = false}) {
+    if (_currentLocation == null) return;
+
+    final rider = Marker(
+      markerId: const MarkerId('rider'),
+      position: _currentLocation!,
+      icon:
+          _truckIcon ??
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+      infoWindow: const InfoWindow(title: 'Rider (You)'),
+      anchor: const Offset(0.5, 0.5),
+      flat: true,
+      zIndex: 3,
+    );
+
+    final pickup = Marker(
+      markerId: const MarkerId('pickup'),
+      position: pickupLocation,
+      icon:
+          _pickUpIcon ??
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+      infoWindow: const InfoWindow(title: 'Pick-up'),
+      zIndex: 2,
+    );
+
+    final drop = Marker(
+      markerId: const MarkerId('dropoff'),
+      position: dropOffLocation,
+      icon:
+          _dropOffIcon ??
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+      infoWindow: const InfoWindow(title: 'Drop-off'),
+      zIndex: 1,
+    );
+
+    _markers.value = {drop, pickup, rider};
+    if (notify) {
+      // if surrounding UI depends on setState, update there instead
+      if (mounted) setState(() {});
     }
   }
 
+  // -------------------------------------------------------------------------
+  // Directions API handling (throttled)
+  // -------------------------------------------------------------------------
   Future<void> _fetchRoute({bool force = false}) async {
     if (_currentLocation == null) return;
     if (!force &&
@@ -1250,15 +1315,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     try {
       final origin =
           '${_currentLocation!.latitude},${_currentLocation!.longitude}';
-      final LatLng currentTarget = (routeTarget == "pickup")
+      final LatLng currentTarget = routeTarget == 'pickup'
           ? pickupLocation
           : dropOffLocation;
-
       final dest = '${currentTarget.latitude},${currentTarget.longitude}';
 
       final uri = Uri.parse(
-        'https://maps.googleapis.com/maps/api/directions/json'
-        '?origin=$origin&destination=$dest&mode=driving&key=$_googleApiKey',
+        'https://maps.googleapis.com/maps/api/directions/json?origin=$origin&destination=$dest&mode=driving&key=${Secrets.googleApiKey}',
       );
 
       final response = await http
@@ -1280,166 +1343,75 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
       final route = data['routes'][0];
       final leg = route['legs'][0];
 
-      // Distance & duration per target
       try {
-        final int distMeters = leg['distance']['value'] ?? 0;
-        final int durSeconds = leg['duration']['value'] ?? 0;
+        final int distMeters = (leg['distance']?['value'] ?? 0) as int;
+        final int durSeconds = (leg['duration']?['value'] ?? 0) as int;
 
-        if (routeTarget == "pickup") {
+        if (routeTarget == 'pickup') {
           pickupDistanceKm = (distMeters / 1000).toStringAsFixed(1);
-          pickupDuration = "${(durSeconds / 60).round()} min";
+          pickupDuration = '${(durSeconds / 60).round()} min';
         } else {
           riderDropoffDistanceKm = (distMeters / 1000).toStringAsFixed(1);
-          riderDropoffDuration = "${(durSeconds / 60).round()} min";
+          riderDropoffDuration = '${(durSeconds / 60).round()} min';
         }
 
-        if (mounted) {
-          setState(() {});
-        }
-      } catch (_) {
-        // Keep previous values
-      }
+        if (mounted) setState(() {});
+      } catch (_) {}
 
-      final encoded = route['overview_polyline']?['points'] as String?;
+      final encoded = (route['overview_polyline']?['points']) as String?;
       if (encoded == null || encoded.isEmpty) return;
 
       final points = _decodePolyline(encoded);
+      final poly = Polyline(
+        polylineId: const PolylineId('route'),
+        width: 6,
+        points: points,
+        startCap: Cap.roundCap,
+        endCap: Cap.roundCap,
+        color: kPrimaryColor,
+      );
 
-      _polylines.value = {
-        Polyline(
-          polylineId: const PolylineId('route'),
-          color: kPrimaryColor,
-          width: 6,
-          points: points,
-          startCap: Cap.roundCap,
-          endCap: Cap.roundCap,
-        ),
-      };
-
+      _polylines.value = {poly};
       _lastRouteUpdate = DateTime.now();
     } catch (_) {
-      // Optionally log
+      // ignore
     } finally {
       _isFetchingRoute = false;
     }
   }
 
-  void _updateMarkers() {
-    if (_currentLocation == null) return;
-
-    final rider = Marker(
-      markerId: const MarkerId('rider'),
-      position: _currentLocation!,
-      icon:
-          _truckIcon ??
-          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-      infoWindow: const InfoWindow(title: 'Rider (You)'),
-      anchor: const Offset(0.5, 0.5),
-      rotation: _finalBearing,
-      flat: true,
-      zIndex: 3,
-    );
-
-    final pickup = Marker(
-      markerId: const MarkerId('pickup'),
-      position: pickupLocation,
-      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-      infoWindow: const InfoWindow(title: 'Pickup'),
-      zIndex: 2,
-    );
-
-    final drop = Marker(
-      markerId: const MarkerId('dropoff'),
-      position: dropOffLocation,
-      icon:
-          _dropOffIcon ??
-          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-      infoWindow: const InfoWindow(title: 'Drop-off'),
-      zIndex: 1,
-    );
-
-    _markers.value = {drop, pickup, rider};
-  }
-
-  // Optional smoother tracking (not auto-started)
-  void startSmoothMapTracking() {
-    _positionStream = Geolocator.getPositionStream().listen((pos) {
-      _currentLocation = LatLng(pos.latitude, pos.longitude);
-      _isMoving = pos.speed > 1.2; // ≈ 4 km/h
-
-      if (_isMoving && pos.heading != 0) {
-        _finalBearing = _smoothRotate(_finalBearing, pos.heading);
-        _updateMarkers();
-      }
-    });
-  }
-
-  // ---------------------------------------------------------------------------
-  // Directions: Pickup → Dropoff (static)
-  // ---------------------------------------------------------------------------
   Future<void> _computePickupToDropoff() async {
-    final origin = '${pickupLocation.latitude},${pickupLocation.longitude}';
-    final dest = '${dropOffLocation.latitude},${dropOffLocation.longitude}';
+    try {
+      final origin = '${pickupLocation.latitude},${pickupLocation.longitude}';
+      final dest = '${dropOffLocation.latitude},${dropOffLocation.longitude}';
 
-    final uri = Uri.parse(
-      'https://maps.googleapis.com/maps/api/directions/json'
-      '?origin=$origin&destination=$dest&mode=driving&key=$_googleApiKey',
-    );
+      final uri = Uri.parse(
+        'https://maps.googleapis.com/maps/api/directions/json?origin=$origin&destination=$dest&mode=driving&key=${Secrets.googleApiKey}',
+      );
 
-    final response = await http.get(uri);
-    if (response.statusCode != 200) return;
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
 
-    final data = json.decode(response.body);
-    if (data['routes'] == null || data['routes'].isEmpty) return;
+      if (response.statusCode != 200) return;
 
-    final leg = data['routes'][0]['legs'][0];
+      final data = json.decode(response.body);
+      if (data['routes'] == null || (data['routes'] as List).isEmpty) return;
 
-    setState(() {
-      dropoffDistanceKm = ((leg['distance']['value'] ?? 0) / 1000)
-          .toStringAsFixed(1);
-      dropoffDuration = "${((leg['duration']['value'] ?? 0) / 60).round()} min";
-    });
+      final leg = data['routes'][0]['legs'][0];
+
+      if (mounted) {
+        setState(() {
+          dropoffDistanceKm = ((leg['distance']?['value'] ?? 0) / 1000)
+              .toStringAsFixed(1);
+          dropoffDuration =
+              '${((leg['duration']?['value'] ?? 0) / 60).round()} min';
+        });
+      }
+    } catch (_) {}
   }
 
-  // ---------------------------------------------------------------------------
-  // Assets & styles
-  // ---------------------------------------------------------------------------
-  Future<void> _loadTruckIcon() async {
-    final ByteData data = await rootBundle.load('assets/images/truck.png');
-    final Uint8List bytes = data.buffer.asUint8List();
-    final Uint8List resizedBytes = await _resizeImage(bytes, 70);
-
-    setState(() {
-      _truckIcon = BitmapDescriptor.fromBytes(resizedBytes);
-    });
-  }
-
-  Future<void> _loadDropOffIcon() async {
-    final ByteData data = await rootBundle.load('assets/images/drop_off.png');
-    final Uint8List bytes = data.buffer.asUint8List();
-    final Uint8List resizedBytes = await _resizeImage(bytes, 80);
-
-    setState(() {
-      _dropOffIcon = BitmapDescriptor.fromBytes(resizedBytes);
-    });
-  }
-
-  Future<Uint8List> _resizeImage(Uint8List data, int targetWidth) async {
-    final codec = await instantiateImageCodec(data, targetWidth: targetWidth);
-    final frame = await codec.getNextFrame();
-    final ByteData? byteData = await frame.image.toByteData(
-      format: ImageByteFormat.png,
-    );
-    return byteData!.buffer.asUint8List();
-  }
-
-  Future<void> _loadMapStyle() async {
-    _mapStyle = await rootBundle.loadString('assets/konek2move_map_style.json');
-  }
-
-  // ---------------------------------------------------------------------------
-  // Delivery status transitions
-  // ---------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // Delivery lifecycle / API
+  // -------------------------------------------------------------------------
   Future<void> _setDeliveryStatus(String nextStatus) async {
     if (deliveryStatus == nextStatus) return;
     if (_currentLocation == null) return;
@@ -1452,100 +1424,115 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
         lat: _currentLocation!.latitude.toString(),
       );
 
-      if (mounted) {
-        setState(() {
-          deliveryStatus = nextStatus;
-        });
-      }
+      if (!mounted) return;
 
-      debugPrint("✅ Status updated to $nextStatus: ${res.message}");
+      setState(() {
+        deliveryStatus = nextStatus;
+      });
+
+      _showApiIndicator(
+        title: 'Status Updated',
+        message: res.message,
+        success: true,
+      );
     } catch (e) {
-      debugPrint("❌ Failed to update status to $nextStatus: $e");
+      if (!mounted) return;
+      _showApiIndicator(
+        title: 'Status Update Failed',
+        message: e.toString(),
+        success: false,
+      );
     }
   }
 
+  // Action flows
   Future<void> _onStartToPickup() async {
     if (isLoading) return;
-
     setState(() {
       isLoading = true;
-      routeTarget = "pickup";
+      routeTarget = 'pickup';
     });
 
-    await _setDeliveryStatus("accepted");
+    await _setDeliveryStatus('accepted');
     await _fetchRoute(force: true);
 
-    if (mounted) {
-      setState(() => isLoading = false);
-    }
+    if (mounted) setState(() => isLoading = false);
   }
 
   Future<void> _onPackageCollected() async {
-    await _setDeliveryStatus("picked_up");
-
-    setState(() {
-      routeTarget = "dropoff";
-    });
-
+    await _setDeliveryStatus('picked_up');
+    routeTarget = 'dropoff';
     await _fetchRoute(force: true);
   }
 
-  Future<void> _onStartDropoff() async {
-    await _setDeliveryStatus("en_route");
-  }
+  Future<void> _onStartDropoff() async => _setDeliveryStatus('en_route');
 
-  Future<void> _onCompleteDelivery() async {
-    // TODO: photo + signature, then delivered
-    await _setDeliveryStatus("delivered");
-  }
+  Future<void> _onCompleteDelivery() async => _setDeliveryStatus('delivered');
 
   Future<void> _startDelivery() async {
     await _onStartToPickup();
-    setState(() {
-      showDriveButton = true;
-    });
-
-    setState(() => isLoading = false);
   }
 
-  // ---------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
   // Chat / notifications
-  // ---------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
   void _handleRealtimeChat(Map<String, dynamic> event, ChatProvider provider) {
-    final data = event["data"];
+    final data = event['data'];
     if (data == null) return;
 
-    if (!(data["topic"]?.toString().contains("chat.new_message") ?? false)) {
+    if (!(data['topic']?.toString().contains('chat.new_message') ?? false))
       return;
-    }
 
-    final meta = data["meta"];
+    final meta = data['meta'];
     if (meta == null) return;
 
-    if (meta["sender_type"] != "driver") {
-      provider.incrementUnread();
-    }
+    if (meta['sender_type'] != 'driver') provider.incrementUnread();
+  }
+
+  // -------------------------------------------------------------------------
+  // Utilities
+  // -------------------------------------------------------------------------
+  void _showApiIndicator({
+    required String title,
+    required String message,
+    required bool success,
+  }) {
+    Flushbar(
+      title: title,
+      message: message,
+      duration: const Duration(seconds: 3),
+      flushbarPosition: FlushbarPosition.TOP,
+      backgroundColor: success ? Colors.green : Colors.red,
+      icon: Icon(
+        success ? Icons.check_circle : Icons.error,
+        color: Colors.white,
+      ),
+      margin: const EdgeInsets.all(12),
+      borderRadius: BorderRadius.circular(12),
+    ).show(context);
   }
 
   Future<void> _callNumber(String phoneNumber) async {
-    final Uri uri = Uri.parse("tel:$phoneNumber");
-
+    final Uri uri = Uri.parse('tel:$phoneNumber');
     try {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (e) {
-      debugPrint("Dialer failed: $e");
+      debugPrint('Dialer failed: $e');
     }
   }
 
   Future<void> navigateToPickup(double lat, double lng) async {
-    final Uri uri = Uri.parse("google.navigation:q=$lat,$lng&mode=d");
-
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    final Uri uri = Uri.parse('google.navigation:q=$lat,$lng&mode=d');
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      debugPrint('Navigation launch failed: $e');
+    }
   }
 
-  // ---------------------------------------------------------------------------
-  // Polyline decoding
-  // ---------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // Polyline decode (kept identical but safe)
+  // -------------------------------------------------------------------------
   List<LatLng> _decodePolyline(String encoded) {
     final List<LatLng> poly = [];
     int index = 0;
@@ -1577,9 +1564,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     return poly;
   }
 
-  // ---------------------------------------------------------------------------
-  // UI helpers
-  // ---------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // UI builders (kept compact & efficient)
+  // -------------------------------------------------------------------------
   Widget _circleButton({required IconData icon, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
@@ -1610,7 +1597,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     );
   }
 
-  Widget _fancyShimmerSkeleton(BuildContext ctx) {
+  Widget _fancyShimmerSkeleton() {
     return Shimmer.fromColors(
       baseColor: Colors.grey.shade300,
       highlightColor: Colors.grey.shade100,
@@ -1680,16 +1667,16 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     final details = [
       {
         'icon': Icons.storefront,
-        'title': "Pickup",
+        'title': 'Pickup',
         'main': widget.order.supplierName,
         'sub': widget.order.supplierAddress,
-        'distance': routeTarget == "pickup" ? pickupDistanceKm : "-",
-        'duration': routeTarget == "pickup" ? pickupDuration : "-",
+        'distance': routeTarget == 'pickup' ? pickupDistanceKm : '-',
+        'duration': routeTarget == 'pickup' ? pickupDuration : '-',
       },
       {
         'icon': Icons.location_on,
-        'title': "Drop-off",
-        'main': receiverName,
+        'title': 'Drop-off',
+        'main': widget.order.customer?.name ?? 'Unknown Customer',
         'sub': widget.order.deliveryAddress,
         'distance': riderDropoffDistanceKm,
         'duration': riderDropoffDuration,
@@ -1713,26 +1700,22 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Timeline icons
           Column(
             children: List.generate(details.length * 2 - 1, (i) {
-              if (i.isEven) {
+              if (i.isEven)
                 return Icon(
                   details[i ~/ 2]['icon'] as IconData,
                   color: Colors.grey.shade500,
                   size: 22,
                 );
-              } else {
-                return Container(
-                  width: 2,
-                  height: 60,
-                  color: Colors.grey.shade300,
-                );
-              }
+              return Container(
+                width: 2,
+                height: 60,
+                color: Colors.grey.shade300,
+              );
             }),
           ),
           const SizedBox(width: 14),
-          // Text Section
           Expanded(
             child: Column(
               children: details
@@ -1766,7 +1749,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Title + ETA
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -1778,7 +1760,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
               ),
             ),
             Text(
-              "$distance km • $duration",
+              '$distance km • $duration',
               style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
             ),
           ],
@@ -1798,6 +1780,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   }
 
   Widget _buildReceiverCard() {
+    final receiverName = widget.order.customer?.name ?? 'Unknown Customer';
+    final receiverPhone = widget.order.contactPhone.trim() ?? '-';
+    final receiverAddress = widget.order.deliveryAddress;
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -1815,14 +1801,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Avatar
           CircleAvatar(
             radius: 22,
             backgroundColor: kPrimaryColor.withOpacity(0.10),
             child: const Icon(Icons.person, color: Colors.black54, size: 20),
           ),
           const SizedBox(width: 12),
-          // Text Section
           Expanded(
             child: Align(
               alignment: Alignment.centerLeft,
@@ -1845,10 +1829,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                       color: Colors.grey.shade700,
                     ),
                   ),
-                  if (receiverNote.isNotEmpty) ...[
+                  if (receiverPhone.isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Text(
-                      receiverNote,
+                      receiverPhone,
                       style: TextStyle(
                         fontSize: 13,
                         color: Colors.grey.shade600,
@@ -1860,15 +1844,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
             ),
           ),
           const SizedBox(width: 6),
-          // Actions
           Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
-                  onPressed: () {
-                    _callNumber(receiverPhone);
-                  },
+                  onPressed: () => _callNumber(receiverPhone),
                   icon: const Icon(Icons.phone, color: kPrimaryColor),
                   tooltip: receiverPhone,
                 ),
@@ -1947,27 +1928,25 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                 ),
                 const SizedBox(height: 20),
                 const Text(
-                  "Cancel Delivery?",
+                  'Cancel Delivery?',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  "Are you sure you want to cancel this delivery request?",
+                  'Are you sure you want to cancel this delivery request?',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
                 ),
                 const SizedBox(height: 20),
                 CustomButton(
-                  text: "Yes, Cancel Delivery",
+                  text: 'Yes, Cancel Delivery',
                   color: kPrimaryRedColor,
                   textColor: kDefaultIconLightColor,
-                  onTap: () {
-                    Navigator.pop(context);
-                  },
+                  onTap: () => Navigator.pop(context),
                 ),
                 const SizedBox(height: 10),
                 CustomButton(
-                  text: "No, Keep Delivery",
+                  text: 'No, Keep Delivery',
                   color: kLightButtonColor,
                   textColor: kPrimaryColor,
                   onTap: () => Navigator.pop(context),
@@ -1981,9 +1960,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     );
   }
 
-  // ---------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
   // Build
-  // ---------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
     final padding = MediaQuery.of(context).padding;
@@ -1998,124 +1977,24 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: CustomHomeAppBar(
-        title: "Order Details",
-        showTrailing: status != "delivered",
-        trailingText: "Cancel",
-        onLeadingTap: () {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => HomeScreen(initialIndex: 1)),
-          );
-        },
+        title: 'Order Details',
+        showTrailing: ![
+          'accepted',
+          'at_pickup',
+          'picked_up',
+          'en_route',
+          'delivered',
+        ].contains(uiStatus),
+        trailingText: 'Cancel',
+        onLeadingTap: () => Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => HomeScreen(initialIndex: 1)),
+        ),
         onTrailingTap: _showCancelSheet,
       ),
       body: Column(
         children: [
-          Expanded(
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 350),
-              curve: Curves.easeInOut,
-              height: _isFullScreen ? fullMapHeight : normalMapHeight,
-              width: double.infinity,
-              padding: _isFullScreen
-                  ? EdgeInsets.zero
-                  : const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(_isFullScreen ? 0 : 16),
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: ValueListenableBuilder<bool>(
-                        valueListenable: _mapLoaded,
-                        builder: (_, loaded, __) {
-                          if (!loaded || _currentLocation == null) {
-                            return _mapShimmerPlaceholder();
-                          }
-
-                          return ValueListenableBuilder<Set<Marker>>(
-                            valueListenable: _markers,
-                            builder: (_, markers, __) {
-                              return ValueListenableBuilder<Set<Polyline>>(
-                                valueListenable: _polylines,
-                                builder: (_, polylines, __) {
-                                  return GoogleMap(
-                                    initialCameraPosition: CameraPosition(
-                                      target:
-                                          _currentLocation ?? dropOffLocation,
-                                      zoom: 14,
-                                    ),
-                                    buildingsEnabled: true,
-                                    mapType: MapType.normal,
-                                    markers: markers,
-                                    polylines: polylines,
-                                    myLocationEnabled: false,
-                                    zoomControlsEnabled: false,
-                                    myLocationButtonEnabled: false,
-                                    compassEnabled: true,
-                                    trafficEnabled: false,
-                                    onMapCreated:
-                                        (GoogleMapController controller) async {
-                                          if (!_mapController.isCompleted) {
-                                            _mapController.complete(controller);
-                                          }
-                                          if (_mapStyle != null) {
-                                            controller.setMapStyle(_mapStyle);
-                                          }
-                                        },
-                                  );
-                                },
-                              );
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                    // Fullscreen toggle
-                    Positioned(
-                      top: 12,
-                      right: 12,
-                      child: _circleButton(
-                        icon: _isFullScreen
-                            ? Icons.fullscreen_exit
-                            : Icons.fullscreen,
-                        onTap: () {
-                          setState(() => _isFullScreen = !_isFullScreen);
-                          Future.delayed(
-                            const Duration(milliseconds: 360),
-                            _moveCameraSmooth,
-                          );
-                        },
-                      ),
-                    ),
-                    // Zoom in
-                    Positioned(
-                      right: 12,
-                      bottom: _isFullScreen ? 150 : 70,
-                      child: _circleButton(
-                        icon: Icons.add,
-                        onTap: () async {
-                          final controller = await _mapController.future;
-                          controller.animateCamera(CameraUpdate.zoomIn());
-                        },
-                      ),
-                    ),
-                    // Zoom out
-                    Positioned(
-                      right: 12,
-                      bottom: _isFullScreen ? 90 : 12,
-                      child: _circleButton(
-                        icon: Icons.remove,
-                        onTap: () async {
-                          final controller = await _mapController.future;
-                          controller.animateCamera(CameraUpdate.zoomOut());
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+          _buildMap(fullMapHeight, normalMapHeight),
           if (!_isFullScreen)
             Expanded(
               child: SingleChildScrollView(
@@ -2124,7 +2003,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      "Delivery Details",
+                      'Delivery Details',
                       style: TextStyle(
                         fontSize: 15,
                         color: Colors.black54,
@@ -2134,18 +2013,16 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                     const SizedBox(height: 12),
                     ValueListenableBuilder<bool>(
                       valueListenable: _mapLoaded,
-                      builder: (_, loaded, __) {
-                        if (!loaded) return _fancyShimmerSkeleton(context);
-                        return _buildReceiverCard();
-                      },
+                      builder: (_, loaded, __) => loaded
+                          ? _buildReceiverCard()
+                          : _fancyShimmerSkeleton(),
                     ),
                     const SizedBox(height: 12),
                     ValueListenableBuilder<bool>(
                       valueListenable: _mapLoaded,
-                      builder: (_, loaded, __) {
-                        if (!loaded) return _fancyShimmerSkeleton(context);
-                        return _buildDeliveryDetails();
-                      },
+                      builder: (_, loaded, __) => loaded
+                          ? _buildDeliveryDetails()
+                          : _fancyShimmerSkeleton(),
                     ),
                   ],
                 ),
@@ -2157,42 +2034,122 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Bottom action button
-  // ---------------------------------------------------------------------------
+  Widget _buildMap(double fullMapHeight, double normalMapHeight) {
+    return Expanded(
+      child: Container(
+        height: _isFullScreen ? fullMapHeight : normalMapHeight,
+        width: double.infinity,
+        padding: _isFullScreen
+            ? EdgeInsets.zero
+            : const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(_isFullScreen ? 0 : 16),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: _mapLoaded,
+                  builder: (_, loaded, __) {
+                    if (!loaded || _currentLocation == null) {
+                      return _mapShimmerPlaceholder();
+                    }
+                    // Map is its own widget that listens to marker/polyline changes.
+                    return MapView(
+                      initialLocation: _currentLocation!,
+                      mapControllerCompleter: _mapController,
+                      markersListenable: _markers,
+                      polylinesListenable: _polylines,
+                      mapStyle: _mapStyle,
+                      onMapCreated: (c) async {
+                        if (!_mapController.isCompleted) {
+                          _mapController.complete(c);
+                        }
+                      },
+                    );
+                  },
+                ),
+              ),
+
+              // FULLSCREEN
+              Positioned(
+                top: 12,
+                right: 12,
+                child: _circleButton(
+                  icon: _isFullScreen
+                      ? Icons.fullscreen_exit
+                      : Icons.fullscreen,
+                  onTap: () => setState(() => _isFullScreen = !_isFullScreen),
+                ),
+              ),
+
+              // ZOOM IN
+              Positioned(
+                right: 12,
+                bottom: _isFullScreen ? 150 : 70,
+                child: _circleButton(
+                  icon: Icons.add,
+                  onTap: () async {
+                    if (_mapController.isCompleted)
+                      (await _mapController.future).animateCamera(
+                        CameraUpdate.zoomIn(),
+                      );
+                  },
+                ),
+              ),
+
+              // ZOOM OUT
+              Positioned(
+                right: 12,
+                bottom: _isFullScreen ? 90 : 12,
+                child: _circleButton(
+                  icon: Icons.remove,
+                  onTap: () async {
+                    if (_mapController.isCompleted)
+                      (await _mapController.future).animateCamera(
+                        CameraUpdate.zoomOut(),
+                      );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildStatusButton() {
     final safeBottom = MediaQuery.of(context).padding.bottom;
     final bool isThreeButtonNav = safeBottom == 0;
 
-    if (deliveryStatus == "delivered" || deliveryStatus == "failed") {
-      return const SizedBox.shrink();
-    }
+    final bool shouldShow =
+        deliveryStatus != 'delivered' && deliveryStatus != 'failed';
+    if (!shouldShow) return const SizedBox.shrink();
 
-    String label;
+    String label = '';
     VoidCallback? onTap;
-    final bool loading = isLoading;
 
     switch (deliveryStatus) {
-      case "assigned":
-      case "accepted":
-        label = loading ? "Starting..." : "Start to Pickup";
-        onTap = loading ? null : _startDelivery;
+      case 'assigned':
+      case 'accepted':
+        label = isLoading ? 'Starting...' : 'Start to Pickup';
+        onTap = isLoading ? null : _startDelivery;
         break;
-      case "at_pickup":
-        label = "Package Collected";
+      case 'at_pickup':
+        label = 'Package Collected';
         onTap = _onPackageCollected;
         break;
-      case "picked_up":
-        label = "Start Drop-off";
+      case 'picked_up':
+        label = 'Start Drop-off';
         onTap = _onStartDropoff;
         break;
-      case "en_route":
-        label = "Complete Delivery";
+      case 'en_route':
+        label = 'Complete Delivery';
         onTap = _onCompleteDelivery;
         break;
       default:
-        label = loading ? "Starting..." : "Start Delivery";
-        onTap = loading ? null : _startDelivery;
+        label = isLoading ? 'Starting...' : 'Start Delivery';
+        onTap = isLoading ? null : _startDelivery;
     }
 
     return SafeArea(
@@ -2200,10 +2157,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
       child: AnimatedSlide(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
-        offset: _showStatusButton ? Offset.zero : const Offset(0, 1.2),
+        offset: Offset.zero,
         child: AnimatedOpacity(
           duration: const Duration(milliseconds: 250),
-          opacity: _showStatusButton ? 1 : 0,
+          opacity: 1,
           child: Container(
             decoration: BoxDecoration(
               color: Colors.transparent,
@@ -2227,56 +2184,58 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                   24,
                   isThreeButtonNav ? 16 : safeBottom + 24,
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                child: Row(
                   children: [
-                    Row(
-                      children: [
-                        // Google Maps Navigation Button
-                        if (showDriveButton)
-                          Container(
-                            width: 50,
-                            height: 50,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
-                                  blurRadius: 6,
-                                  offset: Offset(0, 2),
-                                ),
-                              ],
+                    if ([
+                      'accepted',
+                      'at_pickup',
+                      'picked_up',
+                      'en_route',
+                    ].contains(uiStatus))
+                      Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 6,
+                              offset: Offset(0, 2),
                             ),
-                            child: IconButton(
-                              icon: Icon(
-                                Icons.navigation,
-                                color: kPrimaryColor,
-                                size: 28,
-                              ),
-                              onPressed: () {
-                                navigateToPickup(
-                                  widget.order.pickupLat,
-                                  widget.order.pickupLng,
-                                );
-                              },
-                            ),
+                          ],
+                        ),
+                        child: IconButton(
+                          icon: Icon(
+                            Icons.navigation,
+                            color: kPrimaryColor,
+                            size: 28,
                           ),
-                        // Space between buttons
-                        if (showDriveButton) const SizedBox(width: 12),
-                        Expanded(
-                          child: CustomButton(
-                            radius: 30,
-                            text: label,
-                            horizontalPadding: 0,
-                            textColor: Colors.white,
-                            color: onTap != null
-                                ? kPrimaryColor
-                                : Colors.grey.shade400,
-                            onTap: onTap,
+                          onPressed: () => navigateToPickup(
+                            widget.order.pickupLat,
+                            widget.order.pickupLng,
                           ),
                         ),
-                      ],
+                      ),
+                    if ([
+                      'accepted',
+                      'at_pickup',
+                      'picked_up',
+                      'en_route',
+                    ].contains(uiStatus))
+                      const SizedBox(width: 12),
+                    Expanded(
+                      child: CustomButton(
+                        radius: 30,
+                        text: label,
+                        horizontalPadding: 0,
+                        textColor: Colors.white,
+                        color: onTap != null
+                            ? kPrimaryColor
+                            : Colors.grey.shade400,
+                        onTap: onTap,
+                      ),
                     ),
                   ],
                 ),
@@ -2285,6 +2244,88 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
           ),
         ),
       ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Separate MapView widget: keeps GoogleMap from rebuilding when parent setState
+// is called. Listens to ValueNotifiers for markers & polylines.
+// -----------------------------------------------------------------------------
+
+class MapView extends StatefulWidget {
+  final LatLng initialLocation;
+  final Completer<GoogleMapController> mapControllerCompleter;
+  final ValueListenable<Set<Marker>> markersListenable;
+  final ValueListenable<Set<Polyline>> polylinesListenable;
+  final String? mapStyle;
+  final void Function(GoogleMapController) onMapCreated;
+
+  const MapView({
+    super.key,
+    required this.initialLocation,
+    required this.mapControllerCompleter,
+    required this.markersListenable,
+    required this.polylinesListenable,
+    required this.onMapCreated,
+    this.mapStyle,
+  });
+
+  @override
+  State<MapView> createState() => _MapViewState();
+}
+
+class _MapViewState extends State<MapView> {
+  late GoogleMapController? _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = null;
+  }
+
+  @override
+  void dispose() {
+    // Do not dispose controller here; GoogleMap owns it. If you keep a reference
+    // to controller elsewhere, ensure safe lifecycle management.
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<Set<Marker>>(
+      valueListenable: widget.markersListenable,
+      builder: (_, markers, __) {
+        return ValueListenableBuilder<Set<Polyline>>(
+          valueListenable: widget.polylinesListenable,
+          builder: (_, polylines, __) {
+            return GoogleMap(
+              initialCameraPosition: CameraPosition(
+                target: widget.initialLocation,
+                zoom: 14,
+              ),
+              mapType: MapType.normal,
+              markers: markers,
+              polylines: polylines,
+              buildingsEnabled: true,
+              zoomControlsEnabled: false,
+              myLocationEnabled: false,
+              myLocationButtonEnabled: false,
+              compassEnabled: true,
+              trafficEnabled: false,
+              onMapCreated: (GoogleMapController controller) async {
+                _controller = controller;
+
+                if (!widget.mapControllerCompleter.isCompleted) {
+                  widget.mapControllerCompleter.complete(controller);
+                }
+
+                widget.onMapCreated(controller);
+              },
+            );
+          },
+        );
+      },
     );
   }
 }

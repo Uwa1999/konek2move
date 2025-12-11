@@ -40,6 +40,7 @@ import 'package:konek2move/core/routes/app_routes.dart';
 import 'package:konek2move/ui/splash/internet_connection_screen.dart';
 import 'package:provider/provider.dart';
 
+import 'core/services/api_services.dart';
 import 'core/services/provider_services.dart';
 
 // Future<void> main() async {
@@ -101,9 +102,9 @@ import 'core/services/provider_services.dart';
 //   }
 // }
 
-Future<void> main() async {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+  await Secrets.init();
   // Fast, non-blocking config
   AndroidGoogleMapsFlutter.useAndroidViewSurface = true;
 

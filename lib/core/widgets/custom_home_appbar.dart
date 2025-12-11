@@ -100,12 +100,12 @@ class CustomHomeAppBar extends StatelessWidget implements PreferredSizeWidget {
           clipBehavior: Clip.none,
           children: [
             InkWell(
-              borderRadius: BorderRadius.circular(50),
+              borderRadius: BorderRadius.circular(24),
               onTap: onTrailingTap,
               child: Container(
                 padding: hasText && !hasIcon
                     ? const EdgeInsets.symmetric(horizontal: 14, vertical: 8)
-                    : const EdgeInsets.all(8),
+                    : const EdgeInsets.all(1),
                 decoration: BoxDecoration(
                   color: hasText && !hasIcon
                       ? Colors.red.withOpacity(0.08) // 🔥 soft red pill

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dns_services.dart';
@@ -571,7 +572,6 @@ class ApiServices {
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
-      print(response.body);
       if (response.statusCode == 200) {
         final Map<String, dynamic> decodedData = jsonDecode(response.body);
         return ModelResponse.fromJson(decodedData);
@@ -583,5 +583,15 @@ class ApiServices {
     } catch (e) {
       throw Exception('An error occurred: $e');
     }
+  }
+}
+
+class Secrets {
+  static String? googleApiKey;
+
+  static Future<void> init() async {
+    final data = await rootBundle.loadString('assets/config/secure.json');
+    final jsonMap = json.decode(data);
+    googleApiKey = jsonMap['google_api_key'];
   }
 }

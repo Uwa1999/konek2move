@@ -90,110 +90,140 @@ class NotificationProvider extends ChangeNotifier {
   // -----------------------------------------------------------
   // SSE LISTENER (LIVE NOTIFS)
   // -----------------------------------------------------------
-  void listenLiveNotifications({
-    required String userCode,
-    required String userType,
-  }) async {
-    _sseSubscription?.cancel();
+  // void listenLiveNotifications({
+  //   required String userCode,
+  //   required String userType,
+  // }) async {
+  //   _sseSubscription?.cancel();
+  //   _sseSubscription = _api.listenNotifications().listen(
+  //     (event) {
+  //       final data = event["data"];
+  //       if (data == null) {
+  //         print("⚠️ SSE event missing data field");
+  //         return;
+  //       }
+  //
+  //       totalIncomingNotifications++;
+  //
+  //       final notif = NotificationResponse.fromJson(data);
+  //
+  //       if (notif.id == 0 || notif.title.isEmpty) return;
+  //
+  //       if (_notifications.any((n) => n.id == notif.id)) {
+  //         return;
+  //       }
+  //
+  //       final isRead = _readIds.contains(notif.id);
+  //
+  //       // Play sounds for unread notifications
+  //       if (!isRead) {
+  //         _playNotificationSound();
+  //       }
+  //
+  //       _notifications.insert(0, notif.copyWith(isRead: isRead));
+  //       notifyListeners();
+  //     },
+  //     onError: (error) async {
+  //       await Future.delayed(const Duration(seconds: 5));
+  //       reconnect(userType: userType);
+  //     },
+  //     onDone: () async {
+  //       await Future.delayed(const Duration(seconds: 5));
+  //       reconnect(userType: userType);
+  //     },
+  //     cancelOnError: false,
+  //   );
+  //
+  //   // Stop previous subscription
+  //   // _sseSubscription?.cancel();
+  //   //
+  //   // print("🔌 Starting SSE for $userCode");
+  //   //
+  //   // _sseSubscription = _api
+  //   //     .listenNotifications(userCode: userCode, userType: userType)
+  //   //     .listen(
+  //   //       (event) {
+  //   //         // event = Map<String, dynamic>
+  //   //         final data = event["data"];
+  //   //         if (data == null) {
+  //   //           print("⚠️ SSE event missing data field");
+  //   //           return;
+  //   //         }
+  //   //
+  //   //         totalIncomingNotifications++;
+  //   //         print("📩 SSE Notification #$totalIncomingNotifications → $data");
+  //   //
+  //   //         final notif = NotificationModel.fromJson(data);
+  //   //
+  //   //         // Skip empty or invalid notifications
+  //   //         if (notif.id == 0 || notif.title.isEmpty) return;
+  //   //
+  //   //         // Deduplicate
+  //   //         if (_notifications.any((n) => n.id == notif.id)) {
+  //   //           print("⚠️ Duplicate notification ID ${notif.id} ignored");
+  //   //           return;
+  //   //         }
+  //   //
+  //   //         final isRead = _readIds.contains(notif.id);
+  //   //
+  //   //         // Insert newest on top
+  //   //         _notifications.insert(0, notif.copyWith(isRead: isRead));
+  //   //
+  //   //         notifyListeners();
+  //   //       },
+  //   //       onError: (error) async {
+  //   //         print("❌ SSE error: $error");
+  //   //         await Future.delayed(const Duration(seconds: 5));
+  //   //         reconnect(userType: userType);
+  //   //       },
+  //   //       onDone: () async {
+  //   //         print("⚠️ SSE closed. Reconnecting...");
+  //   //         await Future.delayed(const Duration(seconds: 5));
+  //   //         reconnect(userType: userType);
+  //   //       },
+  //   //       cancelOnError: false,
+  //   //     );
+  // }
+  void listenLiveNotifications() async {
+    await _sseSubscription?.cancel();
+
     _sseSubscription = _api.listenNotifications().listen(
       (event) {
         final data = event["data"];
-        if (data == null) {
-          print("⚠️ SSE event missing data field");
-          return;
-        }
-
-        totalIncomingNotifications++;
+        if (data == null) return;
 
         final notif = NotificationResponse.fromJson(data);
-
         if (notif.id == 0 || notif.title.isEmpty) return;
 
-        if (_notifications.any((n) => n.id == notif.id)) {
-          return;
-        }
+        if (_notifications.any((n) => n.id == notif.id)) return;
 
         final isRead = _readIds.contains(notif.id);
 
-        // Play sounds for unread notifications
-        if (!isRead) {
-          _playNotificationSound();
-        }
+        if (!isRead) _playNotificationSound();
 
         _notifications.insert(0, notif.copyWith(isRead: isRead));
         notifyListeners();
       },
-      onError: (error) async {
+      onError: (_) async {
         await Future.delayed(const Duration(seconds: 5));
-        reconnect(userType: userType);
+        listenLiveNotifications(); // reconnect
       },
       onDone: () async {
         await Future.delayed(const Duration(seconds: 5));
-        reconnect(userType: userType);
+        listenLiveNotifications(); // reconnect
       },
-      cancelOnError: false,
     );
-
-    // Stop previous subscription
-    // _sseSubscription?.cancel();
-    //
-    // print("🔌 Starting SSE for $userCode");
-    //
-    // _sseSubscription = _api
-    //     .listenNotifications(userCode: userCode, userType: userType)
-    //     .listen(
-    //       (event) {
-    //         // event = Map<String, dynamic>
-    //         final data = event["data"];
-    //         if (data == null) {
-    //           print("⚠️ SSE event missing data field");
-    //           return;
-    //         }
-    //
-    //         totalIncomingNotifications++;
-    //         print("📩 SSE Notification #$totalIncomingNotifications → $data");
-    //
-    //         final notif = NotificationModel.fromJson(data);
-    //
-    //         // Skip empty or invalid notifications
-    //         if (notif.id == 0 || notif.title.isEmpty) return;
-    //
-    //         // Deduplicate
-    //         if (_notifications.any((n) => n.id == notif.id)) {
-    //           print("⚠️ Duplicate notification ID ${notif.id} ignored");
-    //           return;
-    //         }
-    //
-    //         final isRead = _readIds.contains(notif.id);
-    //
-    //         // Insert newest on top
-    //         _notifications.insert(0, notif.copyWith(isRead: isRead));
-    //
-    //         notifyListeners();
-    //       },
-    //       onError: (error) async {
-    //         print("❌ SSE error: $error");
-    //         await Future.delayed(const Duration(seconds: 5));
-    //         reconnect(userType: userType);
-    //       },
-    //       onDone: () async {
-    //         print("⚠️ SSE closed. Reconnecting...");
-    //         await Future.delayed(const Duration(seconds: 5));
-    //         reconnect(userType: userType);
-    //       },
-    //       cancelOnError: false,
-    //     );
   }
 
   // -----------------------------------------------------------
   // RECONNECT
   // -----------------------------------------------------------
-  Future<void> reconnect({required String userType}) async {
+  Future<void> reconnect() async {
     final prefs = await SharedPreferences.getInstance();
     final code = prefs.getString("driver_code") ?? "";
 
     if (code.isNotEmpty) {
-      listenLiveNotifications(userCode: code, userType: userType);
+      listenLiveNotifications();
     }
   }
 
@@ -457,20 +487,25 @@ class ChatProvider extends ChangeNotifier {
 
 class OrderProvider extends ChangeNotifier {
   bool isLoading = false;
+  bool isRefreshing = false;
   OrderResponse? orderResponse;
 
-  // ==== FETCH ALL ORDERS ====
   Future<void> fetchOrders() async {
     await _loadOrders(orderNo: "");
   }
 
-  // ==== SEARCH USING BACKEND ====
   Future<void> searchOrders(String orderNo) async {
     await _loadOrders(orderNo: orderNo);
   }
 
-  // ==== PRIVATE LOADER ====
-  Future<void> _loadOrders({String orderNo = ""}) async {
+  Future<void> _loadOrders({String orderNo = "", bool refresh = false}) async {
+    // show shimmer only on first load OR pull-to-refresh
+    if (refresh || orderResponse == null) {
+      isRefreshing = true;
+    } else {
+      isRefreshing = false; // navigation → do not shimmer
+    }
+
     isLoading = true;
     notifyListeners();
 
@@ -479,15 +514,12 @@ class OrderProvider extends ChangeNotifier {
       final driverIdString = prefs.getString("id") ?? "0";
       final driverId = int.tryParse(driverIdString) ?? 0;
 
-      // CALL API WITH order_no
       final res = await ApiServices().getOrder(driverId, orderNo: orderNo);
 
-      // LOCAL FILTER: assigned + unassigned
       final filteredRecords = res.data.records.where((order) {
         final isAssignedToDriver =
             order.assignedDriverId.toString() == driverIdString;
         final isUnassigned = order.assignedDriverId == null;
-
         return isAssignedToDriver || isUnassigned;
       }).toList();
 
@@ -508,6 +540,7 @@ class OrderProvider extends ChangeNotifier {
     }
 
     isLoading = false;
+    isRefreshing = false;
     notifyListeners();
   }
 

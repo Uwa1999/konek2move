@@ -378,24 +378,32 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final prefs = await SharedPreferences.getInstance();
     driverCode = prefs.getString('driver_code');
 
-    if (driverCode == null) return;
+    if (!mounted) return;
+
+    if (driverCode == null) {
+      setState(() => isLoading = false);
+      return;
+    }
 
     final provider = context.read<NotificationProvider>();
 
     setState(() => isLoading = true);
+
+    // FETCH EXISTING NOTIFICATIONS
     await provider.fetchNotifications();
-    provider.listenLiveNotifications(userCode: driverCode!, userType: "driver");
+
+    // START SSE (no params needed)
+    provider.listenLiveNotifications();
+
+    if (!mounted) return;
     setState(() => isLoading = false);
   }
 
   Future<void> _refresh() async {
-    if (driverCode == null) return;
     await context.read<NotificationProvider>().fetchNotifications();
   }
 
-  // ------------------------------------------------------------
-  // TIME AGO FORMATTER
-  // ------------------------------------------------------------
+  // -------------------- TIME AGO FORMATTER --------------------
   String _timeAgo(String? rawTime) {
     if (rawTime == null || rawTime.isEmpty) return "";
 
@@ -416,30 +424,24 @@ class _NotificationScreenState extends State<NotificationScreen> {
     }
   }
 
-  // ------------------------------------------------------------
-  // MAIN BUILD
-  // ------------------------------------------------------------
+  // ------------------------ BUILD UI -------------------------
   @override
   Widget build(BuildContext context) {
-    final safeBottom = MediaQuery.of(context).padding.bottom;
-    final bool isThreeButtonNav = safeBottom == 0;
+    final provider = context.watch<NotificationProvider>();
+    final notifications = provider.notifications;
 
     return Scaffold(
       backgroundColor: Colors.white,
 
-      // ---------- APP BAR ----------
       appBar: CustomAppBar(
         title: "Notifications",
         leadingIcon: Icons.arrow_back,
-        onLeadingTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => HomeScreen()),
-          );
-        },
+        onLeadingTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => HomeScreen()),
+        ),
       ),
 
-      // ---------- BODY ----------
       body: RefreshIndicator(
         onRefresh: _refresh,
         child: SingleChildScrollView(
@@ -448,49 +450,22 @@ class _NotificationScreenState extends State<NotificationScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ---- If loading ----
               if (isLoading) _buildShimmerList(),
 
-              // ---- If empty ----
-              if (!isLoading &&
-                  context.watch<NotificationProvider>().notifications.isEmpty)
-                _buildEmptyState(),
+              if (!isLoading && notifications.isEmpty) _buildEmptyState(),
 
-              // ---- List of notifications ----
-              if (!isLoading &&
-                  context
-                      .watch<NotificationProvider>()
-                      .notifications
-                      .isNotEmpty)
-                _buildNotificationList(
-                  context.watch<NotificationProvider>().notifications,
-                  context.read<NotificationProvider>(),
-                ),
+              if (!isLoading && notifications.isNotEmpty)
+                _buildNotificationList(notifications, provider),
 
               const SizedBox(height: 24),
             ],
           ),
         ),
       ),
-
-      // ---------- OPTIONAL BOTTOM AREA ----------
-      bottomNavigationBar: SafeArea(
-        bottom: false,
-        child: Container(
-          padding: EdgeInsets.fromLTRB(
-            24,
-            0,
-            24,
-            isThreeButtonNav ? 16 : safeBottom + 16,
-          ),
-          color: Colors.white,
-          child:
-              const SizedBox.shrink(), // No button, but keeps spacing standard
-        ),
-      ),
     );
   }
 
+  // ------------------------ SHIMMER -------------------------
   Widget _buildShimmerList() {
     return Column(
       children: List.generate(6, (index) {
@@ -512,54 +487,33 @@ class _NotificationScreenState extends State<NotificationScreen> {
     );
   }
 
-  // ------------------------------------------------------------
-  // EMPTY STATE
-  // ------------------------------------------------------------
+  // ------------------------ EMPTY STATE -------------------------
   Widget _buildEmptyState() {
     return Center(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Cart Icon
           SvgPicture.asset(
             "assets/icons/notification.svg",
             height: 90,
-            width: 90,
             color: Colors.grey.shade400,
           ),
-
           const SizedBox(height: 20),
-
-          // Title
           const Text(
             "No Notification Yet",
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
           ),
-
           const SizedBox(height: 6),
-
-          // Subtitle
           Text(
             "You have no notification right now.\nCome back later",
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              height: 1.4,
-              color: Colors.grey.shade600,
-            ),
+            style: TextStyle(fontSize: 14, color: Colors.grey),
           ),
         ],
       ),
     );
   }
 
-  // ------------------------------------------------------------
-  // NOTIFICATION LIST
-  // ------------------------------------------------------------
+  // --------------------- NOTIFICATION LIST ---------------------
   Widget _buildNotificationList(
     List<NotificationResponse> items,
     NotificationProvider provider,
@@ -633,7 +587,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
                         Text(
                           n.body.split(' ').take(8).join(' ') +
                               (n.body.split(' ').length > 8 ? '...' : ''),
-                          style: TextStyle(color: Colors.black54, fontSize: 14),
+                          style: const TextStyle(
+                            color: Colors.black54,
+                            fontSize: 14,
+                          ),
                         ),
 
                         const SizedBox(height: 6),

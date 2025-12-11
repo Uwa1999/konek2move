@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:intl/intl.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/services/provider_services.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
@@ -19,18 +20,6 @@ class _OrderScreenState extends State<OrderScreen> {
   final TextEditingController searchController = TextEditingController();
   String? selectedReason;
   String searchText = "";
-
-  final List<String> cancelReasons = [
-    "Customer not answering",
-    "Incorrect address",
-    "Unable to locate customer",
-    "Traffic/delivery conditions too difficult",
-    "Item not ready for pickup",
-    "Health/emergency issue",
-    "Vehicle breakdown",
-    "Order cancelled by customer",
-    "Other reason",
-  ];
   bool _hasLoaded = false;
 
   @override
@@ -38,10 +27,10 @@ class _OrderScreenState extends State<OrderScreen> {
     super.initState();
 
     searchController.addListener(() {
-      setState(() => searchText = searchController.text);
+      searchText = searchController.text; // remove setState spam here
     });
 
-    Future.microtask(() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_hasLoaded) {
         _hasLoaded = true;
         context.read<OrderProvider>().fetchOrders();
@@ -190,13 +179,17 @@ class _OrderScreenState extends State<OrderScreen> {
                               child: TextField(
                                 controller: searchController,
                                 onChanged: (value) {
-                                  setState(() => searchText = value);
-
+                                  searchText = value;
                                   final provider = context
                                       .read<OrderProvider>();
-                                  value.isEmpty
-                                      ? provider.resetSearch()
-                                      : provider.searchOrders(value);
+
+                                  if (value.isEmpty) {
+                                    provider.resetSearch();
+                                  } else {
+                                    provider.searchOrders(value);
+                                  }
+
+                                  setState(() {}); // minimal rebuild
                                 },
                                 cursorColor: kPrimaryColor,
                                 decoration: InputDecoration(
@@ -309,114 +302,136 @@ class _OrderScreenState extends State<OrderScreen> {
 
                         return Container(
                           margin: const EdgeInsets.only(bottom: 16),
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(18),
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(22),
+                            borderRadius: BorderRadius.circular(20),
                             border: Border.all(color: Colors.grey.shade200),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.03),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3),
+                                color: Colors.black.withOpacity(0.04),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
                               ),
                             ],
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // =========================
+                              // ============================
                               // CUSTOMER + STATUS
-                              // =========================
+                              // ============================
                               Row(
                                 children: [
-                                  Container(
-                                    height: 46,
-                                    width: 46,
-                                    decoration: BoxDecoration(
-                                      color: kPrimaryColor.withOpacity(0.15),
-                                      shape: BoxShape.circle,
+                                  // Avatar Circle
+                                  CircleAvatar(
+                                    radius: 22,
+                                    backgroundColor: kPrimaryColor.withOpacity(
+                                      0.10,
                                     ),
-                                    child: Center(
-                                      child: SvgPicture.asset(
-                                        "assets/icons/user.svg",
-                                        height: 22,
-                                        color: kPrimaryColor,
-                                      ),
+                                    child: const Icon(
+                                      Icons.person,
+                                      color: Colors.black54,
+                                      size: 20,
                                     ),
                                   ),
-                                  const SizedBox(width: 12),
+                                  const SizedBox(width: 14),
 
+                                  // Customer Name
                                   Expanded(
-                                    child: Text(
-                                      order.customer?.name ??
-                                          "Unknown Customer",
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
-                                      ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          order.customer?.name ??
+                                              "Unknown Customer",
+
+                                          style: const TextStyle(
+                                            fontSize: 17,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          "Order #${order.orderNo}",
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: Colors.grey.shade600,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
 
+                                  // Order Status Tag
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 12,
-                                      vertical: 6,
+                                      vertical: 7,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: bgColor,
-                                      borderRadius: BorderRadius.circular(20),
+                                      color: bgColor.withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(18),
                                     ),
                                     child: Text(
-                                      order.status,
+                                      order.status.toUpperCase(),
                                       style: TextStyle(
-                                        fontSize: 12,
+                                        fontSize: 10,
                                         color: textColor,
-                                        fontWeight: FontWeight.w700,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.3,
                                       ),
                                     ),
                                   ),
                                 ],
                               ),
 
-                              const SizedBox(height: 14),
-
-                              // ORDER NUMBER
-                              _infoRow(
-                                Icons.receipt_long,
-                                "Order No: ${order.orderNo}",
-                              ),
-                              const SizedBox(height: 8),
-
-                              // PICKUP ADDRESS
-                              _infoRow(Icons.my_location, order.pickupAddress),
-                              const SizedBox(height: 8),
-
-                              // DELIVERY ADDRESS
-                              _infoRow(
-                                Icons.location_on,
-                                order.deliveryAddress,
-                              ),
-
                               const SizedBox(height: 18),
 
-                              // =========================
+                              // ============================
+                              // PICKUP / DELIVERY INFORMATION
+                              // ============================
+                              _infoRow(
+                                Icons.store_mall_directory,
+                                order.pickupAddress,
+                              ),
+                              const SizedBox(height: 5),
+                              _infoRow(
+                                Icons.location_on_rounded,
+                                order.deliveryAddress,
+                              ),
+                              const SizedBox(height: 5),
+                              _infoRow(
+                                Icons.timer_rounded,
+                                DateFormat(
+                                  "MMM d, yyyy - h:mm a",
+                                ).format(DateTime.parse(order.createdAt)),
+                              ),
+
+                              const SizedBox(height: 20),
+
+                              // ============================
                               // ACTION BUTTONS
-                              // =========================
+                              // ============================
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                  _primaryBtn(
-                                    "Delivery Info",
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) =>
-                                              OrderDetailScreen(order: order),
-                                        ),
-                                      );
-                                    },
+                                  // Delivery Info (Primary)
+                                  Expanded(
+                                    child: _primaryBtn(
+                                      "View Details",
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                OrderDetailScreen(order: order),
+                                          ),
+                                        );
+                                      },
+                                    ),
                                   ),
 
                                   const SizedBox(width: 10),
@@ -424,9 +439,11 @@ class _OrderScreenState extends State<OrderScreen> {
                                   if (!hideStatuses.contains(
                                     order.status.toLowerCase(),
                                   ))
-                                    _dangerBtn(
-                                      "Cancel",
-                                      onTap: () => _showCancelSheet(),
+                                    Expanded(
+                                      child: _dangerBtn(
+                                        "Cancel",
+                                        onTap: () => _showCancelSheet(),
+                                      ),
                                     ),
                                 ],
                               ),

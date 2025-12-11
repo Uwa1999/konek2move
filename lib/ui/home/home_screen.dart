@@ -347,16 +347,9 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _selectedIndex = widget.initialIndex;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final prefs = await SharedPreferences.getInstance();
-      final userCode = prefs.getString("driver_code") ?? "";
-      if (userCode.isEmpty) return;
-
       final notifProvider = context.read<NotificationProvider>();
       await notifProvider.fetchNotifications();
-      notifProvider.listenLiveNotifications(
-        userCode: userCode,
-        userType: 'driver',
-      );
+      notifProvider.listenLiveNotifications();
     });
 
     _locationService = DriverLocationService();
