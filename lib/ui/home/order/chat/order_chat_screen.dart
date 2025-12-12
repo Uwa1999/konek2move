@@ -439,9 +439,7 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
       provider.clearUnread();
 
       // Start SSE listener
-      notifSub = ApiServices()
-          .listenNotifications()
-          .listen(handleRealtime);
+      notifSub = ApiServices().listenNotifications().listen(handleRealtime);
     });
   }
 
@@ -673,13 +671,43 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) => scrollToBottom());
 
+    // return Scaffold(
+    //   backgroundColor: Colors.white,
+
+    //   // ---------- FIXED DEFAULT APP BAR ----------
+    //   appBar: CustomAppBar(title: "Messages", leadingIcon: Icons.arrow_back),
+
+    //   // ---------- MESSAGE LIST ----------
+    //   body: provider.initialLoad
+    //       ? _shimmer()
+    //       : SingleChildScrollView(
+    //           controller: _scroll,
+    //           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+    //           child: Column(
+    //             crossAxisAlignment: CrossAxisAlignment.start,
+    //             children: [
+    //               ListView.builder(
+    //                 shrinkWrap: true, // IMPORTANT (inside column)
+    //                 physics: const NeverScrollableScrollPhysics(),
+    //                 itemCount: provider.allMessages.length,
+    //                 itemBuilder: (_, i) =>
+    //                     ChatBubble(msg: provider.allMessages[i]),
+    //               ),
+
+    //               const SizedBox(height: 120), // space before input bar
+    //             ],
+    //           ),
+    //         ),
+
+    //   // ---------- FIXED INPUT BAR ----------
+    //   bottomNavigationBar: _inputBar(provider),
+    // );
     return Scaffold(
       backgroundColor: Colors.white,
-
-      // ---------- FIXED DEFAULT APP BAR ----------
       appBar: CustomAppBar(title: "Messages", leadingIcon: Icons.arrow_back),
 
-      // ---------- MESSAGE LIST ----------
+      resizeToAvoidBottomInset: true, // <-- IMPORTANT
+
       body: provider.initialLoad
           ? _shimmer()
           : SingleChildScrollView(
@@ -689,20 +717,18 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   ListView.builder(
-                    shrinkWrap: true, // IMPORTANT (inside column)
-                    physics: const NeverScrollableScrollPhysics(),
+                    shrinkWrap: true,
+                    physics: NeverScrollableScrollPhysics(),
                     itemCount: provider.allMessages.length,
                     itemBuilder: (_, i) =>
                         ChatBubble(msg: provider.allMessages[i]),
                   ),
-
-                  const SizedBox(height: 120), // space before input bar
+                  const SizedBox(height: 120),
                 ],
               ),
             ),
 
-      // ---------- FIXED INPUT BAR ----------
-      bottomNavigationBar: _inputBar(provider),
+      bottomSheet: _inputBar(provider), // <-- FLOATS ABOVE KEYBOARD
     );
   }
 
@@ -1057,85 +1083,4 @@ String formatTime(DateTime time) {
   final minute = time.minute.toString().padLeft(2, '0');
   final period = time.hour >= 12 ? "PM" : "AM";
   return "$hour:$minute $period";
-}
-
-// FAST Image Loader
-Widget _image(ChatMessageResponse msg, bool isSending) {
-  final path = msg.attachmentUrl ?? "";
-  final isNetwork = path.startsWith("http");
-
-  return Stack(
-    children: [
-      ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: SizedBox(
-          width: 230,
-          height: 230,
-          child: isNetwork
-              ? FadeInImage(
-                  placeholder: MemoryImage(kTransparentImage),
-                  image: NetworkImage(path),
-                  fit: BoxFit.cover,
-                  fadeInDuration: const Duration(milliseconds: 180),
-                  placeholderErrorBuilder: (_, __, ___) => _loadingShimmer(),
-                  imageErrorBuilder: (_, __, ___) => _imageErrorPlaceholder(),
-                )
-              : Image.file(
-                  File(path),
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _imageErrorPlaceholder(),
-                ),
-        ),
-      ),
-
-      if (isSending)
-        Positioned.fill(
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.black38,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Center(
-              child: SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.4,
-                  valueColor: AlwaysStoppedAnimation(Colors.white),
-                ),
-              ),
-            ),
-          ),
-        ),
-    ],
-  );
-}
-
-Widget _loadingShimmer() {
-  return Shimmer.fromColors(
-    baseColor: Colors.grey.shade300,
-    highlightColor: Colors.grey.shade100,
-    child: Container(
-      width: 230,
-      height: 230,
-      decoration: BoxDecoration(
-        color: Colors.grey.shade300,
-        borderRadius: BorderRadius.circular(12),
-      ),
-    ),
-  );
-}
-
-Widget _imageErrorPlaceholder() {
-  return Container(
-    width: 230,
-    height: 230,
-    decoration: BoxDecoration(
-      color: Colors.grey.shade300,
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: const Center(
-      child: Icon(Icons.broken_image, size: 40, color: Colors.black38),
-    ),
-  );
 }
