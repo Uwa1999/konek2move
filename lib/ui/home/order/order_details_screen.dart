@@ -1702,12 +1702,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
         children: [
           Column(
             children: List.generate(details.length * 2 - 1, (i) {
-              if (i.isEven)
+              if (i.isEven) {
                 return Icon(
                   details[i ~/ 2]['icon'] as IconData,
                   color: Colors.grey.shade500,
                   size: 22,
                 );
+              }
               return Container(
                 width: 2,
                 height: 60,
@@ -1781,7 +1782,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
 
   Widget _buildReceiverCard() {
     final receiverName = widget.order.customer?.name ?? 'Unknown Customer';
-    final receiverPhone = widget.order.contactPhone.trim() ?? '-';
+    final receiverPhone = widget.order.contactPhone.trim();
     final receiverAddress = widget.order.deliveryAddress;
 
     return Container(

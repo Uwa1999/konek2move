@@ -515,9 +515,10 @@ class ApiServices {
     }
   }
 
-  Future<OrderResponse> getOrder(int driverId, {String orderNo = ""}) async {
+  Future<OrderResponse> getOrder({String orderNo = ""}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      final driverId = prefs.getString("id") ?? "0";
       final token = prefs.getString("jwt_token") ?? "";
 
       final Uri url = Uri.parse(
