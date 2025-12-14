@@ -515,7 +515,7 @@ class ApiServices {
     }
   }
 
-  Future<OrderResponse> getOrder({String orderNo = ""}) async {
+  Future<OrderResponse> getOrder({String orderNo = "", status}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final driverId = prefs.getString("id") ?? "0";
@@ -523,7 +523,7 @@ class ApiServices {
 
       final Uri url = Uri.parse(
         '${GetDNS.getOttokonekHestia()}/api/private/v1/moveapp/orders/index'
-        '?driver_id=$driverId&order_no=$orderNo',
+        '?driver_id=$driverId&order_no=$orderNo&status=$status',
       );
 
       final response = await http.get(

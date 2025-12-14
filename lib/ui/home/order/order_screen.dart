@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
@@ -20,8 +22,10 @@ class _OrderScreenState extends State<OrderScreen> {
   final TextEditingController searchController = TextEditingController();
 
   bool isLoading = true;
-  List<OrderRecord> _allOrders = [];
   List<OrderRecord> _orders = [];
+  Timer? _searchDebounce;
+  String _lastQuery = "";
+  String? _lastStatus;
 
   String? _selectedStatus;
 
@@ -48,31 +52,46 @@ class _OrderScreenState extends State<OrderScreen> {
   void initState() {
     super.initState();
     _fetchOrders();
-    searchController.addListener(_applyFilters);
+
+    // 🔹 API-based search
+    searchController.addListener(_onSearchChanged);
   }
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     searchController.dispose();
     super.dispose();
   }
 
   // =====================================================
-  // FETCH ORDERS
+  // FETCH ORDERS (PRODUCTION-GRADE)
   // =====================================================
-  Future<void> _fetchOrders() async {
-    setState(() => isLoading = true);
+  Future<void> _fetchOrders({bool force = false}) async {
+    final query = searchController.text.trim();
+    final status = _selectedStatus ?? "";
+
+    // 🔒 Prevent duplicate API calls
+    if (!force && query == _lastQuery && status == _lastStatus) {
+      return;
+    }
+
+    _lastQuery = query;
+    _lastStatus = status;
+
+    if (mounted) setState(() => isLoading = true);
 
     try {
-      final OrderResponse res = await ApiServices().getOrder();
+      final OrderResponse res = await ApiServices().getOrder(
+        orderNo: query,
+        status: status,
+      );
 
-      final filtered = res.data.records.where((order) {
-        final int assignedDriverId = order.assignedDriverId;
-        return assignedDriverId != 0 || assignedDriverId == 0;
-      }).toList();
+      if (!mounted) return;
 
-      _allOrders = filtered;
-      _orders = filtered;
+      setState(() {
+        _orders = res.data.records;
+      });
     } catch (e, s) {
       debugPrint("ORDER ERROR: $e");
       debugPrintStack(stackTrace: s);
@@ -81,30 +100,24 @@ class _OrderScreenState extends State<OrderScreen> {
     }
   }
 
-  Future<void> _reload() async => _fetchOrders();
-
   // =====================================================
-  // SEARCH + STATUS FILTER
+  // SEARCH HANDLER (API)
   // =====================================================
-  void _applyFilters() {
-    final q = searchController.text.toLowerCase();
+  void _onSearchChanged() {
+    _searchDebounce?.cancel();
 
-    setState(() {
-      _orders = _allOrders.where((o) {
-        final matchesSearch =
-            q.isEmpty ||
-            o.orderNo.toLowerCase().contains(q) ||
-            (o.customer?.name.toLowerCase() ?? "").contains(q) ||
-            o.pickupAddress.toLowerCase().contains(q) ||
-            o.deliveryAddress.toLowerCase().contains(q);
-
-        final matchesStatus =
-            _selectedStatus == null ||
-            o.status.toLowerCase() == _selectedStatus;
-
-        return matchesSearch && matchesStatus;
-      }).toList();
+    _searchDebounce = Timer(const Duration(milliseconds: 500), () {
+      _fetchOrders();
     });
+  }
+
+  void _onStatusSelected(String? status) {
+    setState(() => _selectedStatus = status);
+    _fetchOrders(force: true);
+  }
+
+  Future<void> _reload() async {
+    await _fetchOrders(force: true);
   }
 
   // =====================================================
@@ -172,7 +185,7 @@ class _OrderScreenState extends State<OrderScreen> {
               GestureDetector(
                 onTap: () {
                   searchController.clear();
-                  _applyFilters();
+                  _fetchOrders();
                 },
                 child: const Icon(Icons.close, color: kPrimaryRedColor),
               ),
@@ -316,10 +329,7 @@ class _OrderScreenState extends State<OrderScreen> {
           : null,
       onTap: () {
         Navigator.pop(context);
-        setState(() {
-          _selectedStatus = value;
-          _applyFilters();
-        });
+        _onStatusSelected(value); // ✅ USE IT HERE
       },
     );
   }
