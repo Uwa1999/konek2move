@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:konek2move/core/constants/app_colors.dart';
 
 class CustomButton extends StatelessWidget {
   final String? text;
@@ -81,5 +82,28 @@ class CustomButton extends StatelessWidget {
     }
 
     return const SizedBox.shrink();
+  }
+}
+
+class ActionButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const ActionButton({super.key, required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: kPrimaryColor.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Icon(icon, size: 20, color: kPrimaryColor),
+      ),
+    );
   }
 }

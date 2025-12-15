@@ -369,11 +369,21 @@ import 'package:konek2move/core/services/model_services.dart';
 import 'package:konek2move/core/services/provider_services.dart';
 import 'package:shimmer/shimmer.dart';
 
-// Transparent placeholder for FadeInImage
 final kTransparentImage = Uint8List.fromList(List.generate(40, (i) => 0));
 
 class OrderChatScreen extends StatefulWidget {
-  const OrderChatScreen({super.key});
+  final int chatId;
+  final String orderNo;
+  final String userType;
+  final String userCode;
+
+  const OrderChatScreen({
+    super.key,
+    required this.chatId,
+    required this.orderNo,
+    required this.userType,
+    required this.userCode,
+  });
 
   @override
   State<OrderChatScreen> createState() => _OrderChatScreenState();
@@ -383,73 +393,48 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
   final ScrollController _scroll = ScrollController();
   final TextEditingController _msgCtrl = TextEditingController();
   final picker = ImagePicker();
-
+  late ChatProvider _chatProvider;
   StreamSubscription? notifSub;
 
-  final int chatId = 2;
+  // final int chatId = 13;
 
-  final String userCode = "DRV-000003"; // your driver code
-  final String userType = "driver";
+  // final String userCode = "DRV-000008";
+  // final String userType = "driver";
 
-  // @override
-  // void initState() {
-  //   super.initState();
-  //
-  //   Future.microtask(() async {
-  //     final provider = Provider.of<ChatProvider>(context, listen: false);
-  //     provider.setChatOpen(true);
-  //     // provider.markAsRead(widget.chatId);
-  //     await provider.loadMessages(chatId);
-  //     scrollToBottom(force: true);
-  //
-  //     ApiServices().markChatAsRead(chatId);
-  //
-  //     // Start SSE Listener
-  //     notifSub = ApiServices()
-  //         .listenNotifications(userCode: userCode, userType: userType)
-  //         .listen(handleRealtime);
-  //   });
-  // }
-  //
-  // @override
-  // void dispose() {
-  //   notifSub?.cancel();
-  //   Provider.of<ChatProvider>(context, listen: false).setChatOpen(false);
-  //
-  //   super.dispose();
-  // }
   @override
   void initState() {
     super.initState();
 
     Future.microtask(() async {
-      final provider = Provider.of<ChatProvider>(context, listen: false);
+      // Mark chat as active
+      _chatProvider.setChatOpen(true);
 
-      // Mark chat as active to prevent unread increments from SSE
-      provider.setChatOpen(true);
-
-      // Load messages first
-      await provider.loadMessages(chatId);
+      await _chatProvider.loadMessages(widget.chatId);
       scrollToBottom(force: true);
 
-      // Mark ALL messages as read on backend
-      await ApiServices().markChatAsRead(chatId);
+      await ApiServices().markChatAsRead(widget.chatId);
 
-      // Also update provider badge (instant clear)
-      provider.clearUnread();
+      _chatProvider.clearUnread();
 
-      // Start SSE listener
       notifSub = ApiServices().listenNotifications().listen(handleRealtime);
     });
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _chatProvider = context.read<ChatProvider>(); // ✅ SAFE
+  }
+
+  @override
   void dispose() {
-    // Stop SSE when leaving chat
     notifSub?.cancel();
 
-    // IMPORTANT: set to false so unread increments again
-    Provider.of<ChatProvider>(context, listen: false).setChatOpen(false);
+    // ✅ SAFE — no context lookup
+    _chatProvider.setChatOpen(false);
+
+    _scroll.dispose();
+    _msgCtrl.dispose();
 
     super.dispose();
   }
@@ -471,7 +456,7 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
     if (meta == null) return;
 
     // Only process messages for this chat
-    if (meta["chat_id"] != chatId) return;
+    if (meta["chat_id"] != widget.chatId) return;
 
     // Build real server message
     final msg = ChatMessageResponse(
@@ -512,53 +497,6 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
     });
   }
 
-  // ========================= PICK IMAGE =========================
-
-  // Future<void> _pickImage(ChatProvider provider) async {
-  //   final source = await showModalBottomSheet<ImageSource>(
-  //     context: context,
-  //     backgroundColor: Colors.white,
-  //     shape: const RoundedRectangleBorder(
-  //       borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-  //     ),
-  //     builder: (_) => _imagePickerBottomSheet(),
-  //   );
-  //
-  //   if (source == null) return;
-  //
-  //   final XFile? picked = await picker.pickImage(
-  //     source: source,
-  //     imageQuality: 70,
-  //   );
-  //
-  //   if (picked == null) return;
-  //
-  //   final file = File(picked.path);
-  //
-  //   // FIX: senderCode must match SSE senderCode
-  //   final tempMsg = ChatMessage(
-  //     id: 0,
-  //     senderType: "driver",
-  //     senderCode: userCode,
-  //     messageType: "image",
-  //     attachmentUrl: file.path,
-  //     createdAt: DateTime.now(),
-  //   );
-  //
-  //   provider.addLocal(tempMsg);
-  //   scrollToBottom();
-  //
-  //   await ApiServices().uploadChatImage(
-  //     chatId: chatId,
-  //     orderNo: "SO-100001",
-  //     file: file,
-  //   );
-  //
-  //   provider.removeLocal(tempMsg);
-  //
-  //   // SSE gives real message
-  //   scrollToBottom();
-  // }
   Future<void> _pickImage(ChatProvider provider) async {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
@@ -580,8 +518,8 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
     // TEMP MESSAGE (id = 0)
     final tempMsg = ChatMessageResponse(
       id: 0,
-      senderType: "driver",
-      senderCode: userCode,
+      senderType: widget.userType,
+      senderCode: widget.userCode,
       messageType: "image",
       attachmentUrl: file.path, // LOCAL PATH
       createdAt: DateTime.now(),
@@ -593,8 +531,8 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
 
     // 2️⃣ Upload image
     final success = await ApiServices().uploadChatImage(
-      chatId: chatId,
-      orderNo: "SO-100001",
+      chatId: widget.chatId,
+      orderNo: widget.orderNo,
       file: file,
     );
 
@@ -610,7 +548,7 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
     provider.removeLocal(tempMsg);
 
     // OPTIONAL (if you want instant refresh before SSE)
-    await provider.refreshAfterSend(chatId);
+    await provider.refreshAfterSend(widget.chatId);
 
     scrollToBottom();
   }
@@ -624,8 +562,8 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
     // TEMP bubble
     final tempMsg = ChatMessageResponse(
       id: 0,
-      senderType: "driver",
-      senderCode: userCode,
+      senderType: widget.userType,
+      senderCode: widget.userCode,
       messageType: "text",
       message: txt,
       attachmentUrl: null,
@@ -638,8 +576,8 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
 
     // Call API
     await ApiServices().sendChatMessage(
-      chatId: chatId,
-      orderNo: "SO-100001",
+      chatId: widget.chatId,
+      orderNo: widget.orderNo,
       message: txt,
     );
 
@@ -649,8 +587,8 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
     // Convert temp -> "sent" state
     final real = ChatMessageResponse(
       id: DateTime.now().millisecondsSinceEpoch, // temporary ID
-      senderType: "driver",
-      senderCode: userCode,
+      senderType: widget.userType,
+      senderCode: widget.userCode,
       messageType: "text",
       message: txt,
       attachmentUrl: null,
@@ -671,37 +609,6 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) => scrollToBottom());
 
-    // return Scaffold(
-    //   backgroundColor: Colors.white,
-
-    //   // ---------- FIXED DEFAULT APP BAR ----------
-    //   appBar: CustomAppBar(title: "Messages", leadingIcon: Icons.arrow_back),
-
-    //   // ---------- MESSAGE LIST ----------
-    //   body: provider.initialLoad
-    //       ? _shimmer()
-    //       : SingleChildScrollView(
-    //           controller: _scroll,
-    //           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-    //           child: Column(
-    //             crossAxisAlignment: CrossAxisAlignment.start,
-    //             children: [
-    //               ListView.builder(
-    //                 shrinkWrap: true, // IMPORTANT (inside column)
-    //                 physics: const NeverScrollableScrollPhysics(),
-    //                 itemCount: provider.allMessages.length,
-    //                 itemBuilder: (_, i) =>
-    //                     ChatBubble(msg: provider.allMessages[i]),
-    //               ),
-
-    //               const SizedBox(height: 120), // space before input bar
-    //             ],
-    //           ),
-    //         ),
-
-    //   // ---------- FIXED INPUT BAR ----------
-    //   bottomNavigationBar: _inputBar(provider),
-    // );
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: CustomAppBar(title: "Messages", leadingIcon: Icons.arrow_back),

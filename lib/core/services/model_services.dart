@@ -354,6 +354,7 @@ class OrderRecord {
 
   final Customer? customer;
   final Driver? driver;
+  final Chat? chat;
 
   OrderRecord({
     required this.id,
@@ -381,6 +382,7 @@ class OrderRecord {
     required this.barangayName,
     this.customer,
     this.driver,
+    this.chat,
   });
 
   factory OrderRecord.fromJson(Map<String, dynamic> json) {
@@ -412,6 +414,7 @@ class OrderRecord {
           ? Customer.fromJson(json['customer'])
           : null,
       driver: json['driver'] != null ? Driver.fromJson(json['driver']) : null,
+      chat: json['chat'] != null ? Chat.fromJson(json['chat']) : null,
     );
   }
 }
@@ -466,6 +469,48 @@ class Driver {
       code: json['code'] ?? '',
       name: json['name'] ?? '',
       phone: json['phone'] ?? '',
+    );
+  }
+}
+
+// ============================================================================
+// CHAT MODEL
+// ============================================================================
+
+class Chat {
+  final int id;
+  final String chatCode;
+  final int orderId;
+  final bool isActive;
+  final DateTime? lastMessageAt;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  Chat({
+    required this.id,
+    required this.chatCode,
+    required this.orderId,
+    required this.isActive,
+    this.lastMessageAt,
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  factory Chat.fromJson(Map<String, dynamic> json) {
+    return Chat(
+      id: json['id'] ?? 0,
+      chatCode: json['chat_code'] ?? ' ',
+      orderId: json['order_id'] ?? 0,
+      isActive: json['is_active'] ?? false,
+      lastMessageAt: json['last_message_at'] != null
+          ? DateTime.tryParse(json['last_message_at'])
+          : null,
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'])
+          : null,
+      updatedAt: json['updated_at'] != null
+          ? DateTime.tryParse(json['updated_at'])
+          : null,
     );
   }
 }

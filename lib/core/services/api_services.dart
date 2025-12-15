@@ -585,6 +585,42 @@ class ApiServices {
       throw Exception('An error occurred: $e');
     }
   }
+
+  Future<ModelResponse> refuseOrder({
+    required int orderId,
+    required String reason,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("jwt_token") ?? "";
+
+      final Uri url = Uri.parse(
+        '${GetDNS.getOttokonekHestia()}/api/private/v1/moveapp/driver/task/$orderId/refuse',
+      );
+
+      var request = http.MultipartRequest('PUT', url);
+
+      request.fields['reason'] = reason;
+
+      // Add Authorization header with JWT token
+      request.headers['Authorization'] = 'Bearer $token';
+
+      // Send request
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> decodedData = jsonDecode(response.body);
+        return ModelResponse.fromJson(decodedData);
+      } else {
+        throw Exception(
+          'Server returned ${response.statusCode}: ${response.body}',
+        );
+      }
+    } catch (e) {
+      throw Exception('An error occurred: $e');
+    }
+  }
 }
 
 class Secrets {

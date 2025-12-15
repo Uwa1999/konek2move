@@ -952,7 +952,6 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:another_flushbar/flushbar.dart';
@@ -962,7 +961,9 @@ import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
+import 'package:konek2move/core/widgets/map_screen.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -974,17 +975,6 @@ import 'package:konek2move/core/widgets/custom_button.dart';
 import 'package:konek2move/core/widgets/custom_home_appbar.dart';
 import 'package:konek2move/ui/home/home_screen.dart';
 import 'chat/order_chat_screen.dart';
-
-// ---------------------------------------------------------------------------
-// NOTE:
-// - Replace Secrets.googleApiKey! with your secure key management (do NOT hardcode
-//   in production). It is kept here for simplicity only.
-// - This refactor isolates the GoogleMap into its own widget to avoid
-//   rebuilding the map when the rest of the UI updates. It uses ValueNotifiers
-//   for markers and polylines to push changes efficiently.
-// - Heavy operations such as decoding/resizing images happen async off the
-//   main build path and update via notifiers.
-// ---------------------------------------------------------------------------
 
 class OrderDetailScreen extends StatefulWidget {
   final OrderRecord order;
@@ -999,6 +989,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     with TickerProviderStateMixin {
   // Throttle route requests
   static const Duration _routeThrottle = Duration(seconds: 10);
+
+  static const double _dropoffRadiusMeters = 50;
+
+  Uint8List? _proofImage;
+  Uint8List? _signatureImage;
 
   // Map controller and notifiers
   final Completer<GoogleMapController> _mapController = Completer();
@@ -1025,6 +1020,19 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   bool _isFetchingRoute = false;
   bool isLoading = false;
 
+  bool _isWithinDropoffRange() {
+    if (_currentLocation == null) return false;
+
+    final distance = Geolocator.distanceBetween(
+      _currentLocation!.latitude,
+      _currentLocation!.longitude,
+      dropOffLocation.latitude,
+      dropOffLocation.longitude,
+    );
+
+    return distance <= _dropoffRadiusMeters;
+  }
+
   DateTime _lastRouteUpdate = DateTime.fromMillisecondsSinceEpoch(0);
   DateTime _lastCameraMove = DateTime.fromMillisecondsSinceEpoch(0);
 
@@ -1050,6 +1058,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   @override
   void initState() {
     super.initState();
+
+    deliveryStatus = widget.order.status.toString().toLowerCase();
+    _syncRouteTargetWithStatus();
 
     pickupLocation = LatLng(widget.order.pickupLat, widget.order.pickupLng);
     dropOffLocation = LatLng(
@@ -1255,6 +1266,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     final byteData = await frame.image.toByteData(
       format: ui.ImageByteFormat.png,
     );
+
     return byteData!.buffer.asUint8List();
   }
 
@@ -1312,16 +1324,17 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     if (_isFetchingRoute) return;
 
     _isFetchingRoute = true;
+
     try {
       final origin =
           '${_currentLocation!.latitude},${_currentLocation!.longitude}';
-      final LatLng currentTarget = routeTarget == 'pickup'
-          ? pickupLocation
-          : dropOffLocation;
-      final dest = '${currentTarget.latitude},${currentTarget.longitude}';
+      final target = routeTarget == 'pickup' ? pickupLocation : dropOffLocation;
+      final dest = '${target.latitude},${target.longitude}';
 
       final uri = Uri.parse(
-        'https://maps.googleapis.com/maps/api/directions/json?origin=$origin&destination=$dest&mode=driving&key=${Secrets.googleApiKey}',
+        'https://maps.googleapis.com/maps/api/directions/json'
+        '?origin=$origin&destination=$dest&mode=driving'
+        '&key=${Secrets.googleApiKey}',
       );
 
       final response = await http
@@ -1333,48 +1346,44 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
 
       if (response.statusCode != 200) return;
 
-      final data = json.decode(response.body);
-      if (data == null ||
-          data['routes'] == null ||
-          (data['routes'] as List).isEmpty) {
-        return;
+      /// 🔥 JSON PARSE OFF UI THREAD
+      final parsed = await compute(parseDirectionsIsolate, response.body);
+      if (parsed.isEmpty) return;
+
+      final int distMeters = parsed['distance'];
+      final int durSeconds = parsed['duration'];
+
+      if (routeTarget == 'pickup') {
+        pickupDistanceKm = (distMeters / 1000).toStringAsFixed(1);
+        pickupDuration = '${(durSeconds / 60).round()} min';
+      } else {
+        riderDropoffDistanceKm = (distMeters / 1000).toStringAsFixed(1);
+        riderDropoffDuration = '${(durSeconds / 60).round()} min';
       }
 
-      final route = data['routes'][0];
-      final leg = route['legs'][0];
+      /// 🔥 POLYLINE DECODE OFF UI THREAD
+      final String encodedPolyline = parsed['polyline'] as String;
 
-      try {
-        final int distMeters = (leg['distance']?['value'] ?? 0) as int;
-        final int durSeconds = (leg['duration']?['value'] ?? 0) as int;
-
-        if (routeTarget == 'pickup') {
-          pickupDistanceKm = (distMeters / 1000).toStringAsFixed(1);
-          pickupDuration = '${(durSeconds / 60).round()} min';
-        } else {
-          riderDropoffDistanceKm = (distMeters / 1000).toStringAsFixed(1);
-          riderDropoffDuration = '${(durSeconds / 60).round()} min';
-        }
-
-        if (mounted) setState(() {});
-      } catch (_) {}
-
-      final encoded = (route['overview_polyline']?['points']) as String?;
-      if (encoded == null || encoded.isEmpty) return;
-
-      final points = _decodePolyline(encoded);
-      final poly = Polyline(
-        polylineId: const PolylineId('route'),
-        width: 6,
-        points: points,
-        startCap: Cap.roundCap,
-        endCap: Cap.roundCap,
-        color: kPrimaryColor,
+      final List<LatLng> points = await compute<String, List<LatLng>>(
+        decodePolylineIsolate,
+        encodedPolyline,
       );
 
-      _polylines.value = {poly};
+      _polylines.value = {
+        Polyline(
+          polylineId: const PolylineId('route'),
+          points: points,
+          width: 6,
+          startCap: Cap.roundCap,
+          endCap: Cap.roundCap,
+          color: kPrimaryColor,
+        ),
+      };
+
       _lastRouteUpdate = DateTime.now();
+      if (mounted) setState(() {});
     } catch (_) {
-      // ignore
+      // silent
     } finally {
       _isFetchingRoute = false;
     }
@@ -1461,16 +1470,69 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
 
   Future<void> _onPackageCollected() async {
     await _setDeliveryStatus('picked_up');
-    routeTarget = 'dropoff';
+
+    setState(() {
+      routeTarget = 'dropoff';
+      _lastRouteUpdate = DateTime.fromMillisecondsSinceEpoch(0);
+    });
+
     await _fetchRoute(force: true);
   }
 
   Future<void> _onStartDropoff() async => _setDeliveryStatus('en_route');
 
-  Future<void> _onCompleteDelivery() async => _setDeliveryStatus('delivered');
-
   Future<void> _startDelivery() async {
     await _onStartToPickup();
+  }
+
+  Future<void> _onCompleteDelivery() async {
+    if (!_isWithinDropoffRange()) {
+      _showApiIndicator(
+        title: "Too Far",
+        message: "You must be near the customer location to complete delivery.",
+        success: false,
+      );
+      return;
+    }
+
+    _showCompleteDeliverySheet();
+  }
+
+  Future<Uint8List?> _pickImage() async {
+    // integrate image_picker / camera here
+    // return imageBytes;
+    return null;
+  }
+
+  Future<Uint8List?> _captureSignature() async {
+    // open signature pad screen & return PNG bytes
+    return null;
+  }
+
+  Future<void> _submitCompletedDelivery() async {
+    try {
+      // TODO: upload proofImage & signatureImage to API
+
+      await _setDeliveryStatus('delivered');
+
+      // 🔒 STOP TRACKING & ROUTING AFTER DELIVERY
+      _positionStream?.cancel();
+      _positionStream = null;
+
+      _polylines.value = {};
+
+      _showApiIndicator(
+        title: "Success",
+        message: "Delivery completed successfully.",
+        success: true,
+      );
+    } catch (e) {
+      _showApiIndicator(
+        title: "Error",
+        message: "Failed to complete delivery.",
+        success: false,
+      );
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -1480,8 +1542,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     final data = event['data'];
     if (data == null) return;
 
-    if (!(data['topic']?.toString().contains('chat.new_message') ?? false))
+    if (!(data['topic']?.toString().contains('chat.new_message') ?? false)) {
       return;
+    }
 
     final meta = data['meta'];
     if (meta == null) return;
@@ -1512,6 +1575,16 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     ).show(context);
   }
 
+  void _syncRouteTargetWithStatus() {
+    if (deliveryStatus == 'picked_up' || deliveryStatus == 'en_route') {
+      routeTarget = 'dropoff';
+    } else if (deliveryStatus == 'accepted' ||
+        deliveryStatus == 'assigned' ||
+        deliveryStatus == 'at_pickup') {
+      routeTarget = 'pickup';
+    }
+  }
+
   Future<void> _callNumber(String phoneNumber) async {
     final Uri uri = Uri.parse('tel:$phoneNumber');
     try {
@@ -1528,40 +1601,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     } catch (e) {
       debugPrint('Navigation launch failed: $e');
     }
-  }
-
-  // -------------------------------------------------------------------------
-  // Polyline decode (kept identical but safe)
-  // -------------------------------------------------------------------------
-  List<LatLng> _decodePolyline(String encoded) {
-    final List<LatLng> poly = [];
-    int index = 0;
-    int lat = 0;
-    int lng = 0;
-
-    while (index < encoded.length) {
-      int b, shift = 0, result = 0;
-      do {
-        b = encoded.codeUnitAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-      final dlat = (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
-      lat += dlat;
-
-      shift = 0;
-      result = 0;
-      do {
-        b = encoded.codeUnitAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-      final dlng = (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
-      lng += dlng;
-
-      poly.add(LatLng(lat / 1e5, lng / 1e5));
-    }
-    return poly;
   }
 
   // -------------------------------------------------------------------------
@@ -1663,6 +1702,82 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     );
   }
 
+  // Widget _buildDeliveryDetails() {
+  //   final details = [
+  //     {
+  //       'icon': Icons.storefront,
+  //       'title': 'Pickup',
+  //       'main': widget.order.supplierName,
+  //       'sub': widget.order.supplierAddress,
+  //       'distance': routeTarget == 'pickup' ? pickupDistanceKm : '-',
+  //       'duration': routeTarget == 'pickup' ? pickupDuration : '-',
+  //     },
+  //     {
+  //       'icon': Icons.location_on,
+  //       'title': 'Drop-off',
+  //       'main': widget.order.customer?.name ?? 'Unknown Customer',
+  //       'sub': widget.order.deliveryAddress,
+  //       'distance': riderDropoffDistanceKm,
+  //       'duration': riderDropoffDuration,
+  //     },
+  //   ];
+  //
+  //   return Container(
+  //     padding: const EdgeInsets.all(12),
+  //     decoration: BoxDecoration(
+  //       color: Colors.white,
+  //       borderRadius: BorderRadius.circular(20),
+  //       border: Border.all(color: Colors.grey.shade300),
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: Colors.black.withOpacity(0.05),
+  //           blurRadius: 6,
+  //           offset: const Offset(0, 2),
+  //         ),
+  //       ],
+  //     ),
+  //     child: Row(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         Column(
+  //           children: List.generate(details.length * 2 - 1, (i) {
+  //             if (i.isEven) {
+  //               return Icon(
+  //                 details[i ~/ 2]['icon'] as IconData,
+  //                 color: Colors.grey.shade500,
+  //                 size: 22,
+  //               );
+  //             }
+  //             return Container(
+  //               width: 2,
+  //               height: 60,
+  //               color: Colors.grey.shade300,
+  //             );
+  //           }),
+  //         ),
+  //         const SizedBox(width: 14),
+  //         Expanded(
+  //           child: Column(
+  //             children: details
+  //                 .map(
+  //                   (d) => Padding(
+  //                     padding: const EdgeInsets.only(bottom: 16),
+  //                     child: _buildDetailRow(
+  //                       title: d['title'] as String,
+  //                       mainText: d['main'] as String,
+  //                       subText: d['sub'] as String,
+  //                       distance: d['distance'] as String,
+  //                       duration: d['duration'] as String,
+  //                     ),
+  //                   ),
+  //                 )
+  //                 .toList(),
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
   Widget _buildDeliveryDetails() {
     final details = [
       {
@@ -1684,55 +1799,58 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     ];
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          /// TIMELINE
           Column(
             children: List.generate(details.length * 2 - 1, (i) {
               if (i.isEven) {
                 return Icon(
                   details[i ~/ 2]['icon'] as IconData,
-                  color: Colors.grey.shade500,
                   size: 22,
+                  color: kPrimaryColor,
                 );
               }
               return Container(
                 width: 2,
-                height: 60,
+                height: 56,
+                margin: const EdgeInsets.symmetric(vertical: 4),
                 color: Colors.grey.shade300,
               );
             }),
           ),
-          const SizedBox(width: 14),
+
+          const SizedBox(width: 16),
+
+          /// DETAILS
           Expanded(
             child: Column(
-              children: details
-                  .map(
-                    (d) => Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: _buildDetailRow(
-                        title: d['title'] as String,
-                        mainText: d['main'] as String,
-                        subText: d['sub'] as String,
-                        distance: d['distance'] as String,
-                        duration: d['duration'] as String,
-                      ),
-                    ),
-                  )
-                  .toList(),
+              children: details.map((d) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 18),
+                  child: _buildDetailRow(
+                    title: d['title'] as String,
+                    mainText: d['main'] as String,
+                    subText: d['sub'] as String,
+                    distance: d['distance'] as String,
+                    duration: d['duration'] as String,
+                  ),
+                );
+              }).toList(),
             ),
           ),
         ],
@@ -1780,126 +1898,538 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     );
   }
 
+  // Widget _buildReceiverCard() {
+  //   final receiverName = widget.order.customer?.name ?? 'Unknown Customer';
+  //   final receiverPhone = widget.order.contactPhone.trim();
+  //   final receiverAddress = widget.order.deliveryAddress;
+  //   final totalAmount = widget.order.totalAmount.toStringAsFixed(2);
+  //
+  //   Widget infoRow(String label, String value) {
+  //     return Padding(
+  //       padding: const EdgeInsets.only(bottom: 10),
+  //       child: Column(
+  //         crossAxisAlignment: CrossAxisAlignment.start,
+  //         children: [
+  //           Text(
+  //             label,
+  //             style: TextStyle(
+  //               fontSize: 12,
+  //               color: Colors.grey.shade500,
+  //               fontWeight: FontWeight.w600,
+  //             ),
+  //           ),
+  //           const SizedBox(height: 4),
+  //           SelectableText(
+  //             value,
+  //             style: const TextStyle(
+  //               fontSize: 14.5,
+  //               fontWeight: FontWeight.w600,
+  //               color: Colors.black87,
+  //             ),
+  //           ),
+  //         ],
+  //       ),
+  //     );
+  //   }
+  //
+  //   return Container(
+  //     padding: const EdgeInsets.all(12),
+  //     decoration: BoxDecoration(
+  //       color: Colors.white,
+  //       borderRadius: BorderRadius.circular(20),
+  //       border: Border.all(color: Colors.grey.shade300),
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: Colors.black.withOpacity(0.05),
+  //           blurRadius: 6,
+  //           offset: const Offset(0, 2),
+  //         ),
+  //       ],
+  //     ),
+  //     child: Row(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         /// AVATAR
+  //         Container(
+  //           height: 46,
+  //           width: 46,
+  //           decoration: BoxDecoration(
+  //             color: kPrimaryColor.withOpacity(0.15),
+  //             shape: BoxShape.circle,
+  //           ),
+  //           child: const Icon(Icons.person, color: kPrimaryColor, size: 22),
+  //         ),
+  //         const SizedBox(width: 14),
+  //
+  //         /// DETAILS
+  //         Expanded(
+  //           child: Column(
+  //             crossAxisAlignment: CrossAxisAlignment.start,
+  //             children: [
+  //               Text(
+  //                 receiverName,
+  //                 style: const TextStyle(
+  //                   fontSize: 16,
+  //                   fontWeight: FontWeight.w700,
+  //                 ),
+  //               ),
+  //               const SizedBox(height: 12),
+  //
+  //               infoRow("Delivery Address", receiverAddress),
+  //
+  //               if (receiverPhone.isNotEmpty)
+  //                 infoRow("Mobile Number", receiverPhone),
+  //
+  //               const Divider(height: 20),
+  //
+  //               /// TOTAL
+  //               Row(
+  //                 children: [
+  //                   const Text(
+  //                     "Total",
+  //                     style: TextStyle(
+  //                       fontSize: 13,
+  //                       fontWeight: FontWeight.w600,
+  //                       color: Colors.grey,
+  //                     ),
+  //                   ),
+  //                   const Spacer(),
+  //                   Text(
+  //                     "₱ $totalAmount",
+  //                     style: const TextStyle(
+  //                       fontSize: 17,
+  //                       fontWeight: FontWeight.w800,
+  //                       color: kPrimaryColor,
+  //                     ),
+  //                   ),
+  //                 ],
+  //               ),
+  //             ],
+  //           ),
+  //         ),
+  //
+  //         /// ACTIONS
+  //         Column(
+  //           children: [
+  //             if (receiverPhone.isNotEmpty)
+  //               ActionButton(
+  //                 icon: Icons.phone,
+  //                 onTap: () => _callNumber(receiverPhone),
+  //               ),
+  //             const SizedBox(height: 10),
+  //             Consumer<ChatProvider>(
+  //               builder: (_, provider, __) {
+  //                 return Stack(
+  //                   children: [
+  //                     ActionButton(
+  //                       icon: Icons.message,
+  //                       onTap: () {
+  //                         provider.clearUnread();
+  //                         Navigator.push(
+  //                           context,
+  //                           MaterialPageRoute(
+  //                             builder: (_) => const OrderChatScreen(),
+  //                           ),
+  //                         );
+  //                       },
+  //                     ),
+  //                     if (provider.unreadCount > 0)
+  //                       Positioned(
+  //                         right: 0,
+  //                         top: 0,
+  //                         child: Container(
+  //                           padding: const EdgeInsets.all(4),
+  //                           decoration: const BoxDecoration(
+  //                             color: Colors.red,
+  //                             shape: BoxShape.circle,
+  //                           ),
+  //                           child: Text(
+  //                             provider.unreadCount.toString(),
+  //                             style: const TextStyle(
+  //                               fontSize: 10,
+  //                               fontWeight: FontWeight.bold,
+  //                               color: Colors.white,
+  //                             ),
+  //                           ),
+  //                         ),
+  //                       ),
+  //                   ],
+  //                 );
+  //               },
+  //             ),
+  //           ],
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
   Widget _buildReceiverCard() {
     final receiverName = widget.order.customer?.name ?? 'Unknown Customer';
     final receiverPhone = widget.order.contactPhone.trim();
     final receiverAddress = widget.order.deliveryAddress;
+    final totalAmount = widget.order.totalAmount.toStringAsFixed(2);
+    //
+    // Widget infoRow({
+    //   required IconData icon,
+    //   required String label,
+    //   required String value,
+    // }) {
+    //   return Padding(
+    //     padding: const EdgeInsets.only(bottom: 14),
+    //     child: Row(
+    //       crossAxisAlignment: CrossAxisAlignment.start,
+    //       children: [
+    //         Icon(icon, size: 18, color: Colors.grey.shade500),
+    //         const SizedBox(width: 10),
+    //         Expanded(
+    //           child: Column(
+    //             crossAxisAlignment: CrossAxisAlignment.start,
+    //             children: [
+    //               Text(
+    //                 label.toUpperCase(),
+    //                 style: TextStyle(
+    //                   fontSize: 11,
+    //                   letterSpacing: 0.6,
+    //                   color: Colors.grey.shade500,
+    //                   fontWeight: FontWeight.w600,
+    //                 ),
+    //               ),
+    //               const SizedBox(height: 4),
+    //               SelectableText(
+    //                 value,
+    //                 style: const TextStyle(
+    //                   fontSize: 14.5,
+    //                   height: 1.4,
+    //                   fontWeight: FontWeight.w600,
+    //                   color: Colors.black87,
+    //                 ),
+    //               ),
+    //             ],
+    //           ),
+    //         ),
+    //       ],
+    //     ),
+    //   );
+    // }
+
+    Widget actionIcon({
+      required IconData icon,
+      required VoidCallback onTap,
+      Color? color,
+    }) {
+      return InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          height: 42,
+          width: 42,
+          decoration: BoxDecoration(
+            color: (color ?? kPrimaryColor).withOpacity(0.12),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(icon, size: 20, color: color ?? kPrimaryColor),
+        ),
+      );
+    }
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: kPrimaryColor.withOpacity(0.10),
-            child: const Icon(Icons.person, color: Colors.black54, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    receiverName,
-                    style: const TextStyle(
-                      fontSize: 15.5,
-                      fontWeight: FontWeight.w600,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: 48,
+                width: 48,
+                decoration: BoxDecoration(
+                  color: kPrimaryColor.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.person, color: kPrimaryColor, size: 24),
+              ),
+              const SizedBox(width: 14),
+
+              /// NAME + DETAILS
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      receiverName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 16.5,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    receiverAddress,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      color: Colors.grey.shade700,
+                    const SizedBox(height: 4),
+                    Text(
+                      "Receiver Details",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
                     ),
-                  ),
-                  if (receiverPhone.isNotEmpty) ...[
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
+                    Text(
+                      receiverAddress,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "Delivery Address",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     Text(
                       receiverPhone,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "Mobile Number",
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 12,
                         color: Colors.grey.shade600,
                       ),
                     ),
                   ],
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  onPressed: () => _callNumber(receiverPhone),
-                  icon: const Icon(Icons.phone, color: kPrimaryColor),
-                  tooltip: receiverPhone,
                 ),
-                Consumer<ChatProvider>(
-                  builder: (_, provider, __) {
-                    return Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        IconButton(
-                          onPressed: () {
-                            provider.clearUnread();
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const OrderChatScreen(),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.message, color: kPrimaryColor),
-                        ),
-                        if (provider.unreadCount > 0)
-                          Positioned(
-                            right: 2,
-                            top: 2,
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: const BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Text(
-                                provider.unreadCount.toString(),
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
+              ),
+
+              /// ACTIONS (COLUMN)
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (receiverPhone.isNotEmpty)
+                    actionIcon(
+                      icon: Icons.phone,
+                      onTap: () => _callNumber(receiverPhone),
+                    ),
+
+                  const SizedBox(height: 12),
+
+                  Consumer<ChatProvider>(
+                    builder: (_, provider, __) {
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          actionIcon(
+                            icon: Icons.message,
+                            onTap: () async {
+                              final prefs =
+                                  await SharedPreferences.getInstance();
+
+                              if (!mounted) return; // 🔥 FIX
+
+                              final chatId = widget.order.chat?.id ?? 0;
+                              final orderNo = widget.order.orderNo;
+                              final userType =
+                                  prefs.getString("user_type") ?? "";
+                              final driverCode =
+                                  prefs.getString("driver_code") ?? "";
+
+                              provider.clearUnread();
+
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => OrderChatScreen(
+                                    chatId: chatId,
+                                    orderNo: orderNo,
+                                    userType: userType,
+                                    userCode: driverCode,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+
+                          if (provider.unreadCount > 0)
+                            Positioned(
+                              right: -2,
+                              top: -2,
+                              child: Container(
+                                padding: const EdgeInsets.all(5),
+                                decoration: const BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Text(
+                                  provider.unreadCount.toString(),
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                      ],
-                    );
-                  },
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+          const Divider(height: 1),
+          const SizedBox(height: 16),
+
+          /// TOTAL
+          Row(
+            children: [
+              Text(
+                "TOTAL AMOUNT",
+                style: TextStyle(
+                  fontSize: 12,
+                  letterSpacing: 0.6,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.grey.shade600,
                 ),
-              ],
-            ),
+              ),
+              const Spacer(),
+              Text(
+                "₱ $totalAmount",
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: kPrimaryColor,
+                ),
+              ),
+            ],
           ),
         ],
       ),
+    );
+  }
+
+  void _showCompleteDeliverySheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final canSubmit = _proofImage != null && _signatureImage != null;
+
+            return SafeArea(
+              top: false,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  16,
+                  16,
+                  MediaQuery.of(context).viewInsets.bottom + 24,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    const Text(
+                      "Confirm Delivery",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      "Upload proof and collect customer signature.",
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    /// 📸 PHOTO
+                    _proofTile(
+                      title: "Delivery Photo",
+                      hasValue: _proofImage != null,
+                      onTap: () async {
+                        final img = await _pickImage();
+                        if (img != null) {
+                          setModalState(() => _proofImage = img);
+                        }
+                      },
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    /// ✍️ SIGNATURE
+                    _proofTile(
+                      title: "Customer Signature",
+                      hasValue: _signatureImage != null,
+                      onTap: () async {
+                        final sig = await _captureSignature();
+                        if (sig != null) {
+                          setModalState(() => _signatureImage = sig);
+                        }
+                      },
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    CustomButton(
+                      text: "Complete Delivery",
+                      color: canSubmit ? kPrimaryColor : Colors.grey.shade400,
+                      textColor: Colors.white,
+                      onTap: !canSubmit
+                          ? null
+                          : () async {
+                              Navigator.pop(context);
+                              await _submitCompletedDelivery();
+                            },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -1959,6 +2489,21 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
         );
       },
     );
+  }
+
+  void _navigateByStatus() {
+    final bool isDropoff =
+        deliveryStatus == 'picked_up' || deliveryStatus == 'en_route';
+
+    final double lat = isDropoff
+        ? widget.order.deliveryLat
+        : widget.order.pickupLat;
+
+    final double lng = isDropoff
+        ? widget.order.deliveryLng
+        : widget.order.pickupLng;
+
+    navigateToPickup(lat, lng);
   }
 
   // -------------------------------------------------------------------------
@@ -2090,10 +2635,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                 child: _circleButton(
                   icon: Icons.add,
                   onTap: () async {
-                    if (_mapController.isCompleted)
+                    if (_mapController.isCompleted) {
                       (await _mapController.future).animateCamera(
                         CameraUpdate.zoomIn(),
                       );
+                    }
                   },
                 ),
               ),
@@ -2105,10 +2651,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                 child: _circleButton(
                   icon: Icons.remove,
                   onTap: () async {
-                    if (_mapController.isCompleted)
+                    if (_mapController.isCompleted) {
                       (await _mapController.future).animateCamera(
                         CameraUpdate.zoomOut(),
                       );
+                    }
                   },
                 ),
               ),
@@ -2117,6 +2664,25 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
         ),
       ),
     );
+  }
+
+  Color getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case "accepted":
+        return Colors.blue;
+      case "at_pickup":
+        return Colors.orange;
+      case "picked_up":
+        return Colors.deepPurple;
+      case "en_route":
+        return Colors.teal;
+      case "failed":
+        return Colors.red;
+      case "delivered":
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
   }
 
   Widget _buildStatusButton() {
@@ -2210,13 +2776,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                         child: IconButton(
                           icon: Icon(
                             Icons.navigation,
-                            color: kPrimaryColor,
+                            color: getStatusColor(
+                              deliveryStatus,
+                            ).withOpacity(0.9),
                             size: 28,
                           ),
-                          onPressed: () => navigateToPickup(
-                            widget.order.pickupLat,
-                            widget.order.pickupLng,
-                          ),
+                          onPressed: () => _navigateByStatus(),
                         ),
                       ),
                     if ([
@@ -2247,86 +2812,90 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
       ),
     );
   }
-}
 
-// -----------------------------------------------------------------------------
-// Separate MapView widget: keeps GoogleMap from rebuilding when parent setState
-// is called. Listens to ValueNotifiers for markers & polylines.
-// -----------------------------------------------------------------------------
-
-class MapView extends StatefulWidget {
-  final LatLng initialLocation;
-  final Completer<GoogleMapController> mapControllerCompleter;
-  final ValueListenable<Set<Marker>> markersListenable;
-  final ValueListenable<Set<Polyline>> polylinesListenable;
-  final String? mapStyle;
-  final void Function(GoogleMapController) onMapCreated;
-
-  const MapView({
-    super.key,
-    required this.initialLocation,
-    required this.mapControllerCompleter,
-    required this.markersListenable,
-    required this.polylinesListenable,
-    required this.onMapCreated,
-    this.mapStyle,
-  });
-
-  @override
-  State<MapView> createState() => _MapViewState();
-}
-
-class _MapViewState extends State<MapView> {
-  late GoogleMapController? _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = null;
-  }
-
-  @override
-  void dispose() {
-    // Do not dispose controller here; GoogleMap owns it. If you keep a reference
-    // to controller elsewhere, ensure safe lifecycle management.
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<Set<Marker>>(
-      valueListenable: widget.markersListenable,
-      builder: (_, markers, __) {
-        return ValueListenableBuilder<Set<Polyline>>(
-          valueListenable: widget.polylinesListenable,
-          builder: (_, polylines, __) {
-            return GoogleMap(
-              initialCameraPosition: CameraPosition(
-                target: widget.initialLocation,
-                zoom: 14,
+  Widget _proofTile({
+    required String title,
+    required bool hasValue,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: hasValue ? Colors.green : Colors.grey.shade300,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              hasValue ? Icons.check_circle : Icons.upload,
+              color: hasValue ? Colors.green : Colors.grey,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              mapType: MapType.normal,
-              markers: markers,
-              polylines: polylines,
-              buildingsEnabled: true,
-              zoomControlsEnabled: false,
-              myLocationEnabled: false,
-              myLocationButtonEnabled: false,
-              compassEnabled: true,
-              trafficEnabled: false,
-              onMapCreated: (GoogleMapController controller) async {
-                _controller = controller;
-
-                if (!widget.mapControllerCompleter.isCompleted) {
-                  widget.mapControllerCompleter.complete(controller);
-                }
-
-                widget.onMapCreated(controller);
-              },
-            );
-          },
-        );
-      },
+            ),
+            if (hasValue) const Icon(Icons.check, color: Colors.green),
+          ],
+        ),
+      ),
     );
   }
+}
+
+// ================================
+// ISOLATE HELPERS (TOP LEVEL ONLY)
+// ================================
+
+List<LatLng> decodePolylineIsolate(String encoded) {
+  final List<LatLng> poly = [];
+  int index = 0, lat = 0, lng = 0;
+
+  while (index < encoded.length) {
+    int b, shift = 0, result = 0;
+    do {
+      b = encoded.codeUnitAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    lat += (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
+
+    shift = 0;
+    result = 0;
+    do {
+      b = encoded.codeUnitAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    lng += (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
+
+    poly.add(LatLng(lat / 1e5, lng / 1e5));
+  }
+
+  return poly;
+}
+
+Map<String, dynamic> parseDirectionsIsolate(String body) {
+  final data = json.decode(body);
+  if (data == null || data['routes'] == null || data['routes'].isEmpty) {
+    return {};
+  }
+
+  final route = data['routes'][0];
+  final leg = route['legs'][0];
+
+  return {
+    'distance': leg['distance']['value'],
+    'duration': leg['duration']['value'],
+    'polyline': route['overview_polyline']['points'],
+  };
 }

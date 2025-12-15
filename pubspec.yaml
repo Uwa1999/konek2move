@@ -51,6 +51,7 @@ dependencies:
   audioplayers: ^6.5.1
   location: ^8.0.1
   url_launcher: ^6.3.2
+  signature: ^6.3.0
 
 
 

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
@@ -20,7 +21,9 @@ class OrderScreen extends StatefulWidget {
 
 class _OrderScreenState extends State<OrderScreen> {
   final TextEditingController searchController = TextEditingController();
+  final TextEditingController _cancelReasonCtrl = TextEditingController();
 
+  bool _isCancelling = false;
   bool isLoading = true;
   List<OrderRecord> _orders = [];
   Timer? _searchDebounce;
@@ -59,6 +62,7 @@ class _OrderScreenState extends State<OrderScreen> {
 
   @override
   void dispose() {
+    _cancelReasonCtrl.dispose();
     _searchDebounce?.cancel();
     searchController.dispose();
     super.dispose();
@@ -100,9 +104,66 @@ class _OrderScreenState extends State<OrderScreen> {
     }
   }
 
+  Future<void> _cancelOrder({
+    required int orderId,
+    required String reason,
+  }) async {
+    debugPrint("CANCEL CLICKED");
+    debugPrint("ORDER ID: $orderId");
+    debugPrint("REASON: '$reason'");
+
+    if (reason.trim().isEmpty) {
+      _showTopMessage("Please provide a cancellation reason", isError: true);
+      return;
+    }
+
+    try {
+      setState(() => _isCancelling = true);
+
+      final ModelResponse response = await ApiServices().refuseOrder(
+        orderId: orderId,
+        reason: reason.trim(),
+      );
+
+      if (!mounted) return;
+
+      Navigator.pop(context);
+
+      _showTopMessage(
+        response.message.isNotEmpty
+            ? response.message
+            : "Delivery cancelled successfully",
+      );
+
+      await _fetchOrders(force: true);
+    } catch (e) {
+      debugPrint("CANCEL ERROR: $e");
+
+      _showTopMessage(
+        e.toString().replaceAll("Exception:", "").trim(),
+        isError: true,
+      );
+    } finally {
+      if (mounted) setState(() => _isCancelling = false);
+    }
+  }
+
   // =====================================================
   // SEARCH HANDLER (API)
   // =====================================================
+
+  void _showTopMessage(String message, {bool isError = false}) {
+    Flushbar(
+      backgroundColor: isError ? Colors.redAccent : Colors.green,
+      margin: const EdgeInsets.all(16),
+      borderRadius: BorderRadius.circular(12),
+      message: message,
+      duration: const Duration(seconds: 2),
+      flushbarPosition: FlushbarPosition.TOP,
+      animationDuration: const Duration(milliseconds: 180),
+    ).show(context);
+  }
+
   void _onSearchChanged() {
     _searchDebounce?.cancel();
 
@@ -255,19 +316,17 @@ class _OrderScreenState extends State<OrderScreen> {
     );
   }
 
-  void _showCancelSheet() {
+  void _showCancelSheet(int orderId) {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) {
         return SafeArea(
-          top: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -284,29 +343,133 @@ class _OrderScreenState extends State<OrderScreen> {
                   'Cancel Delivery?',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Text(
-                  'Are you sure you want to cancel this delivery request?',
+                  'Are you sure you want to cancel this delivery?',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                  style: TextStyle(color: Colors.grey.shade600),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
+
+                /// ✅ YES → SHOW ALERT DIALOG
                 CustomButton(
-                  text: 'Yes, Cancel Delivery',
+                  text: "Yes, Cancel Delivery",
                   color: kPrimaryRedColor,
                   textColor: kDefaultIconLightColor,
-                  onTap: () => Navigator.pop(context),
+                  onTap: () {
+                    Navigator.pop(context); // close sheet
+                    _showCancelReasonDialog(orderId);
+                  },
                 ),
+
                 const SizedBox(height: 10),
+
                 CustomButton(
                   text: 'No, Keep Delivery',
                   color: kLightButtonColor,
                   textColor: kPrimaryColor,
                   onTap: () => Navigator.pop(context),
                 ),
-                const SizedBox(height: 10),
               ],
             ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showCancelReasonDialog(int orderId) {
+    _cancelReasonCtrl.clear();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const Text(
+                      "Cancel Delivery?",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Divider(),
+                    const SizedBox(height: 6),
+                    const Text(
+                      "Please provide a reason for cancelling this delivery.",
+                      style: TextStyle(fontSize: 14),
+                    ),
+                    const SizedBox(height: 14),
+
+                    TextField(
+                      controller: _cancelReasonCtrl,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        hintText: "Enter cancellation reason",
+                        filled: true,
+                        fillColor: Colors.grey.shade100,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    CustomButton(
+                      radius: 24,
+                      horizontalPadding: 0,
+                      text: _isCancelling ? "Cancelling..." : "Submit",
+                      color: kPrimaryRedColor,
+                      textColor: kDefaultIconLightColor,
+                      onTap: _isCancelling
+                          ? null
+                          : () {
+                              _cancelOrder(
+                                orderId: orderId,
+                                reason: _cancelReasonCtrl.text,
+                              );
+                            },
+                    ),
+                  ],
+                ),
+              ),
+
+              /// ✅ Properly positioned close button
+              Positioned(
+                top: 8,
+                right: 8,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      size: 20,
+                      color: Colors.black54,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -416,11 +579,7 @@ class _OrderScreenState extends State<OrderScreen> {
               CircleAvatar(
                 radius: 22,
                 backgroundColor: kPrimaryColor.withOpacity(0.10),
-                child: const Icon(
-                  Icons.person,
-                  color: Colors.black54,
-                  size: 20,
-                ),
+                child: const Icon(Icons.person, color: kPrimaryColor, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -449,7 +608,11 @@ class _OrderScreenState extends State<OrderScreen> {
                 ),
                 child: Text(
                   order.status.toUpperCase(),
-                  style: TextStyle(fontSize: 10, color: text),
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: text,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
@@ -460,7 +623,7 @@ class _OrderScreenState extends State<OrderScreen> {
           if (date != null)
             _infoRow(
               Icons.timer,
-              DateFormat("MMM d, yyyy • h:mm a").format(date),
+              DateFormat("MMM d, yyyy - h:mm a").format(date),
             ),
           const SizedBox(height: 16),
           Row(
@@ -484,7 +647,7 @@ class _OrderScreenState extends State<OrderScreen> {
                   child: _dangerBtn(
                     "Cancel",
                     onTap: () {
-                      _showCancelSheet();
+                      _showCancelSheet(order.id);
                     },
                   ),
                 ),
@@ -497,7 +660,7 @@ class _OrderScreenState extends State<OrderScreen> {
 
   Widget _infoRow(IconData icon, String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(bottom: 5),
       child: Row(
         children: [
           Icon(icon, size: 18, color: Colors.grey.shade600),
@@ -517,26 +680,36 @@ class _OrderScreenState extends State<OrderScreen> {
   // BUTTONS
   // =====================================================
   Widget _primaryBtn(String title, {required VoidCallback onTap}) {
-    return ElevatedButton(
-      onPressed: onTap,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: kPrimaryColor,
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+    return SizedBox(
+      height: 40,
+      child: ElevatedButton(
+        onPressed: onTap,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: kPrimaryColor,
+          elevation: 1,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+        ),
+        child: Text(title),
       ),
-      child: Text(title),
     );
   }
 
   Widget _dangerBtn(String title, {required VoidCallback onTap}) {
-    return ElevatedButton(
-      onPressed: onTap,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: kPrimaryRedColor,
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+    return SizedBox(
+      height: 40,
+      child: ElevatedButton(
+        onPressed: onTap,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: kPrimaryRedColor,
+          elevation: 1,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+        ),
+        child: Text(title),
       ),
-      child: Text(title),
     );
   }
 
