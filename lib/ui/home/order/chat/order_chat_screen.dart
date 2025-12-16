@@ -1,375 +1,18 @@
-// import 'dart:io';
-// import 'dart:typed_data';
-// import 'package:flutter/material.dart';
-// import 'package:flutter_svg/svg.dart';
-// import 'package:image_picker/image_picker.dart';
-// import 'package:provider/provider.dart';
-// import 'package:konek2move/core/constants/app_colors.dart';
-// import 'package:konek2move/core/services/api_services.dart';
-// import 'package:konek2move/core/services/model_services.dart';
-// import 'package:konek2move/core/services/provider_services.dart';
-// import 'package:shimmer/shimmer.dart';
-//
-// // Transparent placeholder for FadeInImage
-// final kTransparentImage = Uint8List.fromList(List.generate(40, (i) => 0));
-//
-// class OrderChatScreen extends StatefulWidget {
-//   const OrderChatScreen({super.key});
-//
-//   @override
-//   State<OrderChatScreen> createState() => _OrderChatScreenState();
-// }
-//
-// class _OrderChatScreenState extends State<OrderChatScreen> {
-//   final ScrollController _scroll = ScrollController();
-//   final TextEditingController _msgCtrl = TextEditingController();
-//   final picker = ImagePicker();
-//
-//   final int chatId = 2;
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//
-//     Future.microtask(() async {
-//       final provider = context.read<ChatProvider>();
-//       await provider.loadMessages(chatId);
-//       scrollToBottom();
-//       ApiServices().markChatAsRead(chatId);
-//     });
-//   }
-//
-//   void scrollToBottom() {
-//     WidgetsBinding.instance.addPostFrameCallback((_) {
-//       if (!_scroll.hasClients) return;
-//
-//       _scroll.animateTo(
-//         _scroll.position.maxScrollExtent,
-//         duration: const Duration(milliseconds: 350),
-//         curve: Curves.easeOut,
-//       );
-//     });
-//   }
-//
-//   // PICK IMAGE
-//   Future<void> _pickImage(ChatProvider provider) async {
-//     final source = await showModalBottomSheet<ImageSource>(
-//       context: context,
-//       backgroundColor: Colors.white,
-//       shape: const RoundedRectangleBorder(
-//         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-//       ),
-//       builder: (_) => _imagePickerBottomSheet(),
-//     );
-//
-//     if (source == null) return;
-//
-//     final XFile? picked = await picker.pickImage(
-//       source: source,
-//       imageQuality: 70,
-//     );
-//     if (picked == null) return;
-//
-//     final file = File(picked.path);
-//
-//     final tempMsg = ChatMessage(
-//       id: 0,
-//       senderType: "driver",
-//       senderCode: "DRV",
-//       messageType: "image",
-//       attachmentUrl: file.path,
-//       createdAt: DateTime.now(),
-//     );
-//
-//     provider.addLocal(tempMsg);
-//     scrollToBottom();
-//
-//     final ok = await ApiServices().uploadChatImage(
-//       chatId: chatId,
-//       orderNo: "SO-100001",
-//       file: file,
-//     );
-//
-//     provider.removeLocal(tempMsg); // FIX
-//     if (ok == true) {
-//       await provider.loadMessages(chatId);
-//     }
-//
-//     scrollToBottom();
-//   }
-//
-//   // SEND TEXT MESSAGE
-//   Future<void> _send(ChatProvider provider) async {
-//     final txt = _msgCtrl.text.trim();
-//     if (txt.isEmpty) return;
-//
-//     final tempMsg = ChatMessage(
-//       id: 0,
-//       senderType: "driver",
-//       senderCode: "DRV",
-//       messageType: "text",
-//       message: txt,
-//       attachmentUrl: null,
-//       createdAt: DateTime.now(),
-//     );
-//
-//     provider.addLocal(tempMsg);
-//     _msgCtrl.clear();
-//     scrollToBottom();
-//
-//     await ApiServices().sendChatMessage(
-//       chatId: chatId,
-//       orderNo: "SO-100001",
-//       message: txt,
-//     );
-//
-//     provider.removeLocal(tempMsg); // FIX: remove temp first
-//     await provider.loadMessages(chatId);
-//     scrollToBottom();
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final provider = context.watch<ChatProvider>();
-//
-//     WidgetsBinding.instance.addPostFrameCallback((_) => scrollToBottom());
-//
-//     return Scaffold(
-//       backgroundColor: Colors.grey.shade100,
-//       body: Column(
-//         children: [
-//           _buildHeader(),
-//
-//           Expanded(
-//             child: provider.initialLoad
-//                 ? _shimmer()
-//                 : ListView.builder(
-//                     controller: _scroll,
-//                     padding: const EdgeInsets.all(12),
-//                     itemCount: provider.allMessages.length,
-//                     itemBuilder: (_, i) =>
-//                         ChatBubble(msg: provider.allMessages[i]),
-//                   ),
-//           ),
-//
-//           _inputBar(provider),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   // HEADER ---------------------
-//   Widget _buildHeader() {
-//     return Container(
-//       height: 80,
-//       width: double.infinity,
-//       decoration: const BoxDecoration(
-//         color: Colors.white,
-//         borderRadius: BorderRadius.only(
-//           bottomLeft: Radius.circular(24),
-//           bottomRight: Radius.circular(24),
-//         ),
-//         boxShadow: [
-//           BoxShadow(
-//             color: Colors.black12,
-//             blurRadius: 10,
-//             offset: Offset(0, 3),
-//           ),
-//         ],
-//       ),
-//       child: Padding(
-//         padding: const EdgeInsets.only(bottom: 12),
-//         child: Stack(
-//           alignment: Alignment.bottomCenter,
-//           children: [
-//             const Text(
-//               "Messages",
-//               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-//             ),
-//             Positioned(
-//               left: 16,
-//               child: GestureDetector(
-//                 onTap: () => Navigator.pop(context),
-//                 child: Container(
-//                   width: 32,
-//                   height: 32,
-//                   decoration: BoxDecoration(
-//                     color: Colors.black.withOpacity(0.06),
-//                     borderRadius: BorderRadius.circular(12),
-//                   ),
-//                   child: const Icon(Icons.arrow_back, size: 20),
-//                 ),
-//               ),
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-//
-//   // INPUT BAR ---------------------
-//   Widget _inputBar(ChatProvider provider) {
-//     return Container(
-//       height: 90,
-//       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-//       decoration: const BoxDecoration(
-//         color: Colors.white,
-//         borderRadius: BorderRadius.only(
-//           topLeft: Radius.circular(22),
-//           topRight: Radius.circular(22),
-//         ),
-//         boxShadow: [
-//           BoxShadow(
-//             color: Colors.black12,
-//             blurRadius: 8,
-//             offset: Offset(0, -2),
-//           ),
-//         ],
-//       ),
-//       child: Row(
-//         children: [
-//           GestureDetector(
-//             onTap: () => _pickImage(provider),
-//             child: CircleAvatar(
-//               radius: 22,
-//               backgroundColor: kPrimaryColor.withOpacity(.15),
-//               child: const Icon(Icons.add_circle, color: kPrimaryColor),
-//             ),
-//           ),
-//           const SizedBox(width: 10),
-//           Expanded(
-//             child: TextField(
-//               controller: _msgCtrl,
-//               decoration: InputDecoration(
-//                 hintText: "Message…",
-//                 filled: true,
-//                 fillColor: Colors.grey.shade200,
-//                 contentPadding: const EdgeInsets.symmetric(
-//                   horizontal: 20,
-//                   vertical: 14,
-//                 ),
-//                 border: OutlineInputBorder(
-//                   borderRadius: BorderRadius.circular(30),
-//                   borderSide: BorderSide.none,
-//                 ),
-//               ),
-//               onSubmitted: (_) => _send(provider),
-//             ),
-//           ),
-//           const SizedBox(width: 10),
-//           GestureDetector(
-//             onTap: () => _send(provider),
-//             child: CircleAvatar(
-//               radius: 24,
-//               backgroundColor: kPrimaryColor,
-//               child: const Icon(Icons.send, color: Colors.white),
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   // IMAGE PICKER SHEET --------------------
-//   Widget _imagePickerBottomSheet() {
-//     return Padding(
-//       padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 16),
-//       child: Column(
-//         mainAxisSize: MainAxisSize.min,
-//         children: [
-//           const Text(
-//             "Select Image",
-//             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-//           ),
-//           SizedBox(height: 10),
-//           Text(
-//             "Choose where to get your image from",
-//             style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-//           ),
-//           const SizedBox(height: 20),
-//           Row(
-//             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-//             children: [
-//               _pickerButton(
-//                 "Camera",
-//                 "assets/icons/camera.svg",
-//                 ImageSource.camera,
-//               ),
-//               _pickerButton(
-//                 "Gallery",
-//                 "assets/icons/gallery.svg",
-//                 ImageSource.gallery,
-//               ),
-//             ],
-//           ),
-//           const SizedBox(height: 12),
-//           const Divider(),
-//           TextButton(
-//             onPressed: () => Navigator.pop(context),
-//             child: const Text("Cancel", style: TextStyle(color: Colors.red)),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   Widget _pickerButton(String label, String icon, ImageSource source) {
-//     return GestureDetector(
-//       onTap: () => Navigator.pop(context, source),
-//       child: Column(
-//         children: [
-//           CircleAvatar(
-//             radius: 30,
-//             backgroundColor: Colors.grey.shade200,
-//             child: SvgPicture.asset(icon, width: 28),
-//           ),
-//           const SizedBox(height: 6),
-//           Text(label),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   // SHIMMER PLACEHOLDER
-//   Widget _shimmer() {
-//     return ListView.builder(
-//       padding: const EdgeInsets.all(16),
-//       itemCount: 10,
-//       itemBuilder: (_, i) {
-//         return Align(
-//           alignment: (i % 2 == 0)
-//               ? Alignment.centerLeft
-//               : Alignment.centerRight,
-//           child: Container(
-//             margin: const EdgeInsets.symmetric(vertical: 8),
-//             height: 24,
-//             width: 150 + (i % 3) * 30,
-//             decoration: BoxDecoration(
-//               color: Colors.grey.shade300,
-//               borderRadius: BorderRadius.circular(18),
-//             ),
-//           ),
-//         );
-//       },
-//     );
-//   }
-// }
-
-import 'dart:io';
-import 'dart:typed_data';
 import 'dart:async';
+import 'dart:io';
+import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:konek2move/core/widgets/custom_appbar.dart';
 import 'package:provider/provider.dart';
+
+import 'package:konek2move/core/widgets/custom_appbar.dart';
+import 'package:konek2move/core/widgets/widget_image_picker.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/services/api_services.dart';
 import 'package:konek2move/core/services/model_services.dart';
 import 'package:konek2move/core/services/provider_services.dart';
 import 'package:shimmer/shimmer.dart';
 
-final kTransparentImage = Uint8List.fromList(List.generate(40, (i) => 0));
+import 'chat_bubble.dart';
 
 class OrderChatScreen extends StatefulWidget {
   final int chatId;
@@ -392,269 +35,228 @@ class OrderChatScreen extends StatefulWidget {
 class _OrderChatScreenState extends State<OrderChatScreen> {
   final ScrollController _scroll = ScrollController();
   final TextEditingController _msgCtrl = TextEditingController();
-  final picker = ImagePicker();
+
   late ChatProvider _chatProvider;
-  StreamSubscription? notifSub;
+  StreamSubscription? _notifSub;
 
-  // final int chatId = 13;
+  // ================= SHIMMER =================
 
-  // final String userCode = "DRV-000008";
-  // final String userType = "driver";
+  Widget _shimmerBubble(bool isMe) {
+    return Align(
+      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      child: Shimmer.fromColors(
+        baseColor: Colors.grey.shade300,
+        highlightColor: Colors.grey.shade100,
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          height: 22,
+          width: isMe ? 140 : 180,
+          decoration: BoxDecoration(
+            color: Colors.grey,
+            borderRadius: BorderRadius.circular(18),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _shimmer() {
+    return ListView.builder(
+      reverse: true,
+      padding: const EdgeInsets.fromLTRB(24, 120, 24, 16),
+      itemCount: 12,
+      itemBuilder: (_, i) => _shimmerBubble(i.isEven),
+    );
+  }
+
+  // ================= LIFECYCLE =================
 
   @override
   void initState() {
     super.initState();
 
-    Future.microtask(() async {
-      // Mark chat as active
-      _chatProvider.setChatOpen(true);
+    _chatProvider = context.read<ChatProvider>();
+    _chatProvider.setChatOpen(true);
 
-      await _chatProvider.loadMessages(widget.chatId);
-      scrollToBottom(force: true);
-
-      await ApiServices().markChatAsRead(widget.chatId);
-
+    _chatProvider.loadMessages(widget.chatId).then((_) {
+      if (!mounted) return;
+      ApiServices().markChatAsRead(widget.chatId);
       _chatProvider.clearUnread();
-
-      notifSub = ApiServices().listenNotifications().listen(handleRealtime);
     });
-  }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _chatProvider = context.read<ChatProvider>(); // ✅ SAFE
+    _notifSub = ApiServices().listenNotifications().listen(_handleRealtime);
   }
 
   @override
   void dispose() {
-    notifSub?.cancel();
-
-    // ✅ SAFE — no context lookup
-    _chatProvider.setChatOpen(false);
-
+    _notifSub?.cancel();
+    _chatProvider.setChatOpen(false, notify: false);
     _scroll.dispose();
     _msgCtrl.dispose();
-
     super.dispose();
   }
 
-  // ========================= SSE REALTIME HANDLER =========================
+  // ================= SSE =================
 
-  void handleRealtime(Map<String, dynamic> event) {
-    final provider = context.read<ChatProvider>();
+  void _handleRealtime(Map<String, dynamic> event) {
+    if (!mounted) return;
 
     final data = event["data"];
-    if (data == null) return;
-
-    // Accept only chat.new_message SSE events
-    if (!(data["topic"]?.toString().contains("chat.new_message") ?? false)) {
-      return;
-    }
-
-    final meta = data["meta"];
+    final meta = data?["meta"];
     if (meta == null) return;
-
-    // Only process messages for this chat
     if (meta["chat_id"] != widget.chatId) return;
 
-    // Build real server message
     final msg = ChatMessageResponse(
-      id: meta["message_id"],
-      senderType: meta["sender_type"] ?? "",
-      senderCode: meta["sender_code"] ?? "",
-      messageType: meta["message_type"],
+      id: meta["message_id"] ?? 0,
+      senderType: data["recipient_type"] == widget.userType
+          ? "customer"
+          : widget.userType,
+      senderCode: data["recipient_code"] ?? "",
+      messageType: meta["message_type"] ?? "text",
       message: meta["message"],
       attachmentUrl: meta["attachment_url"],
-      createdAt:
-          DateTime.tryParse(meta["created_at"] ?? "")?.toLocal() ??
-          DateTime.now(),
+      createdAt: DateTime.now(),
     );
 
-    // 🧠 REMOVE TEMP if matches (your own message)
-    provider.removeTempIfMatched(msg);
-
-    // 🧠 ADD REAL message
-    provider.addLocal(msg);
-
-    // Auto-scroll
-    scrollToBottom();
+    _chatProvider.appendFromServer(msg);
   }
 
-  // ========================= SCROLL HELPERS =========================
+  // ================= SEND =================
 
-  void scrollToBottom({bool force = false}) {
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!_scroll.hasClients) return;
+  Future<void> _sendText() async {
+    final txt = _msgCtrl.text.trim();
+    if (txt.isEmpty) return;
 
-      await Future.delayed(const Duration(milliseconds: 40));
+    _msgCtrl.clear();
+    FocusScope.of(context).unfocus();
 
-      _scroll.animateTo(
-        _scroll.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 350),
-        curve: Curves.easeOut,
+    final temp = ChatMessageResponse(
+      id: 0,
+      senderType: widget.userType,
+      senderCode: widget.userCode,
+      messageType: "text",
+      message: txt,
+      createdAt: DateTime.now(),
+    );
+
+    _chatProvider.addLocal(temp);
+
+    try {
+      final res = await ApiServices().sendChatMessage(
+        chatId: widget.chatId,
+        orderNo: widget.orderNo,
+        message: txt,
       );
-    });
+
+      _chatProvider.removeLocal(temp);
+
+      if (res.retCode == "200") {
+        await _chatProvider.refreshAfterSend(widget.chatId);
+        return;
+      }
+
+      _showError(res.message);
+    } catch (_) {
+      _chatProvider.removeLocal(temp);
+      _showError("Failed to send message");
+    }
   }
 
-  Future<void> _pickImage(ChatProvider provider) async {
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-      ),
-      builder: (_) => _imagePickerBottomSheet(),
-    );
-
-    if (source == null) return;
-
-    final picked = await picker.pickImage(source: source, imageQuality: 70);
-
-    if (picked == null) return;
-
-    final file = File(picked.path);
-
-    // TEMP MESSAGE (id = 0)
-    final tempMsg = ChatMessageResponse(
+  Future<void> _sendImage(File file) async {
+    final temp = ChatMessageResponse(
       id: 0,
       senderType: widget.userType,
       senderCode: widget.userCode,
       messageType: "image",
-      attachmentUrl: file.path, // LOCAL PATH
+      attachmentUrl: file.path,
       createdAt: DateTime.now(),
     );
 
-    // 1️⃣ Add temp bubble immediately
-    provider.addLocal(tempMsg);
-    scrollToBottom();
+    _chatProvider.addLocal(temp);
 
-    // 2️⃣ Upload image
-    final success = await ApiServices().uploadChatImage(
+    final res = await ApiServices().uploadChatImage(
       chatId: widget.chatId,
       orderNo: widget.orderNo,
       file: file,
     );
 
-    // If upload failed → Stop temp removal
-    if (success == false) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Upload failed. Try again.")),
-      );
+    _chatProvider.removeLocal(temp);
+
+    if (res.retCode == "200") {
+      await _chatProvider.refreshAfterSend(widget.chatId);
       return;
     }
 
-    // 3️⃣ Remove temp bubble after real upload (before SSE arrives)
-    provider.removeLocal(tempMsg);
-
-    // OPTIONAL (if you want instant refresh before SSE)
-    await provider.refreshAfterSend(widget.chatId);
-
-    scrollToBottom();
+    _showError(res.message);
   }
 
-  // ========================= SEND TEXT =========================
-
-  Future<void> _send(ChatProvider provider) async {
-    final txt = _msgCtrl.text.trim();
-    if (txt.isEmpty) return;
-
-    // TEMP bubble
-    final tempMsg = ChatMessageResponse(
-      id: 0,
-      senderType: widget.userType,
-      senderCode: widget.userCode,
-      messageType: "text",
-      message: txt,
-      attachmentUrl: null,
-      createdAt: DateTime.now(),
-    );
-
-    provider.addLocal(tempMsg);
-    _msgCtrl.clear();
-    scrollToBottom();
-
-    // Call API
-    await ApiServices().sendChatMessage(
-      chatId: widget.chatId,
-      orderNo: widget.orderNo,
-      message: txt,
-    );
-
-    // ❗ DO NOT REMOVE TEMP (SSE will NOT return your own message)
-    // provider.removeLocal(tempMsg);
-
-    // Convert temp -> "sent" state
-    final real = ChatMessageResponse(
-      id: DateTime.now().millisecondsSinceEpoch, // temporary ID
-      senderType: widget.userType,
-      senderCode: widget.userCode,
-      messageType: "text",
-      message: txt,
-      attachmentUrl: null,
-      createdAt: DateTime.now(),
-    );
-
-    provider.removeLocal(tempMsg);
-    provider.addLocal(real);
-
-    scrollToBottom();
+  void _showError(String message) {
+    if (!mounted) return;
+    Flushbar(
+      message: message,
+      duration: const Duration(seconds: 3),
+      margin: const EdgeInsets.all(16),
+      borderRadius: BorderRadius.circular(12),
+      flushbarPosition: FlushbarPosition.TOP,
+      backgroundColor: Colors.red.shade600,
+      icon: const Icon(Icons.error_outline, color: Colors.white),
+    ).show(context);
   }
 
-  // ========================= UI BUILD =========================
+  // ================= UI =================
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ChatProvider>();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) => scrollToBottom());
+    final safeBottom = MediaQuery.of(context).padding.bottom;
+    const inputBarHeight = 100.0;
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: CustomAppBar(title: "Messages", leadingIcon: Icons.arrow_back),
-
-      resizeToAvoidBottomInset: true, // <-- IMPORTANT
+      appBar: CustomAppBar(
+        title: "Messages",
+        onLeadingTap: () {
+          provider.clearUnread();
+          Navigator.pop(context);
+        },
+      ),
 
       body: provider.initialLoad
           ? _shimmer()
-          : SingleChildScrollView(
+          : ListView.builder(
               controller: _scroll,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: NeverScrollableScrollPhysics(),
-                    itemCount: provider.allMessages.length,
-                    itemBuilder: (_, i) =>
-                        ChatBubble(msg: provider.allMessages[i]),
-                  ),
-                  const SizedBox(height: 120),
-                ],
+              reverse: true,
+              padding: EdgeInsets.fromLTRB(
+                24,
+                16,
+                24,
+                inputBarHeight + safeBottom,
               ),
+              itemCount: provider.allMessages.length,
+              itemBuilder: (_, i) {
+                final msg =
+                    provider.allMessages[provider.allMessages.length - 1 - i];
+                return ChatBubble(msg: msg, userType: widget.userType);
+              },
             ),
 
-      bottomSheet: _inputBar(provider), // <-- FLOATS ABOVE KEYBOARD
+      bottomSheet: _inputBar(),
     );
   }
 
-  // ========================= INPUT BAR =========================
+  // ================= INPUT =================
 
-  Widget _inputBar(ChatProvider provider) {
+  Widget _inputBar() {
     final safeBottom = MediaQuery.of(context).padding.bottom;
 
-    // Detect 3-button navigation (no bottom inset)
-    final bool isThreeButtonNav = safeBottom == 0;
-
     return SafeArea(
-      bottom: false, // Prevents overlap with 3-button nav
+      bottom: false,
       child: Container(
         decoration: BoxDecoration(
           color: Colors.transparent,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.10),
+              color: Colors.black.withOpacity(.10),
               blurRadius: 10,
               offset: const Offset(0, -2),
             ),
@@ -663,47 +265,40 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
         child: ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           child: Container(
-            color: Colors.white,
-            padding: EdgeInsets.fromLTRB(
-              24,
-              16,
-              24,
-              isThreeButtonNav ? 16 : safeBottom + 24,
+            padding: EdgeInsets.fromLTRB(24, 16, 24, safeBottom + 24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, -2),
+                ),
+              ],
             ),
             child: Row(
               children: [
-                // ------------ Add Image Button ------------
                 GestureDetector(
-                  onTap: () => _pickImage(provider),
-                  child: Container(
-                    height: 44,
-                    width: 44,
-                    decoration: BoxDecoration(
-                      color: kPrimaryColor.withOpacity(.12),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.add,
-                      color: kPrimaryColor,
-                      size: 22,
-                    ),
+                  onTap: () => pickChatImage(context, _sendImage),
+                  child: CircleAvatar(
+                    backgroundColor: kPrimaryColor.withOpacity(.12),
+                    child: const Icon(Icons.add, color: kPrimaryColor),
                   ),
                 ),
-
                 const SizedBox(width: 12),
-
-                // ------------ Text Field ------------
                 Expanded(
                   child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
                     decoration: BoxDecoration(
                       color: Colors.grey.shade200,
                       borderRadius: BorderRadius.circular(30),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 18),
                     child: TextField(
                       controller: _msgCtrl,
+                      maxLines: 4,
+                      minLines: 1,
                       textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _send(provider),
+                      onSubmitted: (_) => _sendText(),
                       decoration: const InputDecoration(
                         hintText: "Message...",
                         border: InputBorder.none,
@@ -711,25 +306,12 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(width: 12),
-
-                // ------------ Send Button ------------
                 GestureDetector(
-                  onTap: () => _send(provider),
-                  child: Container(
-                    height: 46,
-                    width: 46,
-                    decoration: const BoxDecoration(
-                      color: kPrimaryColor,
-                      shape: BoxShape.circle,
-                    ),
-                    alignment: Alignment.center,
-                    child: const Icon(
-                      Icons.send,
-                      color: Colors.white,
-                      size: 20,
-                    ),
+                  onTap: _sendText,
+                  child: const CircleAvatar(
+                    backgroundColor: kPrimaryColor,
+                    child: Icon(Icons.send, color: Colors.white),
                   ),
                 ),
               ],
@@ -739,255 +321,4 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
       ),
     );
   }
-
-  // ========================= IMAGE PICKER SHEET =========================
-
-  Widget _imagePickerBottomSheet() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            "Select Image",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            "Choose where to get your image from",
-            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _pickerButton(
-                "Camera",
-                "assets/icons/camera.svg",
-                ImageSource.camera,
-              ),
-              _pickerButton(
-                "Gallery",
-                "assets/icons/gallery.svg",
-                ImageSource.gallery,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          const Divider(),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel", style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _pickerButton(String label, String icon, ImageSource source) {
-    return GestureDetector(
-      onTap: () => Navigator.pop(context, source),
-      child: Column(
-        children: [
-          CircleAvatar(
-            radius: 30,
-            backgroundColor: Colors.grey.shade200,
-            child: SvgPicture.asset(icon, width: 28),
-          ),
-          const SizedBox(height: 6),
-          Text(label),
-        ],
-      ),
-    );
-  }
-
-  // ========================= SHIMMER =========================
-
-  Widget _shimmer() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: 10,
-      itemBuilder: (_, i) {
-        return Align(
-          alignment: (i % 2 == 0)
-              ? Alignment.centerLeft
-              : Alignment.centerRight,
-          child: Container(
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            height: 24,
-            width: 150 + (i % 3) * 30,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(18),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class ChatBubble extends StatelessWidget {
-  final ChatMessageResponse msg;
-  const ChatBubble({super.key, required this.msg});
-
-  bool get isMe => msg.senderType == "driver";
-
-  @override
-  Widget build(BuildContext context) {
-    final isImage = msg.messageType == "image" || msg.messageType == "file";
-    final isSending = msg.id == 0 && msg.attachmentUrl != null;
-
-    return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Column(
-        crossAxisAlignment: isMe
-            ? CrossAxisAlignment.end
-            : CrossAxisAlignment.start,
-        children: [
-          Opacity(
-            opacity: isSending ? 0.6 : 1,
-            child: Container(
-              padding: isImage ? EdgeInsets.zero : const EdgeInsets.all(14),
-              margin: const EdgeInsets.symmetric(vertical: 6),
-              constraints: const BoxConstraints(maxWidth: 260),
-              decoration: BoxDecoration(
-                color: isMe ? kPrimaryColor : kLightButtonColor,
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(18),
-                  topRight: const Radius.circular(18),
-                  bottomLeft: isMe ? const Radius.circular(18) : Radius.zero,
-                  bottomRight: isMe ? Radius.zero : const Radius.circular(18),
-                ),
-              ),
-              clipBehavior: Clip.hardEdge,
-              child: isImage ? _image(msg, isSending) : _text(msg),
-            ),
-          ),
-
-          // timestamp
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Time
-              Text(
-                formatTime(msg.createdAt),
-                style: const TextStyle(fontSize: 11, color: Colors.black45),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  String formatTime(DateTime time) {
-    final hour = time.hour % 12 == 0 ? 12 : time.hour % 12;
-    final minute = time.minute.toString().padLeft(2, '0');
-    final period = time.hour >= 12 ? "PM" : "AM";
-
-    return "$hour:$minute $period";
-  }
-
-  Widget _text(ChatMessageResponse msg) {
-    return Text(
-      msg.message ?? "",
-      style: TextStyle(
-        fontSize: 16,
-        color: isMe ? Colors.white : Colors.black87,
-      ),
-    );
-  }
-
-  // FAST Image Loader (NO packages)
-  Widget _image(ChatMessageResponse msg, bool isSending) {
-    final path = msg.attachmentUrl ?? "";
-    final isNetwork = path.startsWith("https");
-
-    return Stack(
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: SizedBox(
-            width: 230,
-            height: 230,
-            child: isNetwork
-                ? FadeInImage(
-                    placeholder: MemoryImage(kTransparentImage),
-                    image: NetworkImage(path),
-                    fit: BoxFit.cover,
-                    fadeInDuration: const Duration(milliseconds: 180),
-                    placeholderErrorBuilder: (_, __, ___) => _loadingShimmer(),
-                    imageErrorBuilder: (_, __, ___) => _imageErrorPlaceholder(),
-                  )
-                : Image.file(
-                    File(path),
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _imageErrorPlaceholder(),
-                  ),
-          ),
-        ),
-
-        // Upload overlay
-        if (isSending)
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.black38,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Center(
-                child: SizedBox(
-                  width: 28,
-                  height: 28,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.4,
-                    valueColor: AlwaysStoppedAnimation(Colors.white),
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  // Modern shimmer
-  Widget _loadingShimmer() {
-    return Shimmer.fromColors(
-      baseColor: Colors.grey.shade300,
-      highlightColor: Colors.grey.shade100,
-      child: Container(
-        width: 230,
-        height: 230,
-        decoration: BoxDecoration(
-          color: Colors.grey.shade300,
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-    );
-  }
-
-  // error fallback
-  Widget _imageErrorPlaceholder() {
-    return Container(
-      width: 230,
-      height: 230,
-      decoration: BoxDecoration(
-        color: Colors.grey.shade300,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: const Center(
-        child: Icon(Icons.broken_image, size: 40, color: Colors.black38),
-      ),
-    );
-  }
-}
-
-// TIME FORMATTER AM/PM
-String formatTime(DateTime time) {
-  final hour = time.hour % 12 == 0 ? 12 : time.hour % 12;
-  final minute = time.minute.toString().padLeft(2, '0');
-  final period = time.hour >= 12 ? "PM" : "AM";
-  return "$hour:$minute $period";
 }

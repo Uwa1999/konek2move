@@ -356,7 +356,7 @@ class ChatProvider extends ChangeNotifier {
 
   int unreadCount = 0;
 
-  // Track if chat screen is open
+  /// Track if chat screen is open
   bool isChatOpen = false;
 
   List<ChatMessageResponse> get allMessages => messages;
@@ -369,15 +369,14 @@ class ChatProvider extends ChangeNotifier {
       final res = await api.getChatMessages(chatId);
 
       final loaded = res.data;
-
       loaded.sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
       messages = loaded;
-
       initialLoad = false;
+
       notifyListeners();
     } catch (e) {
-      print("Chat load error: $e");
+      debugPrint("Chat load error: $e");
     }
   }
 
@@ -436,7 +435,6 @@ class ChatProvider extends ChangeNotifier {
           ((real.messageType == "text" && m.message == real.message) ||
               (real.messageType == "image")),
     );
-    notifyListeners();
   }
 
   // =====================================================
@@ -453,28 +451,36 @@ class ChatProvider extends ChangeNotifier {
     try {
       await api.markChatAsRead(chatId);
 
-      unreadCount = 0; // Reset badge
+      unreadCount = 0;
       notifyListeners();
     } catch (e) {
-      print("Mark as read error: $e");
+      debugPrint("Mark as read error: $e");
     }
   }
 
   // =====================================================
-  // CHAT OPEN / CLOSE
+  // CHAT OPEN / CLOSE (🔥 FIXED)
   // =====================================================
-  void setChatOpen(bool value) {
+  void setChatOpen(bool value, {bool notify = true}) {
+    if (isChatOpen == value) return;
+
     isChatOpen = value;
-    notifyListeners();
+
+    if (notify) {
+      notifyListeners();
+    }
   }
 
-  // Legacy (still useful)
+  // =====================================================
+  // UNREAD HELPERS
+  // =====================================================
   void incrementUnread() {
     unreadCount++;
     notifyListeners();
   }
 
   void clearUnread() {
+    if (unreadCount == 0) return;
     unreadCount = 0;
     notifyListeners();
   }

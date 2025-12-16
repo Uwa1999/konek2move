@@ -230,35 +230,33 @@ class ModelChatResponse {
 
 class ChatMessageResponse {
   final int id;
-
-  final String senderType;
+  final String senderType; // "driver" | "customer"
   final String senderCode;
+  final String messageType; // "text" | "image"
   final String? message;
   final String? attachmentUrl;
-  final String messageType;
   final DateTime createdAt;
 
   ChatMessageResponse({
     required this.id,
-
     required this.senderType,
     required this.senderCode,
+    required this.messageType,
     this.message,
     this.attachmentUrl,
-    required this.messageType,
     required this.createdAt,
   });
 
   factory ChatMessageResponse.fromJson(Map<String, dynamic> json) {
     return ChatMessageResponse(
-      id: json['id'] ?? 0,
-      senderType: json['sender_type'] ?? '',
-      senderCode: json['sender_code'] ?? '',
-      message: json['message'],
-      attachmentUrl: json['attachment_url'],
-      messageType: json['message_type'] ?? '',
+      id: json["id"] ?? 0,
+      senderType: json["sender_type"] ?? "",
+      senderCode: json["sender_code"] ?? "",
+      messageType: json["message_type"] ?? "text",
+      message: json["message"],
+      attachmentUrl: json["attachment_url"],
       createdAt:
-          DateTime.tryParse(json['created_at'] ?? '')?.toLocal() ??
+          DateTime.tryParse(json["created_at"] ?? "")?.toLocal() ??
           DateTime.now(),
     );
   }

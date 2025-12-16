@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,6 +8,33 @@ import 'dns_services.dart';
 import 'model_services.dart';
 
 class ApiServices {
+  static Future<ModelResponse> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("jwt_token") ?? "";
+
+    final Uri url = Uri.parse(
+      '${GetDNS.getOttokonekHestia()}/api/private/v1/moveapp/auth/signout',
+    );
+
+    final response = await http.get(
+      url,
+      headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
+    );
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> body = jsonDecode(response.body);
+      return ModelResponse.fromJson(body);
+    }
+
+    /// fallback error response
+    return ModelResponse(
+      data: ResponseData.fromJson({}),
+      message: 'Logout failed',
+      error: 'HTTP ${response.statusCode}',
+      retCode: response.statusCode.toString(),
+    );
+  }
+
   Future<ModelResponse> updateLocation({
     required String lng,
     required String lat,

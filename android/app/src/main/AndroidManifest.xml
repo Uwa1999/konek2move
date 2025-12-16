@@ -5,7 +5,8 @@
         android:name="${applicationName}"
         android:icon="@drawable/konek2move"
         android:theme="@style/AppTheme"
-        android:screenOrientation="portrait">
+        android:screenOrientation="portrait"
+        android:enableOnBackInvokedCallback="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

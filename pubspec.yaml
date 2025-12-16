@@ -96,6 +96,7 @@ flutter:
     - assets/
     - assets/icons/
     - assets/images/
+    - assets/splash/
     - assets/sounds/notification.mp3
     - assets/config/secure.json
 

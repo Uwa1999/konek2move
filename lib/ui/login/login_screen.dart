@@ -565,6 +565,11 @@ class _LoginScreenState extends State<LoginScreen> {
       duration: const Duration(seconds: 2),
       flushbarPosition: FlushbarPosition.TOP,
       animationDuration: const Duration(milliseconds: 180),
+      icon: Icon(
+        isError ? Icons.error_outline : Icons.check_circle_outline,
+        color: Colors.white,
+        size: 28,
+      ),
     ).show(context);
   }
 
@@ -593,7 +598,7 @@ class _LoginScreenState extends State<LoginScreen> {
             // ⬇️ FINAL BOTTOM PADDING FIX
             isThreeButtonNav
                 ? 16 // 3-button navigation → add 16 so button is visible
-                : safeBottom, // gesture navbar → add small buffer
+                : 16, // gesture navbar → add small buffer
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -700,29 +705,53 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
 
               // BIOMETRIC LOGIN
               if (showBiometric)
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
                   decoration: BoxDecoration(
                     color: kPrimaryColor.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(50),
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: [
+                      BoxShadow(
+                        color: kPrimaryColor.withOpacity(0.12),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                  child: TextButton.icon(
-                    style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                    onPressed: _biometricLogin,
-                    icon: Icon(Icons.fingerprint_rounded, color: kPrimaryColor),
-                    label: Text(
-                      'Login with Biometrics',
-                      style: TextStyle(
-                        color: kPrimaryColor,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 15, // ⭐ Standard button text
+                  child: Material(
+                    color: kLightButtonColor,
+                    borderRadius: BorderRadius.circular(28),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(28),
+                      onTap: _biometricLogin,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.fingerprint_rounded,
+                              color: kPrimaryColor,
+                              size: 22,
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Login with Biometrics',
+                              style: TextStyle(
+                                color: kPrimaryColor,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),

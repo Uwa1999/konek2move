@@ -1,155 +1,7 @@
-// import 'package:flutter/material.dart';
-// import 'package:konek2move/core/constants/app_colors.dart';
-// import 'package:konek2move/core/widgets/custom_button.dart';
-// import 'package:konek2move/ui/login/login_screen.dart';
-// import 'package:konek2move/ui/register/terms_and_condition_screen.dart';
-
-// class SplashScreen extends StatefulWidget {
-//   const SplashScreen({super.key});
-
-//   @override
-//   State<SplashScreen> createState() => _SplashScreenState();
-// }
-
-// class _SplashScreenState extends State<SplashScreen>
-//     with SingleTickerProviderStateMixin {
-//   late AnimationController _controller;
-//   late Animation<double> _fade;
-//   late Animation<Offset> _slide;
-
-//   @override
-//   void initState() {
-//     super.initState();
-
-//     _controller = AnimationController(
-//       vsync: this,
-//       duration: const Duration(milliseconds: 450),
-//     );
-
-//     _fade = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
-
-//     _slide = Tween<Offset>(
-//       begin: const Offset(-0.3, 0),
-//       end: Offset.zero,
-//     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-
-//     WidgetsBinding.instance.addPostFrameCallback((_) {
-//       precacheImage(const AssetImage("assets/images/splash.png"), context);
-//       if (mounted) _controller.forward();
-//     });
-//   }
-
-//   @override
-//   void dispose() {
-//     _controller.dispose();
-//     super.dispose();
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     final size = MediaQuery.of(context).size;
-//     final top = MediaQuery.of(context).padding.top;
-//     final bottom = MediaQuery.of(context).padding.bottom;
-
-//     return Scaffold(
-//       backgroundColor: Colors.white,
-//       body: SafeArea(
-//         child: Padding(
-//           padding: EdgeInsets.only(
-//             left: 24,
-//             right: 24,
-//             top: top, // ✅ Standard AppBar height
-//             bottom: bottom + 24, // ✅ Bottom safe-area + spacing
-//           ),
-
-//           child: Column(
-//             children: [
-//               FadeTransition(
-//                 opacity: _fade,
-//                 child: SlideTransition(
-//                   position: _slide,
-//                   child: Image.asset(
-//                     "assets/images/splash.png",
-//                     height: size.height * 0.40,
-//                   ),
-//                 ),
-//               ),
-
-//               const SizedBox(height: 24),
-
-//               Text(
-//                 "Ready to Move with",
-//                 textAlign: TextAlign.center,
-//                 style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800),
-//               ),
-//               Text(
-//                 "Konek2Move?",
-//                 textAlign: TextAlign.center,
-//                 style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800),
-//               ),
-
-//               const SizedBox(height: 16),
-
-//               const Text(
-//                 "Seamless logistics that move your CARD Indogrosir orders safety to your store.",
-//                 textAlign: TextAlign.center,
-//                 style: TextStyle(
-//                   fontSize: 16,
-//                   color: Colors.grey,
-//                   height: 1.7,
-//                   fontWeight: FontWeight.w500,
-//                 ),
-//               ),
-
-//               const Spacer(),
-
-//               // ===== BUTTONS =====
-//               CustomButton(
-//                 radius: 30,
-//                 horizontalPadding: 0,
-//                 text: "Get Started",
-//                 color: kPrimaryColor,
-//                 textColor: Colors.white,
-//                 onTap: () {
-//                   Navigator.push(
-//                     context,
-//                     MaterialPageRoute(
-//                       builder: (_) => TermsAndConditionScreen(),
-//                     ),
-//                   );
-//                 },
-//               ),
-
-//               const SizedBox(height: 10),
-
-//               CustomButton(
-//                 radius: 30,
-//                 horizontalPadding: 0,
-//                 text: "Login",
-//                 color: kWhiteButtonColor,
-//                 textColor: kPrimaryColor,
-//                 borderColor: kPrimaryColor,
-//                 onTap: () {
-//                   Navigator.push(
-//                     context,
-//                     MaterialPageRoute(builder: (_) => LoginScreen()),
-//                   );
-//                 },
-//               ),
-//             ],
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }
-
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
-import 'package:konek2move/core/widgets/custom_button.dart';
-import 'package:konek2move/ui/login/login_screen.dart';
-import 'package:konek2move/ui/register/register_screen.dart';
-import 'package:konek2move/ui/register/terms_and_condition_screen.dart';
+import 'package:konek2move/ui/splash/landing_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -162,82 +14,72 @@ class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
-  late Animation<double> _fadeImage = const AlwaysStoppedAnimation(0.0);
-  late Animation<Offset> _slideImage = const AlwaysStoppedAnimation(
-    Offset.zero,
-  );
-  late Animation<double> _scaleImage = const AlwaysStoppedAnimation(1.0);
-
-  late Animation<double> _fadeText = const AlwaysStoppedAnimation(0.0);
-  late Animation<Offset> _slideText = const AlwaysStoppedAnimation(Offset.zero);
-
-  late Animation<double> _fadeButtons = const AlwaysStoppedAnimation(0.0);
-  late Animation<Offset> _slideButtons = const AlwaysStoppedAnimation(
-    Offset.zero,
-  );
+  late Animation<double> _logoScale;
+  late Animation<double> _logoFade;
+  late Animation<double> _glowPulse;
+  late Animation<Offset> _textSlide;
+  late Animation<double> _textFade;
 
   @override
   void initState() {
     super.initState();
 
+    // ⏱ Smooth, production timing
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 2800),
     );
 
-    // ===== IMAGE ANIMATION =====
-    _fadeImage = CurvedAnimation(
+    _logoFade = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(0.0, 0.45, curve: Curves.easeOut),
+      curve: const Interval(0.0, 0.35, curve: Curves.easeIn),
     );
 
-    _slideImage = Tween<Offset>(begin: const Offset(0, 0.15), end: Offset.zero)
-        .animate(
-          CurvedAnimation(
-            parent: _controller,
-            curve: const Interval(0.0, 0.45, curve: Curves.easeOut),
-          ),
-        );
-
-    _scaleImage = Tween<double>(begin: 0.92, end: 1.0).animate(
+    _logoScale = Tween<double>(begin: 0.9, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
         curve: const Interval(0.0, 0.45, curve: Curves.easeOutBack),
       ),
     );
 
-    // ===== TEXT ANIMATION =====
-    _fadeText = CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.45, 0.75, curve: Curves.easeOut),
+    _glowPulse = Tween<double>(begin: 0.85, end: 1.1).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.25, 0.85, curve: Curves.easeInOut),
+      ),
     );
 
-    _slideText = Tween<Offset>(begin: const Offset(0, 0.15), end: Offset.zero)
+    _textSlide = Tween<Offset>(begin: const Offset(0, 0.25), end: Offset.zero)
         .animate(
           CurvedAnimation(
             parent: _controller,
-            curve: const Interval(0.45, 0.75, curve: Curves.easeOut),
+            curve: const Interval(0.55, 1.0, curve: Curves.easeOutCubic),
           ),
         );
 
-    // ===== BUTTON ANIMATION =====
-    _fadeButtons = CurvedAnimation(
+    _textFade = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(0.75, 1.0, curve: Curves.easeOut),
+      curve: const Interval(0.55, 1.0, curve: Curves.easeIn),
     );
 
-    _slideButtons =
-        Tween<Offset>(begin: const Offset(0, 0.25), end: Offset.zero).animate(
-          CurvedAnimation(
-            parent: _controller,
-            curve: const Interval(0.75, 1.0, curve: Curves.easeOut),
-          ),
-        );
+    _controller.forward();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      precacheImage(const AssetImage("assets/images/splash.png"), context);
-      if (mounted) _controller.forward();
-    });
+    // 🚀 Production splash duration
+    Timer(const Duration(milliseconds: 3800), _goNext);
+  }
+
+  void _goNext() {
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 600),
+        pageBuilder: (_, __, ___) => const LandingScreen(),
+        transitionsBuilder: (_, animation, __, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
   }
 
   @override
@@ -248,123 +90,108 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final top = MediaQuery.of(context).padding.top;
-    final bottom = MediaQuery.of(context).padding.bottom;
-
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.only(
-            left: 24,
-            right: 24,
-            top: top, // Standard AppBar height spacing
-            bottom: bottom + 24,
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFEAF6F0), Color(0xFFFFFFFF)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
+        ),
+        child: Center(
+          child: FadeTransition(
+            opacity: _logoFade,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 🌟 Logo + Soft Glow
+                ScaleTransition(
+                  scale: _logoScale,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      ScaleTransition(
+                        scale: _glowPulse,
+                        child: Container(
+                          width: 180,
+                          height: 180,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: kPrimaryColor.withOpacity(0.08),
+                          ),
+                        ),
+                      ),
+                      Image.asset(
+                        'assets/splash/konek2move.png',
+                        width: 140,
+                        height: 140,
+                        fit: BoxFit.contain,
+                      ),
+                    ],
+                  ),
+                ),
 
-          child: Column(
-            children: [
-              // ===== IMAGE =====
-              FadeTransition(
-                opacity: _fadeImage,
-                child: SlideTransition(
-                  position: _slideImage,
-                  child: ScaleTransition(
-                    scale: _scaleImage,
-                    child: Image.asset(
-                      "assets/images/splash.png",
-                      height: size.height * 0.40,
+                const SizedBox(height: 40),
+
+                // 📝 Brand Text (Production Copy)
+                SlideTransition(
+                  position: _textSlide,
+                  child: FadeTransition(
+                    opacity: _textFade,
+                    child: Column(
+                      children: [
+                        // 🔤 App Name
+                        const Text(
+                          'Konek2Move',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.9,
+                            color: kPrimaryColor,
+                            shadows: [
+                              Shadow(
+                                offset: Offset(0, 2),
+                                blurRadius: 6,
+                                color: Colors.black12,
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 14),
+
+                        // 🏷 Production Tagline
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 7,
+                          ),
+                          decoration: BoxDecoration(
+                            color: kPrimaryColor.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(22),
+                          ),
+                          child: const Text(
+                            'Reliable delivery and logistics platform',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14.5,
+                              height: 1.4,
+                              letterSpacing: 0.2,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF3A3A3A),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // ===== TEXT CONTENT =====
-              FadeTransition(
-                opacity: _fadeText,
-                child: SlideTransition(
-                  position: _slideText,
-                  child: Column(
-                    children: const [
-                      Text(
-                        "Ready to Move with",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      Text(
-                        "Konek2Move?",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        "Seamless logistics that move your CARD Indogrosir orders safety to your store.",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey,
-                          height: 1.7,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const Spacer(),
-
-              // ===== BUTTONS =====
-              FadeTransition(
-                opacity: _fadeButtons,
-                child: SlideTransition(
-                  position: _slideButtons,
-                  child: Column(
-                    children: [
-                      CustomButton(
-                        radius: 24,
-                        text: "Get Started",
-                        color: kPrimaryColor,
-                        textColor: Colors.white,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => TermsAndConditionScreen(),
-                            ),
-                          );
-                        },
-                      ),
-
-                      const SizedBox(height: 10),
-
-                      CustomButton(
-                        radius: 24,
-                        text: "Login",
-                        color: kWhiteButtonColor,
-                        textColor: kPrimaryColor,
-                        borderColor: kPrimaryColor,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => LoginScreen()),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

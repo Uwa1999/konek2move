@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
@@ -22,6 +23,7 @@ class OrderScreen extends StatefulWidget {
 class _OrderScreenState extends State<OrderScreen> {
   final TextEditingController searchController = TextEditingController();
   final TextEditingController _cancelReasonCtrl = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
 
   bool _isCancelling = false;
   bool isLoading = true;
@@ -65,6 +67,7 @@ class _OrderScreenState extends State<OrderScreen> {
     _cancelReasonCtrl.dispose();
     _searchDebounce?.cancel();
     searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -153,14 +156,24 @@ class _OrderScreenState extends State<OrderScreen> {
   // =====================================================
 
   void _showTopMessage(String message, {bool isError = false}) {
+    if (!mounted) return;
+
     Flushbar(
       backgroundColor: isError ? Colors.redAccent : Colors.green,
       margin: const EdgeInsets.all(16),
       borderRadius: BorderRadius.circular(12),
-      message: message,
-      duration: const Duration(seconds: 2),
+      duration: const Duration(seconds: 3),
       flushbarPosition: FlushbarPosition.TOP,
       animationDuration: const Duration(milliseconds: 180),
+      icon: Icon(
+        isError ? Icons.error_outline : Icons.check_circle_outline,
+        color: Colors.white,
+        size: 26,
+      ),
+      messageText: Text(
+        message,
+        style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.3),
+      ),
     ).show(context);
   }
 
@@ -222,46 +235,61 @@ class _OrderScreenState extends State<OrderScreen> {
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      child: Container(
-        height: 50,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.search),
-            const SizedBox(width: 10),
-            Expanded(
-              child: TextField(
-                controller: searchController,
-                decoration: const InputDecoration(
-                  hintText: "Search order...",
-                  border: InputBorder.none,
+      child: AnimatedBuilder(
+        animation: _searchFocusNode,
+        builder: (_, __) {
+          final isFocused = _searchFocusNode.hasFocus;
+
+          return Container(
+            height: 50,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isFocused ? kPrimaryColor : Colors.grey.shade300,
+                width: isFocused ? 1.6 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.search,
+                  color: isFocused ? kPrimaryColor : Colors.grey,
                 ),
-              ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: searchController,
+                    focusNode: _searchFocusNode,
+                    decoration: const InputDecoration(
+                      hintText: "Search order no...",
+                      border: InputBorder.none,
+                    ),
+                  ),
+                ),
+                if (searchController.text.isNotEmpty)
+                  GestureDetector(
+                    onTap: () {
+                      searchController.clear();
+                      _fetchOrders();
+                      setState(() {}); // refresh clear icon
+                    },
+                    child: const Icon(Icons.close, color: kPrimaryRedColor),
+                  ),
+                const SizedBox(width: 6),
+                GestureDetector(
+                  onTap: _showStatusFilter,
+                  child: Icon(
+                    Icons.filter_list,
+                    color: _selectedStatus == null
+                        ? Colors.grey.shade600
+                        : kPrimaryColor,
+                  ),
+                ),
+              ],
             ),
-            if (searchController.text.isNotEmpty)
-              GestureDetector(
-                onTap: () {
-                  searchController.clear();
-                  _fetchOrders();
-                },
-                child: const Icon(Icons.close, color: kPrimaryRedColor),
-              ),
-            const SizedBox(width: 6),
-            GestureDetector(
-              onTap: _showStatusFilter,
-              child: Icon(
-                Icons.filter_list,
-                color: _selectedStatus == null
-                    ? Colors.grey.shade600
-                    : kPrimaryColor,
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -416,6 +444,11 @@ class _OrderScreenState extends State<OrderScreen> {
                     TextField(
                       controller: _cancelReasonCtrl,
                       maxLines: 3,
+                      textInputAction: TextInputAction.done,
+                      inputFormatters: [
+                        // Prevent leading spaces
+                        FilteringTextInputFormatter.deny(RegExp(r'^\s')),
+                      ],
                       decoration: InputDecoration(
                         hintText: "Enter cancellation reason",
                         filled: true,

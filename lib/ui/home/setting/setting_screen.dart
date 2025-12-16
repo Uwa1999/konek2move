@@ -2,6 +2,7 @@ import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
+import 'package:konek2move/core/services/api_services.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
 import 'package:konek2move/ui/home/setting/change_password_screen.dart';
 import 'package:local_auth/local_auth.dart';
@@ -173,8 +174,58 @@ class _SettingScreenState extends State<SettingScreen> {
           borderColor: kPrimaryRedColor,
           color: kWhiteButtonColor,
           textColor: kPrimaryRedColor,
-          onTap: () {
-            Navigator.pushReplacementNamed(context, '/login');
+          onTap: () async {
+            final response = await ApiServices.logout();
+            if (!context.mounted) return;
+
+            final isSuccess =
+                response.retCode == '200' || response.retCode == '202';
+
+            if (isSuccess) {
+              final prefs = await SharedPreferences.getInstance();
+
+              // ✅ ONLY remove token (biometric + saved email/password stay)
+              await prefs.remove("jwt_token");
+
+              Flushbar(
+                backgroundColor: Colors.green,
+                icon: const Icon(
+                  Icons.check_circle_outline,
+                  color: Colors.white,
+                  size: 28,
+                ),
+                message: response.message,
+                margin: const EdgeInsets.all(16),
+                borderRadius: BorderRadius.circular(12),
+                duration: const Duration(seconds: 3),
+                flushbarPosition: FlushbarPosition.TOP,
+                animationDuration: const Duration(milliseconds: 180),
+              ).show(context);
+
+              await Future.delayed(const Duration(milliseconds: 600));
+              if (!context.mounted) return;
+
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/login',
+                (_) => false,
+              );
+            } else {
+              Flushbar(
+                icon: const Icon(
+                  Icons.error_outline,
+                  color: Colors.white,
+                  size: 28,
+                ),
+                backgroundColor: Colors.redAccent,
+                message: response.message,
+                margin: const EdgeInsets.all(16),
+                borderRadius: BorderRadius.circular(12),
+                duration: const Duration(seconds: 3),
+                flushbarPosition: FlushbarPosition.TOP,
+                animationDuration: const Duration(milliseconds: 180),
+              ).show(context);
+            }
           },
         ),
       ),
