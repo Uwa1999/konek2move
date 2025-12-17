@@ -94,6 +94,117 @@ class _SettingScreenState extends State<SettingScreen> {
     );
   }
 
+  void _showLogoutSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Log out?',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Are you sure you want to log out of your account?',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey.shade600),
+                ),
+                const SizedBox(height: 24),
+
+                /// ✅ YES → SHOW ALERT DIALOG
+                CustomButton(
+                  text: "Yes, log out",
+                  color: kPrimaryRedColor,
+                  textColor: kDefaultIconLightColor,
+                  onTap: () async {
+                    final response = await ApiServices.logout();
+                    if (!context.mounted) return;
+
+                    final isSuccess =
+                        response.retCode == '200' || response.retCode == '202';
+
+                    if (isSuccess) {
+                      final prefs = await SharedPreferences.getInstance();
+
+                      // ✅ ONLY remove token (biometric + saved email/password stay)
+                      await prefs.remove("jwt_token");
+
+                      Flushbar(
+                        backgroundColor: Colors.green,
+                        icon: const Icon(
+                          Icons.check_circle_outline,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                        message: response.message,
+                        margin: const EdgeInsets.all(16),
+                        borderRadius: BorderRadius.circular(12),
+                        duration: const Duration(seconds: 3),
+                        flushbarPosition: FlushbarPosition.TOP,
+                        animationDuration: const Duration(milliseconds: 180),
+                      ).show(context);
+
+                      await Future.delayed(const Duration(milliseconds: 600));
+                      if (!context.mounted) return;
+
+                      Navigator.pushNamedAndRemoveUntil(
+                        context,
+                        '/login',
+                        (_) => false,
+                      );
+                    } else {
+                      Flushbar(
+                        icon: const Icon(
+                          Icons.error_outline,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                        backgroundColor: Colors.redAccent,
+                        message: response.message,
+                        margin: const EdgeInsets.all(16),
+                        borderRadius: BorderRadius.circular(12),
+                        duration: const Duration(seconds: 3),
+                        flushbarPosition: FlushbarPosition.TOP,
+                        animationDuration: const Duration(milliseconds: 180),
+                      ).show(context);
+                    }
+                  },
+                ),
+
+                const SizedBox(height: 10),
+
+                CustomButton(
+                  text: 'No, stay logged in',
+                  color: kLightButtonColor,
+                  textColor: kPrimaryColor,
+                  onTap: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   // Modern Top Flushbar function (reusable)
   void _showTopMessage(
     BuildContext context, {
@@ -174,59 +285,7 @@ class _SettingScreenState extends State<SettingScreen> {
           borderColor: kPrimaryRedColor,
           color: kWhiteButtonColor,
           textColor: kPrimaryRedColor,
-          onTap: () async {
-            final response = await ApiServices.logout();
-            if (!context.mounted) return;
-
-            final isSuccess =
-                response.retCode == '200' || response.retCode == '202';
-
-            if (isSuccess) {
-              final prefs = await SharedPreferences.getInstance();
-
-              // ✅ ONLY remove token (biometric + saved email/password stay)
-              await prefs.remove("jwt_token");
-
-              Flushbar(
-                backgroundColor: Colors.green,
-                icon: const Icon(
-                  Icons.check_circle_outline,
-                  color: Colors.white,
-                  size: 28,
-                ),
-                message: response.message,
-                margin: const EdgeInsets.all(16),
-                borderRadius: BorderRadius.circular(12),
-                duration: const Duration(seconds: 3),
-                flushbarPosition: FlushbarPosition.TOP,
-                animationDuration: const Duration(milliseconds: 180),
-              ).show(context);
-
-              await Future.delayed(const Duration(milliseconds: 600));
-              if (!context.mounted) return;
-
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                '/login',
-                (_) => false,
-              );
-            } else {
-              Flushbar(
-                icon: const Icon(
-                  Icons.error_outline,
-                  color: Colors.white,
-                  size: 28,
-                ),
-                backgroundColor: Colors.redAccent,
-                message: response.message,
-                margin: const EdgeInsets.all(16),
-                borderRadius: BorderRadius.circular(12),
-                duration: const Duration(seconds: 3),
-                flushbarPosition: FlushbarPosition.TOP,
-                animationDuration: const Duration(milliseconds: 180),
-              ).show(context);
-            }
-          },
+          onTap: () => _showLogoutSheet(),
         ),
       ),
     );

@@ -157,10 +157,9 @@ class _EmailScreenState extends State<EmailScreen> {
             // ⬇️ FINAL BOTTOM PADDING FIX
             isThreeButtonNav
                 ? 16 // 3-button navigation → add 16 so button is visible
-                : safeBottom + 24, // gesture navbar → add small buffer
+                : safeBottom + 16, // gesture navbar → add small buffer
           ),
           child: CustomButton(
-            radius: 30,
             text: isLoading ? "Sending..." : "Continue",
             horizontalPadding: 0,
             textColor: Colors.white,

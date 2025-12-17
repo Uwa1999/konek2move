@@ -234,7 +234,7 @@ class _OrderScreenState extends State<OrderScreen> {
   // =====================================================
   Widget _buildSearchBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       child: AnimatedBuilder(
         animation: _searchFocusNode,
         builder: (_, __) {

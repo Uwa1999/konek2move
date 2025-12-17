@@ -347,8 +347,6 @@ class _TermsAndConditionScreenState extends State<TermsAndConditionScreen> {
               content:
                   "For any questions or concerns regarding these terms, please contact our support team via the app or email.",
             ),
-
-            SizedBox(height: 120), // space before bottom
           ],
         ),
       ),
@@ -390,7 +388,7 @@ class _TermsAndConditionScreenState extends State<TermsAndConditionScreen> {
               // ⬇️ FINAL BOTTOM PADDING FIX
               isThreeButtonNav
                   ? 16 // 3-button navigation → add 16 so button is visible
-                  : safeBottom + 24, // gesture navbar → add small buffer
+                  : safeBottom + 16, // gesture navbar → add small buffer
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -436,10 +434,9 @@ class _TermsAndConditionScreenState extends State<TermsAndConditionScreen> {
                   ],
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 10),
 
                 CustomButton(
-                  radius: 30,
                   text: "Continue",
                   horizontalPadding: 0,
                   textColor: Colors.white,

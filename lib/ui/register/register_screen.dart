@@ -1254,7 +1254,6 @@
 import 'dart:io';
 
 import 'package:another_flushbar/flushbar.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:image_picker/image_picker.dart';
@@ -1630,44 +1629,83 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+      resizeToAvoidBottomInset: true,
 
-      // ---------- FIXED DEFAULT APP BAR ----------
       appBar: CustomAppBar(
         title: "Registration",
         leadingIcon: Icons.arrow_back,
       ),
 
-      // ---------- CONTENT ----------
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildProgressSteps(),
-            const SizedBox(height: 16),
+      body: Column(
+        children: [
+          /// Progress steps (fixed height)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+            child: _buildProgressSteps(),
+          ),
 
-            // PageView with fixed height so layout is stable
-            SizedBox(
-              height: MediaQuery.of(context).size.height * 0.75,
-              child: PageView(
-                controller: _pageController,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  _buildPersonalInfoStep(),
-                  _buildContactInfoStep(),
-                  _buildVehicleInfoStep(),
-                  _buildSetupPasswordStep(),
-                ],
-              ),
+          /// Dynamic pages
+          Expanded(
+            child: PageView(
+              controller: _pageController,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                _buildPersonalInfoStep(),
+                _buildContactInfoStep(),
+                _buildVehicleInfoStep(),
+                _buildSetupPasswordStep(),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
 
-      // ---------- DEFAULT BOTTOM NAV BAR ----------
       bottomNavigationBar: _buildBottomAction(context),
     );
   }
+
+  // @override
+  // Widget build(BuildContext context) {
+  //   return Scaffold(
+  //     backgroundColor: Colors.white,
+  //
+  //     // ---------- FIXED DEFAULT APP BAR ----------
+  //     appBar: CustomAppBar(
+  //       title: "Registration",
+  //       leadingIcon: Icons.arrow_back,
+  //     ),
+  //
+  //     // ---------- CONTENT ----------
+  //     body: SingleChildScrollView(
+  //       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+  //       child: Column(
+  //         crossAxisAlignment: CrossAxisAlignment.start,
+  //         children: [
+  //           _buildProgressSteps(),
+  //           const SizedBox(height: 16),
+  //
+  //           // PageView with fixed height so layout is stable
+  //           SizedBox(
+  //             height: MediaQuery.of(context).size.height * 0.75,
+  //             child: PageView(
+  //               controller: _pageController,
+  //               physics: const NeverScrollableScrollPhysics(),
+  //               children: [
+  //                 _buildPersonalInfoStep(),
+  //                 _buildContactInfoStep(),
+  //                 _buildVehicleInfoStep(),
+  //                 _buildSetupPasswordStep(),
+  //               ],
+  //             ),
+  //           ),
+  //         ],
+  //       ),
+  //     ),
+  //
+  //     // ---------- DEFAULT BOTTOM NAV BAR ----------
+  //     bottomNavigationBar: _buildBottomAction(context),
+  //   );
+  // }
 
   // ---------------------------------------------------------
   // STEP PROGRESS INDICATOR WITH CONSISTENT SPACING
@@ -1795,7 +1833,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           // ⬇️ FINAL BOTTOM PADDING FIX
           isThreeButtonNav
               ? 16 // 3-button navigation → add 16 so button is visible
-              : safeBottom + 24, // gesture navbar → add small buffer
+              : safeBottom + 16, // gesture navbar → add small buffer
         ),
         color: Colors.white,
         child: Row(
@@ -1803,15 +1841,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
             if (_currentStep > 0)
               Expanded(
                 child: CustomButton(
-                  radius: 30,
-                  icon: const Icon(CupertinoIcons.back),
+                  text: "Back", // ✅ TEXT ONLY
                   horizontalPadding: 0,
                   color: Colors.grey,
                   textColor: Colors.white,
                   onTap: () {
-                    setState(() {
-                      _currentStep--;
-                    });
+                    setState(() => _currentStep--);
                     _pageController.animateToPage(
                       _currentStep,
                       duration: const Duration(milliseconds: 300),
@@ -1825,12 +1860,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
             Expanded(
               child: CustomButton(
-                radius: 30,
-                text: isLastStep
-                    ? "Finish"
-                    : _currentStep == 0
-                    ? "Next"
-                    : "Next Step",
+                text: isLastStep ? "Submit" : "Next",
                 horizontalPadding: 0,
                 color: canProceed ? kPrimaryColor : Colors.grey,
                 textColor: Colors.white,
@@ -1839,9 +1869,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         if (isLastStep) {
                           _onRegister();
                         } else {
-                          setState(() {
-                            _currentStep++;
-                          });
+                          setState(() => _currentStep++);
                           _pageController.animateToPage(
                             _currentStep,
                             duration: const Duration(milliseconds: 300),
@@ -1862,35 +1890,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   // STEP 1 — PERSONAL INFO
   // ---------------------------------------------------------
   Widget _buildPersonalInfoStep() {
-    return SingleChildScrollView(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
+    return _stepWrapper(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Text(
-                  "Create an account to start delivering",
-                  style: TextStyle(
-                    color: kPrimaryColor,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Image.asset(
-                "assets/images/register.png",
-                height: 120,
-                fit: BoxFit.contain,
-              ),
-            ],
+          _stepHeader(
+            title: "Create an account to start delivering",
+            image: "assets/images/register.png",
           ),
-
           const SizedBox(height: 16),
 
           CustomInputField(
@@ -1923,7 +1930,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(width: 16),
               Expanded(
-                flex: 1,
                 child: CustomDropdownField(
                   label: "Suffix",
                   hint: "Suffix",
@@ -1955,8 +1961,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               });
             },
           ),
-
-          const SizedBox(height: 32),
         ],
       ),
     );
@@ -1966,41 +1970,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
   // STEP 2 — CONTACT INFO
   // ---------------------------------------------------------
   Widget _buildContactInfoStep() {
-    return SingleChildScrollView(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
+    return _stepWrapper(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Text(
-                  "We’ll need your contact details",
-                  style: TextStyle(
-                    color: kPrimaryColor,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Image.asset(
-                "assets/images/contact.png",
-                height: 120,
-                fit: BoxFit.contain,
-              ),
-            ],
+          _stepHeader(
+            title: "We’ll need your contact details",
+            image: "assets/images/contact.png",
           ),
-
           const SizedBox(height: 16),
 
           CustomInputField(
             required: true,
             label: "Mobile Number",
-            hint: "e.g., 09123456789",
+            hint: "09123456789",
             controller: _mobileController,
             keyboardType: TextInputType.phone,
             maxLength: 11,
@@ -2022,8 +2005,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             hint: "House No., Street, Barangay, City",
             controller: _addressController,
           ),
-
-          const SizedBox(height: 32),
         ],
       ),
     );
@@ -2033,35 +2014,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   // STEP 3 — VEHICLE INFO
   // ---------------------------------------------------------
   Widget _buildVehicleInfoStep() {
-    return SingleChildScrollView(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
+    return _stepWrapper(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Text(
-                  "Please provide your vehicle details",
-                  style: TextStyle(
-                    color: kPrimaryColor,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Image.asset(
-                "assets/images/vehicle.png",
-                height: 120,
-                fit: BoxFit.contain,
-              ),
-            ],
+          _stepHeader(
+            title: "Please provide your vehicle details",
+            image: "assets/images/vehicle.png",
           ),
-
           const SizedBox(height: 16),
 
           _buildDocumentUploadItem(
@@ -2071,9 +2031,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             imageFile: _drivingLicenseFront,
             onUploadTap: () {
               _pickImage((file) {
-                setState(() {
-                  _drivingLicenseFront = file;
-                });
+                setState(() => _drivingLicenseFront = file);
               }, context);
             },
           ),
@@ -2087,9 +2045,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             imageFile: _drivingLicenseBack,
             onUploadTap: () {
               _pickImage((file) {
-                setState(() {
-                  _drivingLicenseBack = file;
-                });
+                setState(() => _drivingLicenseBack = file);
               }, context);
             },
           ),
@@ -2099,10 +2055,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
           CustomInputField(
             required: true,
             label: "Driver’s License Number",
-            hint: "Driver’s License Number",
+            hint: "License Number",
             controller: _licenseController,
             maxLength: 12,
           ),
+
+          const SizedBox(height: 16),
 
           CustomDropdownField(
             label: "Vehicle Type",
@@ -2117,8 +2075,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               });
             },
           ),
-
-          const SizedBox(height: 32),
         ],
       ),
     );
@@ -2128,35 +2084,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   // STEP 4 — SET UP PASSWORD
   // ---------------------------------------------------------
   Widget _buildSetupPasswordStep() {
-    return SingleChildScrollView(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
+    return _stepWrapper(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Text(
-                  "We’ll need to set-up your password",
-                  style: TextStyle(
-                    color: kPrimaryColor,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Image.asset(
-                "assets/images/password.png",
-                height: 120,
-                fit: BoxFit.contain,
-              ),
-            ],
+          _stepHeader(
+            title: "We’ll need to set up your password",
+            image: "assets/images/password.png",
           ),
-
           const SizedBox(height: 16),
 
           CustomInputField(
@@ -2165,7 +2100,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             hint: "Enter your password",
             controller: _passwordController,
             obscure: !_isPasswordVisible,
-            prefixSvg: "assets/icons/lock.svg",
             suffixSvg: _isPasswordVisible
                 ? "assets/icons/open_eye.svg"
                 : "assets/icons/close_eye.svg",
@@ -2181,7 +2115,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             hint: "Re-enter your password",
             controller: _confirmPasswordController,
             obscure: !_isConfirmPasswordVisible,
-            prefixSvg: "assets/icons/lock.svg",
             suffixSvg: _isConfirmPasswordVisible
                 ? "assets/icons/open_eye.svg"
                 : "assets/icons/close_eye.svg",
@@ -2189,8 +2122,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               () => _isConfirmPasswordVisible = !_isConfirmPasswordVisible,
             ),
           ),
-
-          const SizedBox(height: 32),
         ],
       ),
     );
@@ -2281,6 +2212,49 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _stepWrapper({required Widget child}) {
+    final media = MediaQuery.of(context);
+
+    return SafeArea(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(
+              24,
+              0,
+              24,
+              media.viewInsets.bottom + media.padding.bottom + 16,
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: child,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _stepHeader({required String title, required String image}) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            style: TextStyle(
+              color: kPrimaryColor,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Image.asset(image, height: 100, fit: BoxFit.contain),
+      ],
     );
   }
 }

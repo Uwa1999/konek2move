@@ -265,7 +265,7 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
         child: ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           child: Container(
-            padding: EdgeInsets.fromLTRB(24, 16, 24, safeBottom + 24),
+            padding: EdgeInsets.fromLTRB(24, 16, 24, safeBottom + 16),
             decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [

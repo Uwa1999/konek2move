@@ -308,10 +308,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
             24,
             isThreeButtonNav
                 ? 16 // 3-button nav phones
-                : safeBottom + 24, // gesture nav phones
+                : safeBottom + 16, // gesture nav phones
           ),
           child: CustomButton(
-            radius: 30,
             text: isLoading ? "Sending..." : "Continue",
             horizontalPadding: 0,
             textColor: Colors.white,

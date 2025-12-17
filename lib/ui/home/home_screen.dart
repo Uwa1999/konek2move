@@ -307,9 +307,11 @@
 //   }
 // }
 
+import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
+import 'package:konek2move/core/services/api_services.dart';
 import 'package:konek2move/core/services/driver_location_services.dart';
 import 'package:konek2move/core/services/provider_services.dart';
 import 'package:konek2move/core/widgets/custom_home_appbar.dart';
@@ -431,7 +433,7 @@ class _HomeScreenState extends State<HomeScreen> {
       bottom: false, // ← SAME FIX as _buildBottomAction
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.transparent,
+          color: Colors.white12,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.10),
@@ -452,7 +454,7 @@ class _HomeScreenState extends State<HomeScreen> {
               // ⬇️ SAME LOGIC AS YOUR FIXED CODE
               isThreeButtonNav
                   ? 16 // 3-button nav → fixed 16 padding
-                  : safeBottom + 24, // gesture nav → safe inset + 16
+                  : safeBottom + 16, // gesture nav → safe inset + 16
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -536,22 +538,17 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // =============================================================
-  // EXIT CONFIRMATION
-  // =============================================================
   void _showExitSheet() {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) {
         return SafeArea(
-          top: false,
           child: Padding(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, 24),
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -565,32 +562,85 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 20),
                 const Text(
-                  "Leave now?",
+                  'Leave now?',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Text(
-                  "Are you sure you want to close the app?",
+                  'Are you sure you want to close the app?',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                  style: TextStyle(color: Colors.grey.shade600),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
+
+                /// ✅ YES → SHOW ALERT DIALOG
                 CustomButton(
-                  text: "Confirm Exit",
+                  text: "Yes, Leave",
                   color: kPrimaryRedColor,
                   textColor: kDefaultIconLightColor,
-                  onTap: () {
-                    Navigator.pop(context);
+                  onTap: () async {
+                    final response = await ApiServices.logout();
+                    if (!context.mounted) return;
+
+                    final isSuccess =
+                        response.retCode == '200' || response.retCode == '202';
+
+                    if (isSuccess) {
+                      final prefs = await SharedPreferences.getInstance();
+
+                      // ✅ ONLY remove token (biometric + saved email/password stay)
+                      await prefs.remove("jwt_token");
+
+                      Flushbar(
+                        backgroundColor: Colors.green,
+                        icon: const Icon(
+                          Icons.check_circle_outline,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                        message: response.message,
+                        margin: const EdgeInsets.all(16),
+                        borderRadius: BorderRadius.circular(12),
+                        duration: const Duration(seconds: 3),
+                        flushbarPosition: FlushbarPosition.TOP,
+                        animationDuration: const Duration(milliseconds: 180),
+                      ).show(context);
+
+                      await Future.delayed(const Duration(milliseconds: 600));
+                      if (!context.mounted) return;
+
+                      Navigator.pushNamedAndRemoveUntil(
+                        context,
+                        '/login',
+                        (_) => false,
+                      );
+                    } else {
+                      Flushbar(
+                        icon: const Icon(
+                          Icons.error_outline,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                        backgroundColor: Colors.redAccent,
+                        message: response.message,
+                        margin: const EdgeInsets.all(16),
+                        borderRadius: BorderRadius.circular(12),
+                        duration: const Duration(seconds: 3),
+                        flushbarPosition: FlushbarPosition.TOP,
+                        animationDuration: const Duration(milliseconds: 180),
+                      ).show(context);
+                    }
                   },
                 ),
+
                 const SizedBox(height: 10),
+
                 CustomButton(
-                  text: "Keep App Open",
+                  text: 'No, stay logged in',
                   color: kLightButtonColor,
                   textColor: kPrimaryColor,
                   onTap: () => Navigator.pop(context),
                 ),
-                const SizedBox(height: 10),
               ],
             ),
           ),

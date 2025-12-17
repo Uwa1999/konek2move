@@ -91,6 +91,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: kLightButtonColor,
       body: Container(
         width: double.infinity,
         height: double.infinity,
@@ -116,8 +117,8 @@ class _SplashScreenState extends State<SplashScreen>
                       ScaleTransition(
                         scale: _glowPulse,
                         child: Container(
-                          width: 180,
-                          height: 180,
+                          width: 160,
+                          height: 160,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: kPrimaryColor.withOpacity(0.08),
@@ -126,8 +127,8 @@ class _SplashScreenState extends State<SplashScreen>
                       ),
                       Image.asset(
                         'assets/splash/konek2move.png',
-                        width: 140,
-                        height: 140,
+                        width: 120,
+                        height: 120,
                         fit: BoxFit.contain,
                       ),
                     ],

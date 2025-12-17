@@ -150,6 +150,7 @@ import 'package:flutter/services.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
 import 'package:konek2move/ui/login/login_screen.dart';
+import 'package:konek2move/ui/register/register_screen.dart';
 import 'package:konek2move/ui/register/terms_and_condition_screen.dart';
 
 class LandingScreen extends StatefulWidget {
@@ -352,7 +353,7 @@ class _LandingScreenState extends State<LandingScreen>
                   child: Column(
                     children: [
                       CustomButton(
-                        radius: 24,
+                        horizontalPadding: 16,
                         text: "Get Started",
                         color: kPrimaryColor,
                         textColor: Colors.white,
@@ -360,7 +361,7 @@ class _LandingScreenState extends State<LandingScreen>
                       ),
                       const SizedBox(height: 10),
                       CustomButton(
-                        radius: 24,
+                        horizontalPadding: 16,
                         text: "Login",
                         color: kWhiteButtonColor,
                         textColor: kPrimaryColor,

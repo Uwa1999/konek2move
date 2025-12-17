@@ -2544,7 +2544,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
           if (!_isFullScreen)
             Expanded(
               child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(16, 16, 16, safeBottom + 24),
+                padding: EdgeInsets.fromLTRB(16, 16, 16, safeBottom + 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -2749,7 +2749,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                   24,
                   16,
                   24,
-                  isThreeButtonNav ? 16 : safeBottom + 24,
+                  isThreeButtonNav ? 16 : safeBottom + 16,
                 ),
                 child: Row(
                   children: [
@@ -2793,7 +2793,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                       const SizedBox(width: 12),
                     Expanded(
                       child: CustomButton(
-                        radius: 30,
                         text: label,
                         horizontalPadding: 0,
                         textColor: Colors.white,

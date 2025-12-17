@@ -97,6 +97,7 @@ flutter:
     - assets/icons/
     - assets/images/
     - assets/splash/
+    - assets/splash/konek2move.png
     - assets/sounds/notification.mp3
     - assets/config/secure.json
 
