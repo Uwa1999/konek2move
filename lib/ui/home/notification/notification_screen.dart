@@ -323,7 +323,12 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   Future<void> _refresh() async {
+    setState(() => isLoading = true);
+
     await context.read<NotificationProvider>().fetchNotifications();
+
+    if (!mounted) return;
+    setState(() => isLoading = false);
   }
 
   // -------------------- TIME AGO FORMATTER --------------------
@@ -447,8 +452,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
         final isRead = n.isRead;
 
         return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: GestureDetector(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
             onTap: () async {
               if (!isRead && driverCode != null) {
                 await provider.markAsRead(
@@ -466,62 +472,99 @@ class _NotificationScreenState extends State<NotificationScreen> {
               );
             },
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
+              duration: const Duration(milliseconds: 250),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isRead ? Colors.white : kPrimaryColor.withOpacity(0.10),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: isRead ? Colors.grey.shade300 : kPrimaryColor,
-                ),
+                color: isRead ? Colors.white : kPrimaryColor.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center, // ✅ CENTER ICON
                 children: [
-                  CircleAvatar(
-                    backgroundColor: isRead
-                        ? Colors.grey.shade500
-                        : kPrimaryColor,
-                    child: const Icon(Icons.notifications, color: Colors.white),
-                  ),
-                  const SizedBox(width: 16),
+                  /// 🔔 ICON WITH BADGE
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: isRead ? Colors.grey.shade200 : kPrimaryColor,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.notifications_rounded,
+                          color: Colors.white,
+                          size: 22,
+                        ),
+                      ),
 
+                      /// 🔵 UNREAD DOT
+                      if (!isRead)
+                        Positioned(
+                          top: 2,
+                          right: 2,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: Colors.redAccent,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+
+                  const SizedBox(width: 14),
+
+                  /// 📄 CONTENT
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
+                        /// TITLE
                         Text(
                           n.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
+                            fontSize: 15,
                             fontWeight: isRead
-                                ? FontWeight.w400
+                                ? FontWeight.w500
                                 : FontWeight.w600,
-                            fontSize: 16,
+                            color: Colors.black87,
                           ),
                         ),
+
                         const SizedBox(height: 4),
 
                         Text(
-                          n.body.split(' ').take(8).join(' ') +
-                              (n.body.split(' ').length > 8 ? '...' : ''),
-                          style: const TextStyle(
-                            color: Colors.black54,
+                          truncateByWords(n.body, 7),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
                             fontSize: 14,
+                            color: Colors.grey.shade700,
                           ),
                         ),
 
                         const SizedBox(height: 6),
+
+                        /// TIME
                         Text(
                           _timeAgo(n.createdAt.toString()),
                           style: TextStyle(
-                            color: Colors.grey.shade500,
                             fontSize: 12,
+                            color: Colors.grey.shade500,
                           ),
                         ),
                       ],
@@ -534,5 +577,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
         );
       }),
     );
+  }
+
+  String truncateByWords(String text, int maxWords) {
+    final words = text.split(RegExp(r'\s+'));
+    if (words.length <= maxWords) return text;
+    return '${words.take(maxWords).join(' ')}...';
   }
 }

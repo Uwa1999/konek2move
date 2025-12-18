@@ -72,41 +72,6 @@ class ApiServices {
     }
   }
 
-  // Future<ModelResponse> refuseOrder({required String reason}) async {
-  //   try {
-  //     final prefs = await SharedPreferences.getInstance();
-  //     final token = prefs.getString("jwt_token") ?? "";
-  //     final driverId = prefs.getInt("id");
-  //
-  //     final Uri url = Uri.parse(
-  //       '${GetDNS.getOttokonekHestia()}/api/private/v1/moveapp/driver/task/$driverId/refuse',
-  //     );
-  //
-  //     var request = http.MultipartRequest('PUT', url);
-  //
-  //     request.fields['reason'] = reason;
-  //
-  //     // Add Authorization header with JWT token
-  //     request.headers['Authorization'] = 'Bearer $token';
-  //
-  //     // Send request
-  //     final streamedResponse = await request.send();
-  //     final response = await http.Response.fromStream(streamedResponse);
-  //
-  //     print(response.body);
-  //     if (response.statusCode == 200) {
-  //       final Map<String, dynamic> decodedData = jsonDecode(response.body);
-  //       return ModelResponse.fromJson(decodedData);
-  //     } else {
-  //       throw Exception(
-  //         'Server returned ${response.statusCode}: ${response.body}',
-  //       );
-  //     }
-  //   } catch (e) {
-  //     throw Exception('An error occurred: $e');
-  //   }
-  // }
-
   Future<List<NotificationResponse>> getNotifications() async {
     final url = Uri.parse(
       '${GetDNS.getOttokonekHestia()}/api/private/v1/moveapp/notification/index',
@@ -189,11 +154,7 @@ class ApiServices {
     }
   }
 
-  Future<void> markNotificationAsRead({
-    required int notificationId,
-    // required String userCode,
-    // required String userType,
-  }) async {
+  Future<void> markNotificationAsRead({required int notificationId}) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString("jwt_token") ?? "";
     final url = Uri.parse(
@@ -647,6 +608,68 @@ class ApiServices {
       }
     } catch (e) {
       throw Exception('An error occurred: $e');
+    }
+  }
+
+  Future<ModelResponse> proof({
+    required String orderNo,
+    required String recipientName,
+    required File photoItem,
+    required File signature,
+  }) async {
+    try {
+      final Uri url = Uri.parse(
+        '${GetDNS.getOttokonekHestia()}/api/private/v1/moveapp/driver/pod',
+      );
+
+      // 🔎 DEBUG — REQUEST DATA
+      debugPrint("🚀 POD REQUEST");
+      debugPrint("➡️ URL: $url");
+      debugPrint("➡️ order_no: $orderNo");
+      debugPrint("➡️ recipient_name: $recipientName");
+      debugPrint("➡️ photo file: ${photoItem.path}");
+      debugPrint("➡️ signature file: ${signature.path}");
+
+      var request = http.MultipartRequest('POST', url);
+
+      request.fields['order_no'] = orderNo;
+      request.fields['recipient_name'] = recipientName;
+
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'photo',
+          photoItem.path,
+          contentType: http.MediaType('image', 'jpeg'),
+        ),
+      );
+
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'signature',
+          signature.path,
+          contentType: http.MediaType('image', 'png'),
+        ),
+      );
+
+      // 🚀 SEND REQUEST
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      // 🔎 DEBUG — RESPONSE
+      debugPrint("📡 STATUS CODE: ${response.statusCode}");
+      debugPrint("📨 RESPONSE BODY: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> decodedData = jsonDecode(response.body);
+        return ModelResponse.fromJson(decodedData);
+      } else {
+        throw Exception(
+          'Server returned ${response.statusCode}: ${response.body}',
+        );
+      }
+    } catch (e) {
+      debugPrint("❌ API proof error: $e");
+      rethrow; // ⬅️ IMPORTANT: no double wrapping
     }
   }
 }

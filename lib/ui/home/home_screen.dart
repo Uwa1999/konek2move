@@ -462,7 +462,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 _navItem("assets/icons/home.svg", "Home", 0),
                 _navItem("assets/icons/order.svg", "Orders", 1),
                 _navItem("assets/icons/map.svg", "Maps", 2),
-                _navItem("assets/icons/setting.svg", "Settings", 3),
+                _navItem("assets/icons/user.svg", "Account", 3),
               ],
             ),
           ),
@@ -526,7 +526,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String _getTitle() {
     switch (_selectedIndex) {
       case 0:
-        return "";
+        return "Driver's Dashboard";
       case 1:
         return "Orders";
       case 2:
@@ -534,7 +534,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case 3:
         return "Account Setting";
       default:
-        return "";
+        return "Driver's Dashboard";
     }
   }
 

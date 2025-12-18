@@ -952,8 +952,9 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:ui' as ui;
-
+import 'package:image/image.dart' as img;
 import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -961,10 +962,14 @@ import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:konek2move/core/widgets/map_screen.dart';
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:signature/signature.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:konek2move/core/constants/app_colors.dart';
@@ -992,8 +997,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
 
   static const double _dropoffRadiusMeters = 50;
 
-  Uint8List? _proofImage;
-  Uint8List? _signatureImage;
+  File? _proofImage;
+  File? _signatureImage;
+  final TextEditingController _photoController = TextEditingController();
+  final TextEditingController _signatureController = TextEditingController();
 
   // Map controller and notifiers
   final Completer<GoogleMapController> _mapController = Completer();
@@ -1090,6 +1097,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     _mapLoaded.dispose();
     _markers.dispose();
     _polylines.dispose();
+    _photoController.dispose();
+    _signatureController.dispose();
     super.dispose();
   }
 
@@ -1498,39 +1507,58 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     _showCompleteDeliverySheet();
   }
 
-  Future<Uint8List?> _pickImage() async {
-    // integrate image_picker / camera here
-    // return imageBytes;
-    return null;
-  }
-
-  Future<Uint8List?> _captureSignature() async {
-    // open signature pad screen & return PNG bytes
-    return null;
-  }
-
   Future<void> _submitCompletedDelivery() async {
+    if (_proofImage == null || _signatureImage == null) {
+      _showTopMessage("Please upload photo and signature.", isError: true);
+      return;
+    }
+
+    // 🔎 DEBUG — SHOW INPUT DATA
+    debugPrint("📦 SUBMIT POD DATA");
+    debugPrint("🆔 Order No: ${widget.order.orderNo}");
+    debugPrint("👤 Recipient: ${widget.order.customer?.name}");
+    debugPrint("🖼 Photo Path: ${_proofImage!.path}");
+    debugPrint("✍️ Signature Path: ${_signatureImage!.path}");
+    debugPrint("📏 Photo size: ${_proofImage!.lengthSync()} bytes");
+    debugPrint("📏 Signature size: ${_signatureImage!.lengthSync()} bytes");
+
     try {
-      // TODO: upload proofImage & signatureImage to API
+      final api = ApiServices();
+
+      final response = await api.proof(
+        orderNo: widget.order.orderNo,
+        recipientName: widget.order.customer!.name,
+        photoItem: _proofImage!,
+        signature: _signatureImage!,
+      );
+
+      if (response.retCode != "200") {
+        throw Exception(response.message);
+      }
 
       await _setDeliveryStatus('delivered');
 
-      // 🔒 STOP TRACKING & ROUTING AFTER DELIVERY
-      _positionStream?.cancel();
+      await _positionStream?.cancel();
       _positionStream = null;
-
       _polylines.value = {};
 
-      _showApiIndicator(
-        title: "Success",
-        message: "Delivery completed successfully.",
-        success: true,
-      );
+      _showTopMessage(response.message);
+
+      if (mounted) Navigator.pop(context);
     } catch (e) {
-      _showApiIndicator(
-        title: "Error",
-        message: "Failed to complete delivery.",
-        success: false,
+      debugPrint("❌ Submit delivery error: $e");
+
+      final cleanMessage = e
+          .toString()
+          .replaceAll('Exception:', '')
+          .replaceAll('An error occurred:', '')
+          .trim();
+
+      _showTopMessage(
+        cleanMessage.isNotEmpty
+            ? cleanMessage
+            : "Something went wrong. Please try again.",
+        isError: true,
       );
     }
   }
@@ -1555,6 +1583,24 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   // -------------------------------------------------------------------------
   // Utilities
   // -------------------------------------------------------------------------
+
+  void _showTopMessage(String message, {bool isError = false}) {
+    Flushbar(
+      backgroundColor: isError ? Colors.redAccent : Colors.green,
+      margin: const EdgeInsets.all(16),
+      borderRadius: BorderRadius.circular(12),
+      message: message,
+      duration: const Duration(seconds: 2),
+      flushbarPosition: FlushbarPosition.TOP,
+      animationDuration: const Duration(milliseconds: 180),
+      icon: Icon(
+        isError ? Icons.error_outline : Icons.check_circle_outline,
+        color: Colors.white,
+        size: 28,
+      ),
+    ).show(context);
+  }
+
   void _showApiIndicator({
     required String title,
     required String message,
@@ -1603,9 +1649,125 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     }
   }
 
+  Future<File?> _pickImageFromCamera(BuildContext context) async {
+    final ImagePicker picker = ImagePicker();
+
+    final XFile? pickedFile = await picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 80,
+    );
+
+    if (pickedFile == null) return null;
+
+    return File(pickedFile.path);
+  }
+
+  Future<File?> _openSignaturePad(BuildContext context) async {
+    final SignatureController controller = SignatureController(
+      penStrokeWidth: 3,
+      penColor: Colors.black,
+      exportBackgroundColor: Colors.white,
+    );
+
+    File? resultFile;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Drag handle
+                Container(
+                  width: 40,
+                  height: 5,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+
+                const Text(
+                  "Customer Signature",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+
+                const SizedBox(height: 12),
+
+                Container(
+                  height: 300,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Signature(
+                    controller: controller,
+                    backgroundColor: Colors.white,
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: _dangerBtn(
+                        "Clear",
+                        onTap: () => controller.clear(),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _primaryBtn(
+                        "Save",
+                        onTap: () async {
+                          if (controller.isNotEmpty) {
+                            final Uint8List? pngBytes = await controller
+                                .toPngBytes();
+
+                            if (pngBytes != null) {
+                              final dir = await getTemporaryDirectory();
+                              final filePath = path.join(
+                                dir.path,
+                                'signature_${DateTime.now().millisecondsSinceEpoch}.png',
+                              );
+
+                              final file = File(filePath);
+                              await file.writeAsBytes(pngBytes);
+
+                              resultFile = file;
+                            }
+                          }
+                          Navigator.pop(context);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    controller.dispose();
+    return resultFile;
+  }
+
   // -------------------------------------------------------------------------
   // UI builders (kept compact & efficient)
   // -------------------------------------------------------------------------
+
   Widget _circleButton({required IconData icon, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
@@ -1702,82 +1864,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     );
   }
 
-  // Widget _buildDeliveryDetails() {
-  //   final details = [
-  //     {
-  //       'icon': Icons.storefront,
-  //       'title': 'Pickup',
-  //       'main': widget.order.supplierName,
-  //       'sub': widget.order.supplierAddress,
-  //       'distance': routeTarget == 'pickup' ? pickupDistanceKm : '-',
-  //       'duration': routeTarget == 'pickup' ? pickupDuration : '-',
-  //     },
-  //     {
-  //       'icon': Icons.location_on,
-  //       'title': 'Drop-off',
-  //       'main': widget.order.customer?.name ?? 'Unknown Customer',
-  //       'sub': widget.order.deliveryAddress,
-  //       'distance': riderDropoffDistanceKm,
-  //       'duration': riderDropoffDuration,
-  //     },
-  //   ];
-  //
-  //   return Container(
-  //     padding: const EdgeInsets.all(12),
-  //     decoration: BoxDecoration(
-  //       color: Colors.white,
-  //       borderRadius: BorderRadius.circular(20),
-  //       border: Border.all(color: Colors.grey.shade300),
-  //       boxShadow: [
-  //         BoxShadow(
-  //           color: Colors.black.withOpacity(0.05),
-  //           blurRadius: 6,
-  //           offset: const Offset(0, 2),
-  //         ),
-  //       ],
-  //     ),
-  //     child: Row(
-  //       crossAxisAlignment: CrossAxisAlignment.start,
-  //       children: [
-  //         Column(
-  //           children: List.generate(details.length * 2 - 1, (i) {
-  //             if (i.isEven) {
-  //               return Icon(
-  //                 details[i ~/ 2]['icon'] as IconData,
-  //                 color: Colors.grey.shade500,
-  //                 size: 22,
-  //               );
-  //             }
-  //             return Container(
-  //               width: 2,
-  //               height: 60,
-  //               color: Colors.grey.shade300,
-  //             );
-  //           }),
-  //         ),
-  //         const SizedBox(width: 14),
-  //         Expanded(
-  //           child: Column(
-  //             children: details
-  //                 .map(
-  //                   (d) => Padding(
-  //                     padding: const EdgeInsets.only(bottom: 16),
-  //                     child: _buildDetailRow(
-  //                       title: d['title'] as String,
-  //                       mainText: d['main'] as String,
-  //                       subText: d['sub'] as String,
-  //                       distance: d['distance'] as String,
-  //                       duration: d['duration'] as String,
-  //                     ),
-  //                   ),
-  //                 )
-  //                 .toList(),
-  //           ),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
   Widget _buildDeliveryDetails() {
     final details = [
       {
@@ -1898,219 +1984,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     );
   }
 
-  // Widget _buildReceiverCard() {
-  //   final receiverName = widget.order.customer?.name ?? 'Unknown Customer';
-  //   final receiverPhone = widget.order.contactPhone.trim();
-  //   final receiverAddress = widget.order.deliveryAddress;
-  //   final totalAmount = widget.order.totalAmount.toStringAsFixed(2);
-  //
-  //   Widget infoRow(String label, String value) {
-  //     return Padding(
-  //       padding: const EdgeInsets.only(bottom: 10),
-  //       child: Column(
-  //         crossAxisAlignment: CrossAxisAlignment.start,
-  //         children: [
-  //           Text(
-  //             label,
-  //             style: TextStyle(
-  //               fontSize: 12,
-  //               color: Colors.grey.shade500,
-  //               fontWeight: FontWeight.w600,
-  //             ),
-  //           ),
-  //           const SizedBox(height: 4),
-  //           SelectableText(
-  //             value,
-  //             style: const TextStyle(
-  //               fontSize: 14.5,
-  //               fontWeight: FontWeight.w600,
-  //               color: Colors.black87,
-  //             ),
-  //           ),
-  //         ],
-  //       ),
-  //     );
-  //   }
-  //
-  //   return Container(
-  //     padding: const EdgeInsets.all(12),
-  //     decoration: BoxDecoration(
-  //       color: Colors.white,
-  //       borderRadius: BorderRadius.circular(20),
-  //       border: Border.all(color: Colors.grey.shade300),
-  //       boxShadow: [
-  //         BoxShadow(
-  //           color: Colors.black.withOpacity(0.05),
-  //           blurRadius: 6,
-  //           offset: const Offset(0, 2),
-  //         ),
-  //       ],
-  //     ),
-  //     child: Row(
-  //       crossAxisAlignment: CrossAxisAlignment.start,
-  //       children: [
-  //         /// AVATAR
-  //         Container(
-  //           height: 46,
-  //           width: 46,
-  //           decoration: BoxDecoration(
-  //             color: kPrimaryColor.withOpacity(0.15),
-  //             shape: BoxShape.circle,
-  //           ),
-  //           child: const Icon(Icons.person, color: kPrimaryColor, size: 22),
-  //         ),
-  //         const SizedBox(width: 14),
-  //
-  //         /// DETAILS
-  //         Expanded(
-  //           child: Column(
-  //             crossAxisAlignment: CrossAxisAlignment.start,
-  //             children: [
-  //               Text(
-  //                 receiverName,
-  //                 style: const TextStyle(
-  //                   fontSize: 16,
-  //                   fontWeight: FontWeight.w700,
-  //                 ),
-  //               ),
-  //               const SizedBox(height: 12),
-  //
-  //               infoRow("Delivery Address", receiverAddress),
-  //
-  //               if (receiverPhone.isNotEmpty)
-  //                 infoRow("Mobile Number", receiverPhone),
-  //
-  //               const Divider(height: 20),
-  //
-  //               /// TOTAL
-  //               Row(
-  //                 children: [
-  //                   const Text(
-  //                     "Total",
-  //                     style: TextStyle(
-  //                       fontSize: 13,
-  //                       fontWeight: FontWeight.w600,
-  //                       color: Colors.grey,
-  //                     ),
-  //                   ),
-  //                   const Spacer(),
-  //                   Text(
-  //                     "₱ $totalAmount",
-  //                     style: const TextStyle(
-  //                       fontSize: 17,
-  //                       fontWeight: FontWeight.w800,
-  //                       color: kPrimaryColor,
-  //                     ),
-  //                   ),
-  //                 ],
-  //               ),
-  //             ],
-  //           ),
-  //         ),
-  //
-  //         /// ACTIONS
-  //         Column(
-  //           children: [
-  //             if (receiverPhone.isNotEmpty)
-  //               ActionButton(
-  //                 icon: Icons.phone,
-  //                 onTap: () => _callNumber(receiverPhone),
-  //               ),
-  //             const SizedBox(height: 10),
-  //             Consumer<ChatProvider>(
-  //               builder: (_, provider, __) {
-  //                 return Stack(
-  //                   children: [
-  //                     ActionButton(
-  //                       icon: Icons.message,
-  //                       onTap: () {
-  //                         provider.clearUnread();
-  //                         Navigator.push(
-  //                           context,
-  //                           MaterialPageRoute(
-  //                             builder: (_) => const OrderChatScreen(),
-  //                           ),
-  //                         );
-  //                       },
-  //                     ),
-  //                     if (provider.unreadCount > 0)
-  //                       Positioned(
-  //                         right: 0,
-  //                         top: 0,
-  //                         child: Container(
-  //                           padding: const EdgeInsets.all(4),
-  //                           decoration: const BoxDecoration(
-  //                             color: Colors.red,
-  //                             shape: BoxShape.circle,
-  //                           ),
-  //                           child: Text(
-  //                             provider.unreadCount.toString(),
-  //                             style: const TextStyle(
-  //                               fontSize: 10,
-  //                               fontWeight: FontWeight.bold,
-  //                               color: Colors.white,
-  //                             ),
-  //                           ),
-  //                         ),
-  //                       ),
-  //                   ],
-  //                 );
-  //               },
-  //             ),
-  //           ],
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
   Widget _buildReceiverCard() {
     final receiverName = widget.order.customer?.name ?? 'Unknown Customer';
     final receiverPhone = widget.order.contactPhone.trim();
     final receiverAddress = widget.order.deliveryAddress;
+    final totalItem = widget.order.itemsCount.toString();
     final totalAmount = widget.order.totalAmount.toStringAsFixed(2);
-    //
-    // Widget infoRow({
-    //   required IconData icon,
-    //   required String label,
-    //   required String value,
-    // }) {
-    //   return Padding(
-    //     padding: const EdgeInsets.only(bottom: 14),
-    //     child: Row(
-    //       crossAxisAlignment: CrossAxisAlignment.start,
-    //       children: [
-    //         Icon(icon, size: 18, color: Colors.grey.shade500),
-    //         const SizedBox(width: 10),
-    //         Expanded(
-    //           child: Column(
-    //             crossAxisAlignment: CrossAxisAlignment.start,
-    //             children: [
-    //               Text(
-    //                 label.toUpperCase(),
-    //                 style: TextStyle(
-    //                   fontSize: 11,
-    //                   letterSpacing: 0.6,
-    //                   color: Colors.grey.shade500,
-    //                   fontWeight: FontWeight.w600,
-    //                 ),
-    //               ),
-    //               const SizedBox(height: 4),
-    //               SelectableText(
-    //                 value,
-    //                 style: const TextStyle(
-    //                   fontSize: 14.5,
-    //                   height: 1.4,
-    //                   fontWeight: FontWeight.w600,
-    //                   color: Colors.black87,
-    //                 ),
-    //               ),
-    //             ],
-    //           ),
-    //         ),
-    //       ],
-    //     ),
-    //   );
-    // }
 
     Widget actionIcon({
       required IconData icon,
@@ -2334,6 +2213,40 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     );
   }
 
+  Widget _primaryBtn(String title, {required VoidCallback onTap}) {
+    return SizedBox(
+      height: 40,
+      child: ElevatedButton(
+        onPressed: onTap,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: kPrimaryColor,
+          elevation: 1,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+        ),
+        child: Text(title),
+      ),
+    );
+  }
+
+  Widget _dangerBtn(String title, {required VoidCallback onTap}) {
+    return SizedBox(
+      height: 40,
+      child: ElevatedButton(
+        onPressed: onTap,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: kPrimaryRedColor,
+          elevation: 1,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+        ),
+        child: Text(title),
+      ),
+    );
+  }
+
   void _showCompleteDeliverySheet() {
     showModalBottomSheet(
       context: context,
@@ -2344,21 +2257,24 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
       ),
       builder: (_) {
         return StatefulBuilder(
-          builder: (context, setModalState) {
-            final canSubmit = _proofImage != null && _signatureImage != null;
+          builder: (sheetContext, setModalState) {
+            final canSubmit =
+                _photoController.text.isNotEmpty &&
+                _signatureController.text.isNotEmpty;
 
             return SafeArea(
               top: false,
               child: Padding(
                 padding: EdgeInsets.fromLTRB(
+                  24,
                   16,
-                  16,
-                  16,
-                  MediaQuery.of(context).viewInsets.bottom + 24,
+                  24,
+                  MediaQuery.of(sheetContext).viewInsets.bottom + 16,
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Drag handle
                     Container(
                       width: 40,
                       height: 5,
@@ -2367,6 +2283,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
+
                     const SizedBox(height: 16),
 
                     const Text(
@@ -2376,6 +2293,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                         fontWeight: FontWeight.w700,
                       ),
                     ),
+
                     const SizedBox(height: 6),
                     Text(
                       "Upload proof and collect customer signature.",
@@ -2384,42 +2302,58 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
 
                     const SizedBox(height: 20),
 
-                    /// 📸 PHOTO
+                    /// 📸 CAMERA
                     _proofTile(
                       title: "Delivery Photo",
-                      hasValue: _proofImage != null,
+                      hasValue: _photoController.text.isNotEmpty,
+                      idleIcon: Icons.camera_alt_rounded,
+                      completedIcon: Icons.photo_rounded,
                       onTap: () async {
-                        final img = await _pickImage();
+                        final File? img = await _pickImageFromCamera(
+                          sheetContext,
+                        );
                         if (img != null) {
-                          setModalState(() => _proofImage = img);
+                          setModalState(() {
+                            _proofImage = img;
+                            _photoController.text =
+                                img.path; // ✅ APPLY CONTROLLER
+                          });
                         }
                       },
                     ),
 
                     const SizedBox(height: 12),
 
-                    /// ✍️ SIGNATURE
+                    /// ✍️ SIGNATURE (FIXED TYPE)
                     _proofTile(
                       title: "Customer Signature",
-                      hasValue: _signatureImage != null,
+                      hasValue: _signatureController.text.isNotEmpty,
+                      idleIcon: Icons.edit_rounded,
+                      completedIcon: Icons.draw_rounded,
                       onTap: () async {
-                        final sig = await _captureSignature();
-                        if (sig != null) {
-                          setModalState(() => _signatureImage = sig);
+                        final File? sigFile = await _openSignaturePad(
+                          sheetContext,
+                        );
+                        if (sigFile != null) {
+                          setModalState(() {
+                            _signatureImage = sigFile;
+                            _signatureController.text =
+                                sigFile.path; // ✅ APPLY CONTROLLER
+                          });
                         }
                       },
                     ),
-
                     const SizedBox(height: 24),
 
                     CustomButton(
+                      radius: 24,
                       text: "Complete Delivery",
                       color: canSubmit ? kPrimaryColor : Colors.grey.shade400,
                       textColor: Colors.white,
                       onTap: !canSubmit
                           ? null
                           : () async {
-                              Navigator.pop(context);
+                              Navigator.pop(sheetContext);
                               await _submitCompletedDelivery();
                             },
                     ),
@@ -2793,6 +2727,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                       const SizedBox(width: 12),
                     Expanded(
                       child: CustomButton(
+                        radius: 24,
                         text: label,
                         horizontalPadding: 0,
                         textColor: Colors.white,
@@ -2816,6 +2751,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     required String title,
     required bool hasValue,
     required VoidCallback onTap,
+    required IconData idleIcon,
+    required IconData completedIcon,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -2824,14 +2761,16 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: hasValue ? Colors.green : Colors.grey.shade300,
+            width: 1.5,
+            color: hasValue ? kPrimaryColor : Colors.grey.shade300,
           ),
         ),
         child: Row(
           children: [
             Icon(
-              hasValue ? Icons.check_circle : Icons.upload,
-              color: hasValue ? Colors.green : Colors.grey,
+              hasValue ? completedIcon : idleIcon,
+              color: hasValue ? kPrimaryColor : Colors.grey,
+              size: 24,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -2843,7 +2782,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                 ),
               ),
             ),
-            if (hasValue) const Icon(Icons.check, color: Colors.green),
+            if (hasValue)
+              const Icon(Icons.check_circle, color: kPrimaryColor, size: 20),
           ],
         ),
       ),
