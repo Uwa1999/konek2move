@@ -963,7 +963,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
-import 'package:konek2move/core/widgets/map_screen.dart';
+import 'package:konek2move/core/widgets/custom_map_screen.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
@@ -1026,6 +1026,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   bool _isFullScreen = false;
   bool _isFetchingRoute = false;
   bool isLoading = false;
+  bool _isSubmitting = false;
 
   bool _isWithinDropoffRange() {
     if (_currentLocation == null) return false;
@@ -1507,60 +1508,28 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     _showCompleteDeliverySheet();
   }
 
-  Future<void> _submitCompletedDelivery() async {
+  Future<String> _submitCompletedDelivery() async {
     if (_proofImage == null || _signatureImage == null) {
-      _showTopMessage("Please upload photo and signature.", isError: true);
-      return;
+      throw Exception("Please upload photo and signature.");
     }
 
-    // 🔎 DEBUG — SHOW INPUT DATA
-    debugPrint("📦 SUBMIT POD DATA");
-    debugPrint("🆔 Order No: ${widget.order.orderNo}");
-    debugPrint("👤 Recipient: ${widget.order.customer?.name}");
-    debugPrint("🖼 Photo Path: ${_proofImage!.path}");
-    debugPrint("✍️ Signature Path: ${_signatureImage!.path}");
-    debugPrint("📏 Photo size: ${_proofImage!.lengthSync()} bytes");
-    debugPrint("📏 Signature size: ${_signatureImage!.lengthSync()} bytes");
+    final api = ApiServices();
 
-    try {
-      final api = ApiServices();
+    final response = await api.proof(
+      orderNo: widget.order.orderNo,
+      recipientName: widget.order.customer!.name,
+      photoItem: _proofImage!,
+      signature: _signatureImage!,
+    );
 
-      final response = await api.proof(
-        orderNo: widget.order.orderNo,
-        recipientName: widget.order.customer!.name,
-        photoItem: _proofImage!,
-        signature: _signatureImage!,
-      );
-
-      if (response.retCode != "200") {
-        throw Exception(response.message);
-      }
-
-      await _setDeliveryStatus('delivered');
-
-      await _positionStream?.cancel();
-      _positionStream = null;
-      _polylines.value = {};
-
-      _showTopMessage(response.message);
-
-      if (mounted) Navigator.pop(context);
-    } catch (e) {
-      debugPrint("❌ Submit delivery error: $e");
-
-      final cleanMessage = e
-          .toString()
-          .replaceAll('Exception:', '')
-          .replaceAll('An error occurred:', '')
-          .trim();
-
-      _showTopMessage(
-        cleanMessage.isNotEmpty
-            ? cleanMessage
-            : "Something went wrong. Please try again.",
-        isError: true,
-      );
+    if (response.retCode != "200") {
+      throw Exception(response.message);
     }
+
+    await _setDeliveryStatus('delivered');
+
+    // ✅ return backend message dynamically
+    return response.message;
   }
 
   // -------------------------------------------------------------------------
@@ -1583,23 +1552,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   // -------------------------------------------------------------------------
   // Utilities
   // -------------------------------------------------------------------------
-
-  void _showTopMessage(String message, {bool isError = false}) {
-    Flushbar(
-      backgroundColor: isError ? Colors.redAccent : Colors.green,
-      margin: const EdgeInsets.all(16),
-      borderRadius: BorderRadius.circular(12),
-      message: message,
-      duration: const Duration(seconds: 2),
-      flushbarPosition: FlushbarPosition.TOP,
-      animationDuration: const Duration(milliseconds: 180),
-      icon: Icon(
-        isError ? Icons.error_outline : Icons.check_circle_outline,
-        color: Colors.white,
-        size: 28,
-      ),
-    ).show(context);
-  }
 
   void _showApiIndicator({
     required String title,
@@ -1848,6 +1800,29 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShimmerButton() {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: IgnorePointer(
+          ignoring: true, // 🚫 prevents clicking
+          child: Shimmer.fromColors(
+            baseColor: Colors.grey.shade300,
+            highlightColor: Colors.grey.shade100,
+            child: Container(
+              height: 52,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(28),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -2347,16 +2322,72 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
 
                     CustomButton(
                       radius: 24,
-                      text: "Complete Delivery",
-                      color: canSubmit ? kPrimaryColor : Colors.grey.shade400,
+                      text: _isSubmitting
+                          ? "Submitting delivery…"
+                          : "Complete Delivery",
+                      color: canSubmit && !_isSubmitting
+                          ? kPrimaryColor
+                          : Colors.grey.shade400,
                       textColor: Colors.white,
-                      onTap: !canSubmit
+                      onTap: (!canSubmit || _isSubmitting)
                           ? null
                           : () async {
-                              Navigator.pop(sheetContext);
-                              await _submitCompletedDelivery();
+                              setModalState(() => _isSubmitting = true);
+
+                              try {
+                                final message =
+                                    await _submitCompletedDelivery();
+
+                                if (!mounted) return;
+
+                                // ✅ show dynamic backend message
+                                // _showTopMessage(message);
+                                _showApiIndicator(
+                                  title: 'Status Updated',
+                                  message: message,
+                                  success: true,
+                                );
+                              } catch (e) {
+                                _showApiIndicator(
+                                  message: e.toString().replaceFirst(
+                                    'Exception: ',
+                                    '',
+                                  ),
+                                  success: false,
+                                  title: 'Error',
+                                );
+                              } finally {
+                                if (mounted) {
+                                  setModalState(() => _isSubmitting = false);
+                                }
+                              }
                             },
                     ),
+
+                    // CustomButton(
+                    //   radius: 24,
+                    //   text: _isSubmitting
+                    //       ? "Submitting delivery…"
+                    //       : "Complete Delivery",
+                    //   color: canSubmit && !_isSubmitting
+                    //       ? kPrimaryColor
+                    //       : Colors.grey.shade400,
+                    //   textColor: Colors.white,
+                    //   onTap: (!canSubmit || _isSubmitting)
+                    //       ? null
+                    //       : () async {
+                    //           setModalState(() => _isSubmitting = true);
+                    //
+                    //           final success = await _submitCompletedDelivery();
+                    //
+                    //           if (!mounted) return;
+                    //
+                    //
+                    //           if (mounted) {
+                    //             setModalState(() => _isSubmitting = false);
+                    //           }
+                    //         },
+                    // ),
                   ],
                 ),
               ),
@@ -2510,7 +2541,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
             ),
         ],
       ),
-      bottomNavigationBar: _isFullScreen ? null : _buildStatusButton(),
+      bottomNavigationBar: _isFullScreen
+          ? null
+          : ValueListenableBuilder<bool>(
+              valueListenable: _mapLoaded,
+              builder: (_, loaded, __) {
+                return loaded ? _buildStatusButton() : _buildShimmerButton();
+              },
+            ),
     );
   }
 

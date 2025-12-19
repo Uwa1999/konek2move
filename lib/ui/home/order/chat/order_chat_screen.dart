@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:konek2move/core/widgets/custom_appbar.dart';
-import 'package:konek2move/core/widgets/widget_image_picker.dart';
+import 'package:konek2move/core/widgets/custom_image_picker.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/services/api_services.dart';
 import 'package:konek2move/core/services/model_services.dart';

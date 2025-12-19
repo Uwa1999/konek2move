@@ -5,7 +5,7 @@
 // import 'package:konek2move/core/constants/app_colors.dart';
 // import 'package:konek2move/core/services/provider_services.dart';
 // import 'package:konek2move/ui/home/dashboard/dashboard_screen.dart';
-// import 'package:konek2move/ui/home/map/map_screen.dart';
+// import 'package:konek2move/ui/home/map/custom_map_screen.dart';
 // import 'package:konek2move/ui/home/order/order_screen.dart';
 // import 'package:konek2move/ui/home/setting/setting_screen.dart';
 // import 'package:shared_preferences/shared_preferences.dart';

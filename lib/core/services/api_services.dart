@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dns_services.dart';
 import 'model_services.dart';
+import 'package:path/path.dart' as p;
 
 class ApiServices {
   static Future<ModelResponse> logout() async {
@@ -52,7 +53,6 @@ class ApiServices {
       request.fields['lng'] = lng;
       request.fields['lat'] = lat;
 
-      // Add Authorization header with JWT token
       request.headers['Authorization'] = 'Bearer $token';
 
       // Send request
@@ -618,6 +618,8 @@ class ApiServices {
     required File signature,
   }) async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("jwt_token") ?? "";
       final Uri url = Uri.parse(
         '${GetDNS.getOttokonekHestia()}/api/private/v1/moveapp/driver/pod',
       );
@@ -629,8 +631,11 @@ class ApiServices {
       debugPrint("➡️ recipient_name: $recipientName");
       debugPrint("➡️ photo file: ${photoItem.path}");
       debugPrint("➡️ signature file: ${signature.path}");
+      debugPrint("➡️ photo file: ${p.basename(photoItem.path)}");
+      debugPrint("➡️ signature file: ${p.basename(signature.path)}");
 
       var request = http.MultipartRequest('POST', url);
+      request.headers['Authorization'] = 'Bearer $token';
 
       request.fields['order_no'] = orderNo;
       request.fields['recipient_name'] = recipientName;
