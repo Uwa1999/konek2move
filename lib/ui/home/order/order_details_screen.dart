@@ -954,7 +954,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
-import 'package:image/image.dart' as img;
 import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -1508,6 +1507,54 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     _showCompleteDeliverySheet();
   }
 
+  // Future<String> _submitCompletedDelivery() async {
+  //   if (_proofImage == null || _signatureImage == null) {
+  //     throw Exception("Please upload photo and signature.");
+  //   }
+
+  //   final api = ApiServices();
+
+  //   final response = await api.proof(
+  //     orderNo: widget.order.orderNo,
+  //     recipientName: widget.order.customer!.name,
+  //     photoItem: _proofImage!,
+  //     signature: _signatureImage!,
+  //   );
+
+  //   if (response.retCode != "200") {
+  //     throw Exception(response.message);
+  //   }
+
+  //   await _setDeliveryStatus('delivered');
+
+  //   // ✅ return backend message dynamically
+  //   return response.message;
+  // }
+
+  Future<void> _updateDeliveryStatusSilently(String nextStatus) async {
+    if (deliveryStatus == nextStatus) return;
+    if (_currentLocation == null) return;
+
+    try {
+      await ApiServices().updateStatus(
+        orderId: widget.order.id,
+        status: nextStatus,
+        lng: _currentLocation!.longitude.toString(),
+        lat: _currentLocation!.latitude.toString(),
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        deliveryStatus = nextStatus;
+      });
+    } catch (e) {
+      // ❌ NO UI HERE
+      debugPrint("❌ Failed to update status: $e");
+      rethrow; // let caller decide what to show
+    }
+  }
+
   Future<String> _submitCompletedDelivery() async {
     if (_proofImage == null || _signatureImage == null) {
       throw Exception("Please upload photo and signature.");
@@ -1526,15 +1573,16 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
       throw Exception(response.message);
     }
 
-    await _setDeliveryStatus('delivered');
+    // ✅ silent update (NO dialog)
+    await _updateDeliveryStatusSilently('delivered');
 
     // ✅ return backend message dynamically
     return response.message;
   }
 
-  // -------------------------------------------------------------------------
-  // Chat / notifications
-  // -------------------------------------------------------------------------
+  // // -------------------------------------------------------------------------
+  // // Chat / notifications
+  // // -------------------------------------------------------------------------
   void _handleRealtimeChat(Map<String, dynamic> event, ChatProvider provider) {
     final data = event['data'];
     if (data == null) return;
@@ -1548,6 +1596,29 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
 
     if (meta['sender_type'] != 'driver') provider.incrementUnread();
   }
+  // -------------------------------------------------------------------------
+  // Chat / notifications (CORRECT & CLEAN)
+  // -------------------------------------------------------------------------
+  // void _handleRealtimeChat(Map<String, dynamic> event, ChatProvider provider) {
+  //   final data = event['data'];
+  //   if (data == null) return;
+  //
+  //   final meta = data['meta'];
+  //   if (meta == null) return;
+  //
+  //   final msg = ChatMessageResponse(
+  //     id: meta["message_id"] ?? 0,
+  //     senderType: meta["sender_type"] ?? "",
+  //     senderCode: meta["sender_code"] ?? "",
+  //     messageType: meta["message_type"] ?? "text",
+  //     message: meta["message"],
+  //     attachmentUrl: meta["attachment_url"],
+  //     createdAt: DateTime.now(),
+  //   );
+
+  //   // ✅ ONE SOURCE OF TRUTH
+  //   provider.appendFromServer(msg);
+  // }
 
   // -------------------------------------------------------------------------
   // Utilities

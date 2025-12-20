@@ -348,6 +348,198 @@ class ConnectivityProvider extends ChangeNotifier {
   }
 }
 
+// class ChatProvider extends ChangeNotifier {
+//   final ApiServices api = ApiServices();
+//
+//   /// Active chat state
+//   int? _activeChatId;
+//
+//   /// Messages for current chat only
+//   List<ChatMessageResponse> _messages = [];
+//
+//   /// Loading flags
+//   bool initialLoad = true;
+//   bool isRefreshing = false;
+//
+//   /// Unread
+//   int unreadCount = 0;
+//
+//   /// Track if chat screen is open
+//   bool isChatOpen = false;
+//
+//   // =====================================================
+//   // GETTERS
+//   // =====================================================
+//
+//   List<ChatMessageResponse> get allMessages => List.unmodifiable(_messages);
+//
+//   int? get activeChatId => _activeChatId;
+//
+//   // =====================================================
+//   // 🔥 OPEN CHAT (CRITICAL FIX)
+//   // =====================================================
+//
+//   void openChat(int chatId) {
+//     if (_activeChatId == chatId) return;
+//
+//     _activeChatId = chatId;
+//
+//     // 🔥 CLEAR PREVIOUS CHAT DATA IMMEDIATELY
+//     _messages = [];
+//     initialLoad = true;
+//
+//     notifyListeners();
+//   }
+//
+//   // =====================================================
+//   // LOAD / RELOAD MESSAGES
+//   // =====================================================
+//
+//   Future<void> loadMessages(int chatId) async {
+//     // ❌ Ignore if outdated request
+//     if (_activeChatId != chatId) return;
+//
+//     try {
+//       final res = await api.getChatMessages(chatId);
+//
+//       // ❌ Chat changed while loading
+//       if (_activeChatId != chatId) return;
+//
+//       final loaded = List<ChatMessageResponse>.from(res.data)
+//         ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+//
+//       _messages = loaded;
+//       initialLoad = false;
+//
+//       notifyListeners();
+//     } catch (e) {
+//       debugPrint("❌ Chat load error: $e");
+//       initialLoad = false;
+//       notifyListeners();
+//     }
+//   }
+//
+//   // =====================================================
+//   // ADD TEMP MESSAGE (OPTIMISTIC UI)
+//   // =====================================================
+//
+//   void addLocal(ChatMessageResponse msg) {
+//     _messages.add(msg);
+//     _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+//     notifyListeners();
+//   }
+//
+//   // =====================================================
+//   // REMOVE TEMP MESSAGE (SAFE)
+//   // =====================================================
+//
+//   void removeLocal(ChatMessageResponse temp) {
+//     _messages.removeWhere((m) => m.id == temp.id);
+//     notifyListeners();
+//   }
+//
+//   // =====================================================
+//   // REAL MESSAGE FROM SSE
+//   // =====================================================
+//
+//   void appendFromServer(ChatMessageResponse real) {
+//     // ❌ Ignore other chats
+//     if (_activeChatId == null) return;
+//
+//     // Remove matching temp bubble
+//     _messages.removeWhere(
+//       (m) =>
+//           m.id < 0 &&
+//           m.senderType == real.senderType &&
+//           m.messageType == real.messageType &&
+//           ((real.messageType == "text" && m.message == real.message) ||
+//               (real.messageType == "image")),
+//     );
+//
+//     if (_messages.any((m) => m.id == real.id)) return;
+//
+//     _messages.add(real);
+//     _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+//
+//     if (!isChatOpen) {
+//       unreadCount++;
+//     }
+//
+//     notifyListeners();
+//   }
+//
+//   // =====================================================
+//   // REFRESH AFTER SEND
+//   // =====================================================
+//
+//   Future<void> refreshAfterSend(int chatId) async {
+//     if (_activeChatId != chatId) return;
+//
+//     isRefreshing = true;
+//     notifyListeners();
+//
+//     await loadMessages(chatId);
+//
+//     isRefreshing = false;
+//     notifyListeners();
+//   }
+//
+//   // =====================================================
+//   // MARK AS READ
+//   // =====================================================
+//
+//   Future<void> markAsRead(int chatId) async {
+//     try {
+//       await api.markChatAsRead(chatId);
+//
+//       if (_activeChatId == chatId) {
+//         unreadCount = 0;
+//         notifyListeners();
+//       }
+//     } catch (e) {
+//       debugPrint("❌ Mark as read error: $e");
+//     }
+//   }
+//
+//   // =====================================================
+//   // CHAT OPEN / CLOSE
+//   // =====================================================
+//
+//   void setChatOpen(bool value, {bool notify = true}) {
+//     if (isChatOpen == value) return;
+//
+//     isChatOpen = value;
+//
+//     if (notify) notifyListeners();
+//   }
+//
+//   // =====================================================
+//   // UNREAD HELPERS
+//   // =====================================================
+//
+//   void clearUnread() {
+//     if (unreadCount == 0) return;
+//     unreadCount = 0;
+//     notifyListeners();
+//   }
+//
+//   void setUnread(int count) {
+//     unreadCount = count;
+//     notifyListeners();
+//   }
+//
+//   // =====================================================
+//   // CLEANUP (OPTIONAL)
+//   // =====================================================
+//
+//   void reset() {
+//     _activeChatId = null;
+//     _messages = [];
+//     initialLoad = true;
+//     notifyListeners();
+//   }
+// }
+
 class ChatProvider extends ChangeNotifier {
   final ApiServices api = ApiServices();
 
