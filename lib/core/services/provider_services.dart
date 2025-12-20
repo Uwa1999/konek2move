@@ -258,87 +258,87 @@ class NotificationProvider extends ChangeNotifier {
   }
 }
 
+
+
 class ConnectivityProvider extends ChangeNotifier {
-  Set<ConnectivityResult> _connectivityStatus = {};
+  Set<ConnectivityResult> _status = {};
   bool _isChecking = true;
   bool _hasRealInternet = false;
-  bool _canReachServer = false;
+  bool _uiReady = false;
 
-  bool get isConnected =>
-      !_connectivityStatus.contains(ConnectivityResult.none);
-
-  bool get hasRealInternet => _hasRealInternet;
-  bool get canReachServer => _canReachServer;
-
-  bool get isRestrictedInternet =>
-      isConnected && !_hasRealInternet; // EXAMPLE: TikTok-only data
+  // -------------------------
+  // PUBLIC GETTERS
+  // -------------------------
 
   bool get isChecking => _isChecking;
+  bool get hasRealInternet => _hasRealInternet;
+  bool get uiReady => _uiReady;
 
-  late StreamSubscription<List<ConnectivityResult>> _subscription;
+  /// 📡 HAS SIGNAL (wifi / mobile / ethernet)
+  /// Used for 🟠 Limited Internet
+  bool get hasSignal => _status.isNotEmpty;
+
+  /// ✈️ NO SIGNAL AT ALL (airplane mode / radios off)
+  /// Used for 🔴 No Internet
+  bool get hasNoSignal =>
+      _status.isEmpty || _status.contains(ConnectivityResult.none);
+
+  /// ⚠️ Backward compatibility (optional)
+  /// You may remove this if not used elsewhere
+  bool get isConnected => hasSignal;
+
+  // -------------------------
+  // INTERNALS
+  // -------------------------
+
   final Connectivity _connectivity = Connectivity();
+  late final StreamSubscription<List<ConnectivityResult>> _subscription;
 
   ConnectivityProvider() {
-    _initConnectivity();
+    _init();
   }
 
-  void _initConnectivity() async {
+  /// 🚦 CALLED AFTER LANDING ANIMATION
+  void markUiReady() {
+    if (_uiReady) return;
+    _uiReady = true;
+    notifyListeners();
+  }
+
+  Future<void> _init() async {
     _isChecking = true;
     notifyListeners();
 
-    final initialStatus = await _connectivity.checkConnectivity();
-    _connectivityStatus = initialStatus.toSet();
+    // 🔹 Initial connectivity state (can be multiple results)
+    final results = await _connectivity.checkConnectivity();
+    _status = results.toSet();
 
-    await _runFullCheck();
+    // 🔹 Check real internet once
+    await _checkInternet();
 
     _isChecking = false;
     notifyListeners();
 
-    _subscription = _connectivity.onConnectivityChanged.listen((results) async {
-      _connectivityStatus = results.toSet();
-      notifyListeners();
-
-      await _runFullCheck();
-    });
+    // 🔹 Listen for connectivity changes
+    _subscription =
+        _connectivity.onConnectivityChanged.listen((results) async {
+          _status = results.toSet();
+          await _checkInternet();
+          notifyListeners();
+        });
   }
 
-  /// 🔍 Step 1: Check if internet is real (Google)
-  Future<bool> _checkRealInternet() async {
+  /// 🌍 REAL INTERNET CHECK (SOURCE OF TRUTH)
+  Future<void> _checkInternet() async {
     try {
       final res = await http
-          .get(Uri.parse("https://www.google.com"))
-          .timeout(const Duration(seconds: 4));
-      return res.statusCode == 200;
-    } catch (_) {
-      return false;
-    }
-  }
+          .get(Uri.parse('https://www.google.com'))
+          .timeout(const Duration(seconds: 3));
 
-  /// 🔍 Step 2: Check if your API is reachable
-  Future<bool> _checkServer() async {
-    try {
-      final res = await http
-          .get(Uri.parse("https://dev-hestia-p1.fortress-asya.com"))
-          .timeout(const Duration(seconds: 4));
-      return res.statusCode == 200;
+      _hasRealInternet = res.statusCode == 200;
     } catch (_) {
-      return false;
-    }
-  }
-
-  /// Run both checks and update UI
-  Future<void> _runFullCheck() async {
-    if (!isConnected) {
       _hasRealInternet = false;
-      _canReachServer = false;
-      notifyListeners();
-      return;
     }
-
-    _hasRealInternet = await _checkRealInternet();
-    _canReachServer = _hasRealInternet ? await _checkServer() : false;
-
-    notifyListeners();
   }
 
   @override

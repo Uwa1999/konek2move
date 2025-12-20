@@ -1596,34 +1596,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
 
     if (meta['sender_type'] != 'driver') provider.incrementUnread();
   }
-  // -------------------------------------------------------------------------
-  // Chat / notifications (CORRECT & CLEAN)
-  // -------------------------------------------------------------------------
-  // void _handleRealtimeChat(Map<String, dynamic> event, ChatProvider provider) {
-  //   final data = event['data'];
-  //   if (data == null) return;
-  //
-  //   final meta = data['meta'];
-  //   if (meta == null) return;
-  //
-  //   final msg = ChatMessageResponse(
-  //     id: meta["message_id"] ?? 0,
-  //     senderType: meta["sender_type"] ?? "",
-  //     senderCode: meta["sender_code"] ?? "",
-  //     messageType: meta["message_type"] ?? "text",
-  //     message: meta["message"],
-  //     attachmentUrl: meta["attachment_url"],
-  //     createdAt: DateTime.now(),
-  //   );
-
-  //   // ✅ ONE SOURCE OF TRUTH
-  //   provider.appendFromServer(msg);
-  // }
-
-  // -------------------------------------------------------------------------
-  // Utilities
-  // -------------------------------------------------------------------------
-
   void _showApiIndicator({
     required String title,
     required String message,
