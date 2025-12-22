@@ -239,6 +239,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
+import 'package:konek2move/core/routes/app_navigator.dart';
 import 'package:konek2move/core/widgets/custom_button.dart';
 import 'package:konek2move/ui/login/login_screen.dart';
 import 'package:konek2move/ui/register/terms_and_condition_screen.dart';
@@ -256,7 +257,7 @@ class LandingScreen extends StatefulWidget {
 class _LandingScreenState extends State<LandingScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  bool _isNavigating = false; // ✅ prevent double tap & lag
+  // ✅ prevent double tap & lag
 
   late Animation<double> _fadeImage;
   late Animation<Offset> _slideImage;
@@ -331,33 +332,6 @@ class _LandingScreenState extends State<LandingScreen>
 
         Provider.of<ConnectivityProvider>(context, listen: false).markUiReady();
       });
-    });
-  }
-
-  Future<void> _navigate(Widget page) async {
-    if (_isNavigating) return;
-    _isNavigating = true;
-
-    HapticFeedback.lightImpact();
-
-    // ✅ STOP animations before navigation (MAIN FIX)
-    _controller.stop();
-
-    // allow current frame to finish
-    await Future.delayed(const Duration(milliseconds: 16));
-    if (!mounted) return;
-
-    Navigator.push(
-      context,
-      PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 250),
-        pageBuilder: (_, __, ___) => page,
-        transitionsBuilder: (_, animation, __, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-      ),
-    ).then((_) {
-      _isNavigating = false;
     });
   }
 
@@ -454,7 +428,11 @@ class _LandingScreenState extends State<LandingScreen>
                         text: "Get Started",
                         color: kPrimaryColor,
                         textColor: Colors.white,
-                        onTap: () => _navigate(const TermsAndConditionScreen()),
+                        onTap: () => AppNavigator.push(
+                          context,
+                          const TermsAndConditionScreen(),
+                          stopController: _controller,
+                        ),
                       ),
                       const SizedBox(height: 10),
                       CustomButton(
@@ -463,7 +441,11 @@ class _LandingScreenState extends State<LandingScreen>
                         color: kWhiteButtonColor,
                         textColor: kPrimaryColor,
                         borderColor: kPrimaryColor,
-                        onTap: () => _navigate(const LoginScreen()),
+                        onTap: () => AppNavigator.push(
+                          context,
+                          const LoginScreen(),
+                          stopController: _controller,
+                        ),
                       ),
                     ],
                   ),
