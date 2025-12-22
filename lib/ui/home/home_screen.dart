@@ -312,7 +312,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/services/api_services.dart';
-import 'package:konek2move/core/services/driver_location_services.dart';
 import 'package:konek2move/core/services/provider_services.dart';
 import 'package:konek2move/core/widgets/custom_home_appbar.dart';
 import 'package:provider/provider.dart';

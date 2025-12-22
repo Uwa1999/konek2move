@@ -1,98 +1,116 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:konek2move/core/constants/app_colors.dart';
-import 'package:konek2move/core/widgets/custom_button.dart';
+import 'package:konek2move/core/services/provider_services.dart';
+import 'package:konek2move/core/widgets/custom_dialog.dart';
+import 'package:provider/provider.dart';
 
-class NoInternetScreen extends StatefulWidget {
-  const NoInternetScreen({super.key});
+/// 🌍 GLOBAL NAVIGATOR KEY (REQUIRED FOR GLOBAL DIALOGS)
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+/// 🔔 DIALOG STATE TYPE (PREVENT DUPLICATES)
+enum _InternetDialogType { none, noInternet, limited }
+
+/// 🌐 INTERNET DIALOG LISTENER (PRODUCTION SAFE)
+class InternetDialogListener extends StatefulWidget {
+  final Widget child;
+
+  const InternetDialogListener({super.key, required this.child});
 
   @override
-  State<NoInternetScreen> createState() => _NoInternetScreenState();
+  State<InternetDialogListener> createState() => _InternetDialogListenerState();
 }
 
-class _NoInternetScreenState extends State<NoInternetScreen> {
-  bool isLoading = false;
+class _InternetDialogListenerState extends State<InternetDialogListener> {
+  _InternetDialogType _activeDialog = _InternetDialogType.none;
 
-  Future<void> _reload() async {
-    setState(() => isLoading = true);
-    await Future.delayed(const Duration(seconds: 2));
-    setState(() => isLoading = false);
+  /// ❌ CLOSE ONLY DIALOG ROUTES
+  void _closeInternetDialogs(BuildContext context) {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    navigator.popUntil((route) => route is! PopupRoute);
   }
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
+    return Consumer<ConnectivityProvider>(
+      builder: (_, connectivity, __) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final ctx = navigatorKey.currentContext;
+          if (ctx == null) return;
 
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      body: RefreshIndicator(
-        onRefresh: _reload,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: SizedBox(
-            height: size.height,
-            width: size.width,
-            child: Center(
-              child: Container(
-                width: size.width * 0.85,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 20,
-                      offset: Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      height: 200,
-                      child: Image.asset("assets/images/internet.png"),
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'No Internet Connection',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Please check your network settings and try again.',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.black54,
-                        height: 1.5,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 30),
-                    CustomButton(
-                      horizontalPadding: 0,
-                      text: isLoading ? "Loading..." : "Try Again",
-                      color: kLightButtonColor,
-                      textColor: kPrimaryRedColor,
-                      onTap: _reload,
-                    ),
-                    // if (isLoading)
-                    //   const Padding(
-                    //     padding: EdgeInsets.only(top: 16),
-                    //     child: CircularProgressIndicator(),
-                    //   ),
-                  ],
-                ),
+          /// ⛔ WAIT FOR UI + FIRST CHECK
+          if (connectivity.isChecking || !connectivity.uiReady) return;
+
+          // ==========================================================
+          // ✅ INTERNET RESTORED
+          // ==========================================================
+          if (connectivity.hasRealInternet &&
+              _activeDialog != _InternetDialogType.none) {
+            _closeInternetDialogs(ctx);
+            _activeDialog = _InternetDialogType.none;
+
+            ScaffoldMessenger.of(ctx).showSnackBar(
+              const SnackBar(
+                content: Text("Internet connected"),
+                behavior: SnackBarBehavior.floating,
+                backgroundColor: kPrimaryColor,
+                duration: Duration(seconds: 2),
               ),
-            ),
-          ),
-        ),
-      ),
+            );
+            return;
+          }
+
+          // ==========================================================
+          // 🔴 NO SIGNAL AT ALL
+          // ==========================================================
+          if (!connectivity.hasRealInternet &&
+              connectivity.hasNoSignal &&
+              _activeDialog != _InternetDialogType.noInternet) {
+            _closeInternetDialogs(ctx);
+            _activeDialog = _InternetDialogType.noInternet;
+
+            showInternetDialog(
+              context: ctx,
+              title: "No Internet Connection",
+              message: "Please turn on your mobile data or Wi-Fi to continue.",
+              icon: Icons.wifi_off_rounded,
+              color: kPrimaryRedColor,
+              buttonText: "Close App",
+              onRetry: () async {
+                exit(0);
+              },
+            );
+            return;
+          }
+
+          // ==========================================================
+          // 🟠 LIMITED INTERNET (ONLY AFTER EVER CONNECTED)
+          // ==========================================================
+          if (!connectivity.hasRealInternet &&
+              connectivity.hasSignal &&
+              connectivity.hasEverConnected && // 🔑 FINAL FIX
+              _activeDialog != _InternetDialogType.limited) {
+            _closeInternetDialogs(ctx);
+            _activeDialog = _InternetDialogType.limited;
+
+            showInternetDialog(
+              context: ctx,
+              title: "Limited Internet Access",
+              message:
+                  "You're connected to a network, but the internet is currently unavailable.",
+              icon: Icons.signal_wifi_connected_no_internet_4_rounded,
+              color: kPrimaryColor,
+              buttonText: "Retry",
+              onRetry: () async {
+                await ctx.read<ConnectivityProvider>().retryConnection();
+              },
+            );
+          }
+        });
+
+        return widget.child;
+      },
     );
   }
 }

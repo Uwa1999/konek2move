@@ -350,15 +350,17 @@ class ConnectivityProvider extends ChangeNotifier {
   bool _hasRealInternet = false;
   bool _uiReady = false;
 
+  /// 🔑 KEY FIX
+  bool _hasEverConnected = false;
+
   bool get isChecking => _isChecking;
   bool get hasRealInternet => _hasRealInternet;
   bool get uiReady => _uiReady;
+  bool get hasEverConnected => _hasEverConnected;
 
   bool get hasSignal => _status.isNotEmpty;
   bool get hasNoSignal =>
       _status.isEmpty || _status.contains(ConnectivityResult.none);
-
-  bool get isConnected => hasSignal;
 
   final Connectivity _connectivity = Connectivity();
   late final StreamSubscription<List<ConnectivityResult>> _subscription;
@@ -373,18 +375,16 @@ class ConnectivityProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 🔁 MANUAL RECONNECT (USED BY RETRY BUTTON)
+  /// 🔁 RETRY BUTTON
   Future<void> retryConnection() async {
     if (_isChecking) return;
 
     _isChecking = true;
     notifyListeners();
 
-    // Recheck signal
     final results = await _connectivity.checkConnectivity();
     _status = results.toSet();
 
-    // Recheck real internet
     await _checkInternet();
 
     _isChecking = false;
@@ -410,13 +410,19 @@ class ConnectivityProvider extends ChangeNotifier {
     });
   }
 
+  /// 🌐 REAL INTERNET CHECK (ANDROID SAFE)
   Future<void> _checkInternet() async {
     try {
       final res = await http
-          .get(Uri.parse('https://www.google.com'))
-          .timeout(const Duration(seconds: 3));
+          .get(Uri.parse('https://clients3.google.com/generate_204'))
+          .timeout(const Duration(seconds: 5));
 
-      _hasRealInternet = res.statusCode == 200;
+      _hasRealInternet = res.statusCode == 204;
+
+      /// 🔑 ONCE SUCCESS → ALLOW FUTURE WARNINGS
+      if (_hasRealInternet) {
+        _hasEverConnected = true;
+      }
     } catch (_) {
       _hasRealInternet = false;
     }
