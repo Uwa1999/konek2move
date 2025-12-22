@@ -9,15 +9,24 @@ Future<void> showInternetDialog({
   required String buttonText,
   required Future<void> Function()? onRetry,
 }) async {
-  await showDialog(
+  bool dialogClosed = false;
+
+  showDialog(
     context: context,
     barrierDismissible: false,
     barrierColor: Colors.black.withOpacity(0.45),
-    builder: (_) {
+    useRootNavigator: true,
+    builder: (dialogContext) {
       bool isLoading = false;
 
       return StatefulBuilder(
-        builder: (context, setDialogState) {
+        builder: (_, setDialogState) {
+          void safeSetState(VoidCallback fn) {
+            if (!dialogClosed) {
+              setDialogState(fn);
+            }
+          }
+
           return Dialog(
             elevation: 12,
             insetPadding: const EdgeInsets.symmetric(horizontal: 28),
@@ -58,13 +67,13 @@ Future<void> showInternetDialog({
                     isLoading
                         ? "Checking your internet connection..."
                         : message,
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14.5,
-                      color: Colors.grey.shade700,
                       height: 1.6,
+                      color: Colors.grey.shade700,
                       fontWeight: FontWeight.w500,
                     ),
-                    textAlign: TextAlign.center,
                   ),
 
                   const SizedBox(height: 24),
@@ -83,29 +92,29 @@ Future<void> showInternetDialog({
                       onPressed: isLoading
                           ? null
                           : () async {
-                        if (onRetry == null) return;
+                              if (onRetry == null) return;
 
-                        setDialogState(() => isLoading = true);
-                        await onRetry();
-                        setDialogState(() => isLoading = false);
-                      },
+                              safeSetState(() => isLoading = true);
+                              await onRetry();
+                              safeSetState(() => isLoading = false);
+                            },
                       child: isLoading
                           ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
+                              height: 18,
+                              width: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
                           : Text(
-                        buttonText,
-                        style: const TextStyle(
-                          fontSize: 15.5,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
+                              buttonText,
+                              style: const TextStyle(
+                                fontSize: 15.5,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
                     ),
                   ),
                 ],
@@ -115,5 +124,5 @@ Future<void> showInternetDialog({
         },
       );
     },
-  );
+  ).then((_) => dialogClosed = true);
 }

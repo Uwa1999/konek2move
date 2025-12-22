@@ -174,15 +174,10 @@ import 'core/services/provider_services.dart';
 import 'core/widgets/custom_dialog.dart';
 
 /// 🌍 GLOBAL NAVIGATOR KEY (REQUIRED FOR GLOBAL DIALOGS)
-final GlobalKey<NavigatorState> navigatorKey =
-GlobalKey<NavigatorState>();
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 /// 🔔 DIALOG STATE TYPE (PREVENT DUPLICATES)
-enum _InternetDialogType {
-  none,
-  noInternet,
-  limited,
-}
+enum _InternetDialogType { none, noInternet, limited }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -226,9 +221,7 @@ class MyApp extends StatelessWidget {
 
       /// ✅ GLOBAL INTERNET DIALOG LISTENER
       builder: (context, child) {
-        return InternetDialogListener(
-          child: child!,
-        );
+        return InternetDialogListener(child: child!);
       },
     );
   }
@@ -237,76 +230,69 @@ class MyApp extends StatelessWidget {
 /// 🌐 INTERNET DIALOG LISTENER (PRODUCTION SAFE)
 class InternetDialogListener extends StatefulWidget {
   final Widget child;
+
   const InternetDialogListener({super.key, required this.child});
 
   @override
-  State<InternetDialogListener> createState() =>
-      _InternetDialogListenerState();
+  State<InternetDialogListener> createState() => _InternetDialogListenerState();
 }
 
 class _InternetDialogListenerState extends State<InternetDialogListener> {
   _InternetDialogType _activeDialog = _InternetDialogType.none;
 
-  /// 🔄 Close ONLY the current dialog (for replacing state)
-  void _replaceDialog(BuildContext context) {
+  /// ✅ Close ONLY dialog routes (never pages)
+  void _closeInternetDialogs(BuildContext context) {
     final navigator = Navigator.of(context, rootNavigator: true);
-    if (navigator.canPop()) {
-      navigator.pop();
-    }
-  }
 
-  /// ❌ Close EVERYTHING (used when internet is restored)
-  void closeAllDialogs(BuildContext context) {
-    final navigator = Navigator.of(context, rootNavigator: true);
-    while (navigator.canPop()) {
-      navigator.pop();
-    }
+    navigator.popUntil((route) {
+      return route is! PopupRoute;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<ConnectivityProvider>(
       builder: (_, connectivity, __) {
-        WidgetsBinding.instance.addPostFrameCallback((_) async {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
           final ctx = navigatorKey.currentContext;
           if (ctx == null) return;
 
-          // ⛔ Wait until landing animation + initial check
+          // ⛔ Wait until UI + initial connectivity check is done
           if (connectivity.isChecking || !connectivity.uiReady) return;
 
           // ==========================================================
-          // ✅ INTERNET RESTORED → CLOSE ALL DIALOGS
+          // ✅ INTERNET RESTORED
           // ==========================================================
           if (connectivity.hasRealInternet &&
               _activeDialog != _InternetDialogType.none) {
-            closeAllDialogs(ctx);
+            _closeInternetDialogs(ctx);
             _activeDialog = _InternetDialogType.none;
 
             ScaffoldMessenger.of(ctx).showSnackBar(
-              SnackBar(
-                content: const Text("Internet connected"),
-                backgroundColor: kPrimaryColor,
-                duration: const Duration(seconds: 2),
+              const SnackBar(
+                content: Text("Internet connected"),
                 behavior: SnackBarBehavior.floating,
+                backgroundColor: kPrimaryColor,
+                duration: Duration(seconds: 2),
               ),
             );
             return;
           }
 
           // ==========================================================
-          // 🔴 NO INTERNET (NO SIGNAL / AIRPLANE MODE)
+          // 🔴 NO INTERNET (NO SIGNAL)
           // ==========================================================
           if (!connectivity.hasRealInternet &&
               connectivity.hasNoSignal &&
               _activeDialog != _InternetDialogType.noInternet) {
-            _replaceDialog(ctx); // 🔑 close previous dialog
+            _closeInternetDialogs(ctx);
             _activeDialog = _InternetDialogType.noInternet;
 
             showInternetDialog(
               context: ctx,
               title: "No Internet Connection",
               message:
-              "Please turn on your mobile data or Wi-Fi to continue using the app.",
+                  "Please turn on your mobile data or Wi-Fi to continue using the app.",
               icon: Icons.wifi_off_rounded,
               color: kPrimaryRedColor,
               buttonText: "Close App",
@@ -318,26 +304,24 @@ class _InternetDialogListenerState extends State<InternetDialogListener> {
           }
 
           // ==========================================================
-          // 🟠 LIMITED INTERNET (SIGNAL EXISTS, NO REAL INTERNET)
+          // 🟠 LIMITED INTERNET (SIGNAL BUT NO REAL INTERNET)
           // ==========================================================
           if (!connectivity.hasRealInternet &&
               connectivity.hasSignal &&
               _activeDialog != _InternetDialogType.limited) {
-            _replaceDialog(ctx); // 🔑 replace No Internet dialog
+            _closeInternetDialogs(ctx);
             _activeDialog = _InternetDialogType.limited;
 
             showInternetDialog(
               context: ctx,
               title: "Limited Internet Access",
               message:
-              "You're connected to a network, but the internet is currently unavailable.",
+                  "You're connected to a network, but the internet is currently unavailable.",
               icon: Icons.signal_wifi_connected_no_internet_4_rounded,
               color: kPrimaryColor,
               buttonText: "Retry",
               onRetry: () async {
-                // UI-only retry
-                // Provider will re-check automatically
-                await Future.delayed(const Duration(seconds: 2));
+                await ctx.read<ConnectivityProvider>().retryConnection();
               },
             );
           }
@@ -348,4 +332,3 @@ class _InternetDialogListenerState extends State<InternetDialogListener> {
     );
   }
 }
-

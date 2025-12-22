@@ -258,38 +258,107 @@ class NotificationProvider extends ChangeNotifier {
   }
 }
 
-
-
+// class ConnectivityProvider extends ChangeNotifier {
+//   Set<ConnectivityResult> _status = {};
+//   bool _isChecking = true;
+//   bool _hasRealInternet = false;
+//   bool _uiReady = false;
+//
+//   // -------------------------
+//   // PUBLIC GETTERS
+//   // -------------------------
+//
+//   bool get isChecking => _isChecking;
+//   bool get hasRealInternet => _hasRealInternet;
+//   bool get uiReady => _uiReady;
+//
+//   /// 📡 HAS SIGNAL (wifi / mobile / ethernet)
+//   /// Used for 🟠 Limited Internet
+//   bool get hasSignal => _status.isNotEmpty;
+//
+//   /// ✈️ NO SIGNAL AT ALL (airplane mode / radios off)
+//   /// Used for 🔴 No Internet
+//   bool get hasNoSignal =>
+//       _status.isEmpty || _status.contains(ConnectivityResult.none);
+//
+//   /// ⚠️ Backward compatibility (optional)
+//   /// You may remove this if not used elsewhere
+//   bool get isConnected => hasSignal;
+//
+//   // -------------------------
+//   // INTERNALS
+//   // -------------------------
+//
+//   final Connectivity _connectivity = Connectivity();
+//   late final StreamSubscription<List<ConnectivityResult>> _subscription;
+//
+//   ConnectivityProvider() {
+//     retryConnection();
+//   }
+//
+//   /// 🚦 CALLED AFTER LANDING ANIMATION
+//   void markUiReady() {
+//     if (_uiReady) return;
+//     _uiReady = true;
+//     notifyListeners();
+//   }
+//
+//   Future<void> retryConnection() async {
+//     _isChecking = true;
+//     notifyListeners();
+//
+//     // 🔹 Initial connectivity state (can be multiple results)
+//     final results = await _connectivity.checkConnectivity();
+//     _status = results.toSet();
+//
+//     // 🔹 Check real internet once
+//     await _checkInternet();
+//
+//     _isChecking = false;
+//     notifyListeners();
+//
+//     // 🔹 Listen for connectivity changes
+//     _subscription = _connectivity.onConnectivityChanged.listen((results) async {
+//       _status = results.toSet();
+//       await _checkInternet();
+//       notifyListeners();
+//     });
+//   }
+//
+//   /// 🌍 REAL INTERNET CHECK (SOURCE OF TRUTH)
+//   Future<void> _checkInternet() async {
+//     try {
+//       final res = await http
+//           .get(Uri.parse('https://www.google.com'))
+//           .timeout(const Duration(seconds: 3));
+//
+//       _hasRealInternet = res.statusCode == 200;
+//     } catch (_) {
+//       _hasRealInternet = false;
+//     }
+//   }
+//
+//   @override
+//   void dispose() {
+//     _subscription.cancel();
+//     super.dispose();
+//   }
+// }
 class ConnectivityProvider extends ChangeNotifier {
   Set<ConnectivityResult> _status = {};
   bool _isChecking = true;
   bool _hasRealInternet = false;
   bool _uiReady = false;
 
-  // -------------------------
-  // PUBLIC GETTERS
-  // -------------------------
-
   bool get isChecking => _isChecking;
   bool get hasRealInternet => _hasRealInternet;
   bool get uiReady => _uiReady;
 
-  /// 📡 HAS SIGNAL (wifi / mobile / ethernet)
-  /// Used for 🟠 Limited Internet
   bool get hasSignal => _status.isNotEmpty;
-
-  /// ✈️ NO SIGNAL AT ALL (airplane mode / radios off)
-  /// Used for 🔴 No Internet
   bool get hasNoSignal =>
       _status.isEmpty || _status.contains(ConnectivityResult.none);
 
-  /// ⚠️ Backward compatibility (optional)
-  /// You may remove this if not used elsewhere
   bool get isConnected => hasSignal;
-
-  // -------------------------
-  // INTERNALS
-  // -------------------------
 
   final Connectivity _connectivity = Connectivity();
   late final StreamSubscription<List<ConnectivityResult>> _subscription;
@@ -298,10 +367,27 @@ class ConnectivityProvider extends ChangeNotifier {
     _init();
   }
 
-  /// 🚦 CALLED AFTER LANDING ANIMATION
   void markUiReady() {
     if (_uiReady) return;
     _uiReady = true;
+    notifyListeners();
+  }
+
+  /// 🔁 MANUAL RECONNECT (USED BY RETRY BUTTON)
+  Future<void> retryConnection() async {
+    if (_isChecking) return;
+
+    _isChecking = true;
+    notifyListeners();
+
+    // Recheck signal
+    final results = await _connectivity.checkConnectivity();
+    _status = results.toSet();
+
+    // Recheck real internet
+    await _checkInternet();
+
+    _isChecking = false;
     notifyListeners();
   }
 
@@ -309,26 +395,21 @@ class ConnectivityProvider extends ChangeNotifier {
     _isChecking = true;
     notifyListeners();
 
-    // 🔹 Initial connectivity state (can be multiple results)
     final results = await _connectivity.checkConnectivity();
     _status = results.toSet();
 
-    // 🔹 Check real internet once
     await _checkInternet();
 
     _isChecking = false;
     notifyListeners();
 
-    // 🔹 Listen for connectivity changes
-    _subscription =
-        _connectivity.onConnectivityChanged.listen((results) async {
-          _status = results.toSet();
-          await _checkInternet();
-          notifyListeners();
-        });
+    _subscription = _connectivity.onConnectivityChanged.listen((results) async {
+      _status = results.toSet();
+      await _checkInternet();
+      notifyListeners();
+    });
   }
 
-  /// 🌍 REAL INTERNET CHECK (SOURCE OF TRUTH)
   Future<void> _checkInternet() async {
     try {
       final res = await http
@@ -347,198 +428,6 @@ class ConnectivityProvider extends ChangeNotifier {
     super.dispose();
   }
 }
-
-// class ChatProvider extends ChangeNotifier {
-//   final ApiServices api = ApiServices();
-//
-//   /// Active chat state
-//   int? _activeChatId;
-//
-//   /// Messages for current chat only
-//   List<ChatMessageResponse> _messages = [];
-//
-//   /// Loading flags
-//   bool initialLoad = true;
-//   bool isRefreshing = false;
-//
-//   /// Unread
-//   int unreadCount = 0;
-//
-//   /// Track if chat screen is open
-//   bool isChatOpen = false;
-//
-//   // =====================================================
-//   // GETTERS
-//   // =====================================================
-//
-//   List<ChatMessageResponse> get allMessages => List.unmodifiable(_messages);
-//
-//   int? get activeChatId => _activeChatId;
-//
-//   // =====================================================
-//   // 🔥 OPEN CHAT (CRITICAL FIX)
-//   // =====================================================
-//
-//   void openChat(int chatId) {
-//     if (_activeChatId == chatId) return;
-//
-//     _activeChatId = chatId;
-//
-//     // 🔥 CLEAR PREVIOUS CHAT DATA IMMEDIATELY
-//     _messages = [];
-//     initialLoad = true;
-//
-//     notifyListeners();
-//   }
-//
-//   // =====================================================
-//   // LOAD / RELOAD MESSAGES
-//   // =====================================================
-//
-//   Future<void> loadMessages(int chatId) async {
-//     // ❌ Ignore if outdated request
-//     if (_activeChatId != chatId) return;
-//
-//     try {
-//       final res = await api.getChatMessages(chatId);
-//
-//       // ❌ Chat changed while loading
-//       if (_activeChatId != chatId) return;
-//
-//       final loaded = List<ChatMessageResponse>.from(res.data)
-//         ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-//
-//       _messages = loaded;
-//       initialLoad = false;
-//
-//       notifyListeners();
-//     } catch (e) {
-//       debugPrint("❌ Chat load error: $e");
-//       initialLoad = false;
-//       notifyListeners();
-//     }
-//   }
-//
-//   // =====================================================
-//   // ADD TEMP MESSAGE (OPTIMISTIC UI)
-//   // =====================================================
-//
-//   void addLocal(ChatMessageResponse msg) {
-//     _messages.add(msg);
-//     _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-//     notifyListeners();
-//   }
-//
-//   // =====================================================
-//   // REMOVE TEMP MESSAGE (SAFE)
-//   // =====================================================
-//
-//   void removeLocal(ChatMessageResponse temp) {
-//     _messages.removeWhere((m) => m.id == temp.id);
-//     notifyListeners();
-//   }
-//
-//   // =====================================================
-//   // REAL MESSAGE FROM SSE
-//   // =====================================================
-//
-//   void appendFromServer(ChatMessageResponse real) {
-//     // ❌ Ignore other chats
-//     if (_activeChatId == null) return;
-//
-//     // Remove matching temp bubble
-//     _messages.removeWhere(
-//       (m) =>
-//           m.id < 0 &&
-//           m.senderType == real.senderType &&
-//           m.messageType == real.messageType &&
-//           ((real.messageType == "text" && m.message == real.message) ||
-//               (real.messageType == "image")),
-//     );
-//
-//     if (_messages.any((m) => m.id == real.id)) return;
-//
-//     _messages.add(real);
-//     _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-//
-//     if (!isChatOpen) {
-//       unreadCount++;
-//     }
-//
-//     notifyListeners();
-//   }
-//
-//   // =====================================================
-//   // REFRESH AFTER SEND
-//   // =====================================================
-//
-//   Future<void> refreshAfterSend(int chatId) async {
-//     if (_activeChatId != chatId) return;
-//
-//     isRefreshing = true;
-//     notifyListeners();
-//
-//     await loadMessages(chatId);
-//
-//     isRefreshing = false;
-//     notifyListeners();
-//   }
-//
-//   // =====================================================
-//   // MARK AS READ
-//   // =====================================================
-//
-//   Future<void> markAsRead(int chatId) async {
-//     try {
-//       await api.markChatAsRead(chatId);
-//
-//       if (_activeChatId == chatId) {
-//         unreadCount = 0;
-//         notifyListeners();
-//       }
-//     } catch (e) {
-//       debugPrint("❌ Mark as read error: $e");
-//     }
-//   }
-//
-//   // =====================================================
-//   // CHAT OPEN / CLOSE
-//   // =====================================================
-//
-//   void setChatOpen(bool value, {bool notify = true}) {
-//     if (isChatOpen == value) return;
-//
-//     isChatOpen = value;
-//
-//     if (notify) notifyListeners();
-//   }
-//
-//   // =====================================================
-//   // UNREAD HELPERS
-//   // =====================================================
-//
-//   void clearUnread() {
-//     if (unreadCount == 0) return;
-//     unreadCount = 0;
-//     notifyListeners();
-//   }
-//
-//   void setUnread(int count) {
-//     unreadCount = count;
-//     notifyListeners();
-//   }
-//
-//   // =====================================================
-//   // CLEANUP (OPTIONAL)
-//   // =====================================================
-//
-//   void reset() {
-//     _activeChatId = null;
-//     _messages = [];
-//     initialLoad = true;
-//     notifyListeners();
-//   }
-// }
 
 class ChatProvider extends ChangeNotifier {
   final ApiServices api = ApiServices();
