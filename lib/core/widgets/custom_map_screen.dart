@@ -27,12 +27,9 @@ class MapView extends StatefulWidget {
 }
 
 class _MapViewState extends State<MapView> {
-  late GoogleMapController? _controller;
-
   @override
   void initState() {
     super.initState();
-    _controller = null;
   }
 
   @override
@@ -65,8 +62,6 @@ class _MapViewState extends State<MapView> {
               compassEnabled: true,
               trafficEnabled: false,
               onMapCreated: (GoogleMapController controller) async {
-                _controller = controller;
-
                 if (!widget.mapControllerCompleter.isCompleted) {
                   widget.mapControllerCompleter.complete(controller);
                 }

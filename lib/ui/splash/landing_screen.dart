@@ -318,21 +318,19 @@ class _LandingScreenState extends State<LandingScreen>
 
     _slideButtons = Tween(begin: const Offset(0, 0.25), end: Offset.zero)
         .animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.75, 1.0, curve: Curves.easeOut),
-      ),
-    );
+          CurvedAnimation(
+            parent: _controller,
+            curve: const Interval(0.75, 1.0, curve: Curves.easeOut),
+          ),
+        );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       precacheImage(const AssetImage("assets/images/splash.png"), context);
       _controller.forward().whenComplete(() {
         if (!mounted) return;
 
-        Provider.of<ConnectivityProvider>(context, listen: false)
-            .markUiReady();
+        Provider.of<ConnectivityProvider>(context, listen: false).markUiReady();
       });
-
     });
   }
 
@@ -428,7 +426,7 @@ class _LandingScreenState extends State<LandingScreen>
                       ),
                       SizedBox(height: 16),
                       Text(
-                        "Seamless logistics for delivering CARD Indogrosir orders securely to your store.",
+                        "Seamless logistics for delivering CARD\nIndogrosir orders securely to your store.",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 16,

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
 
 import 'package:konek2move/core/widgets/custom_appbar.dart';
@@ -361,6 +360,7 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
     );
   }
 }
+
 // import 'dart:async';
 // import 'package:another_flushbar/flushbar.dart';
 // import 'package:flutter/material.dart';

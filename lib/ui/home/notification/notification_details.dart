@@ -4,7 +4,6 @@ import 'package:konek2move/core/constants/app_colors.dart';
 import 'package:konek2move/core/services/model_services.dart';
 import 'package:konek2move/core/widgets/custom_appbar.dart';
 import 'package:konek2move/ui/home/home_screen.dart';
-import 'package:konek2move/ui/home/order/order_screen.dart';
 
 class NotificationDetailScreen extends StatelessWidget {
   final NotificationResponse notification;

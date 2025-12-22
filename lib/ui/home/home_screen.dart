@@ -348,8 +348,12 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _selectedIndex = widget.initialIndex;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final notifProvider = context.read<NotificationProvider>();
-      await notifProvider.fetchNotifications();
+      final notifProvider = Provider.of<NotificationProvider>(
+        context,
+        listen: false,
+      );
+
+      notifProvider.fetchUnreadCount();
       notifProvider.listenLiveNotifications();
     });
 
@@ -386,7 +390,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 showTrailing: true,
                 trailingSvg: "assets/icons/notification.svg",
                 onTrailingTap: () {
-                  Navigator.pushReplacementNamed(context, '/notification');
+                  Navigator.pushNamed(context, '/notification');
                 },
 
                 trailingBadge:

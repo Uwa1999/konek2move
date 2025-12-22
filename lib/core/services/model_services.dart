@@ -118,6 +118,31 @@ class DriverResponse {
   }
 }
 
+class NotificationPage {
+  final int currentPage;
+  final int totalPages;
+  final int totalCount;
+  final List<NotificationResponse> records;
+
+  const NotificationPage({
+    required this.currentPage,
+    required this.totalPages,
+    required this.totalCount,
+    required this.records,
+  });
+
+  factory NotificationPage.fromJson(Map<String, dynamic> json) {
+    return NotificationPage(
+      currentPage: json['currentPage'] ?? 1,
+      totalPages: json['totalPages'] ?? 1,
+      totalCount: json['totalCount'] ?? 0,
+      records: (json['records'] as List<dynamic>? ?? [])
+          .map((e) => NotificationResponse.fromJson(e))
+          .toList(),
+    );
+  }
+}
+
 class NotificationResponse {
   final int id;
   final String title;

@@ -74,12 +74,14 @@ class ApiServices {
     }
   }
 
-  Future<List<NotificationResponse>> getNotifications() async {
+  Future<NotificationPage> getNotifications({int page = 1}) async {
     final url = Uri.parse(
-      '${GetDNS.getOttokonekHestia()}/api/private/v1/moveapp/notification/index',
+      '${GetDNS.getOttokonekHestia()}/api/private/v1/moveapp/notification/index?page=$page',
     );
+
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString("jwt_token") ?? "";
+
     final response = await http.get(
       url,
       headers: {
@@ -87,12 +89,37 @@ class ApiServices {
         'Authorization': 'Bearer $token',
       },
     );
+
+    print(response.body);
     if (response.statusCode == 200) {
       final Map<String, dynamic> jsonBody = json.decode(response.body);
-      final List<dynamic> data = jsonBody['data'] ?? [];
-      return data.map((e) => NotificationResponse.fromJson(e)).toList();
+      return NotificationPage.fromJson(jsonBody['data']);
     } else {
       throw Exception('Failed to fetch notifications: ${response.statusCode}');
+    }
+  }
+
+  Future<int> getNotifUnreadCount() async {
+    final url = Uri.parse(
+      '${GetDNS.getOttokonekHestia()}/api/private/v1/moveapp/notification/unread-count',
+    );
+
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("jwt_token") ?? "";
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> jsonBody = json.decode(response.body);
+      return jsonBody['data']['unread_count'] ?? 0;
+    } else {
+      throw Exception('Failed to fetch unread count');
     }
   }
 

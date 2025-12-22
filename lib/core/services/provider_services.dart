@@ -5,250 +5,214 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:konek2move/core/services/api_services.dart';
 import 'package:konek2move/core/services/model_services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class NotificationProvider extends ChangeNotifier {
   final ApiServices _api = ApiServices();
   final AudioPlayer _audioPlayer = AudioPlayer();
 
-  // Stored notifications
   final List<NotificationResponse> _notifications = [];
   List<NotificationResponse> get notifications =>
       List.unmodifiable(_notifications);
 
-  // Only unread notifications
-  List<NotificationResponse> get unreadNotifications =>
-      _notifications.where((n) => !n.isRead).toList();
-
-  int get unreadCount => unreadNotifications.length;
-
-  // Track notifications we've already marked as read
   final Set<int> _readIds = {};
 
-  // SSE subscription
+  // 🔢 SERVER UNREAD COUNT (SOURCE OF TRUTH)
+  int _serverUnreadCount = 0;
+  int get unreadCount => _serverUnreadCount;
+
   StreamSubscription<Map<String, dynamic>>? _sseSubscription;
 
-  // Count all incoming notifications for debug
-  int totalIncomingNotifications = 0;
+  int _currentPage = 1;
+  int _totalPages = 1;
+
+  bool isLoading = false;
+  bool isLoadingMore = false;
+  bool hasMore = true;
 
   // -----------------------------------------------------------
-  // FETCH ALL NOTIFICATIONS (initial load)
+  // FETCH UNREAD COUNT (INITIAL SYNC)
   // -----------------------------------------------------------
-  Future<void> fetchNotifications(
-    //     {
-    //   required String userCode,
-    //   required String userType,
-    // }
-  ) async {
+  Future<void> fetchUnreadCount() async {
     try {
-      final list = await _api.getNotifications(
-        // userCode: userCode,
-        // userType: userType,
-      );
+      final count = await _api.getNotifUnreadCount();
+      _serverUnreadCount = count;
 
+      debugPrint("🔔 Initial unread count: $_serverUnreadCount");
+      notifyListeners();
+    } catch (e) {
+      debugPrint("❌ Failed to fetch unread count: $e");
+    }
+  }
+
+  // -----------------------------------------------------------
+  // LOAD MORE (PAGINATION)
+  // -----------------------------------------------------------
+  Future<void> loadMore() async {
+    if (isLoading || isLoadingMore || !hasMore) return;
+
+    isLoadingMore = true;
+    notifyListeners();
+
+    try {
+      _currentPage++;
+
+      final page = await _api.getNotifications(page: _currentPage);
+      _totalPages = page.totalPages;
+
+      if (page.records.isEmpty) {
+        hasMore = false;
+      } else {
+        for (final n in page.records) {
+          if (_notifications.any((e) => e.id == n.id)) continue;
+
+          final isRead = _readIds.contains(n.id) || n.isRead;
+          _notifications.add(n.copyWith(isRead: isRead));
+        }
+
+        _notifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        hasMore = _currentPage < _totalPages;
+      }
+    } catch (e) {
+      _currentPage--; // rollback on failure
+      debugPrint("❌ Error loading more notifications: $e");
+    } finally {
+      isLoadingMore = false;
+      notifyListeners();
+    }
+  }
+
+  // -----------------------------------------------------------
+  // FETCH NOTIFICATIONS
+  // -----------------------------------------------------------
+  Future<void> fetchNotifications({bool refresh = false}) async {
+    if (isLoading) return;
+
+    if (refresh) {
+      _currentPage = 1;
+      _totalPages = 1;
+      hasMore = true;
       _notifications.clear();
-      for (var n in list) {
+      notifyListeners();
+    }
+
+    isLoading = true;
+    notifyListeners();
+
+    try {
+      final page = await _api.getNotifications(page: _currentPage);
+      _totalPages = page.totalPages;
+
+      for (final n in page.records) {
+        if (_notifications.any((e) => e.id == n.id)) continue;
+
         final isRead = _readIds.contains(n.id) || n.isRead;
         _notifications.add(n.copyWith(isRead: isRead));
       }
 
-      // Sort by newest
       _notifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      hasMore = _currentPage < _totalPages;
 
-      notifyListeners();
+      // 🔄 One-time sync after list load
+      await fetchUnreadCount();
     } catch (e) {
-      print("❌ Error fetching notifications: $e");
-    }
-  }
-
-  // -----------------------------------------------------------
-  // MARK AS READ
-  // -----------------------------------------------------------
-  Future<void> markAsRead({
-    required NotificationResponse notif,
-    required String userCode,
-    required String userType,
-  }) async {
-    final index = _notifications.indexWhere((n) => n.id == notif.id);
-    if (index != -1 && !_notifications[index].isRead) {
-      _notifications[index] = _notifications[index].copyWith(isRead: true);
-      _readIds.add(notif.id);
+      debugPrint("❌ Error fetching notifications: $e");
+    } finally {
+      isLoading = false;
       notifyListeners();
-
-      try {
-        await _api.markNotificationAsRead(
-          notificationId: notif.id,
-          // userCode: userCode,
-          // userType: userType,
-        );
-      } catch (e) {
-        print("❌ Error marking notification as read on server: $e");
-      }
     }
   }
 
   // -----------------------------------------------------------
-  // SSE LISTENER (LIVE NOTIFS)
+  // MARK AS READ (LIVE BADGE UPDATE)
   // -----------------------------------------------------------
-  // void listenLiveNotifications({
-  //   required String userCode,
-  //   required String userType,
-  // }) async {
-  //   _sseSubscription?.cancel();
-  //   _sseSubscription = _api.listenNotifications().listen(
-  //     (event) {
-  //       final data = event["data"];
-  //       if (data == null) {
-  //         print("⚠️ SSE event missing data field");
-  //         return;
-  //       }
-  //
-  //       totalIncomingNotifications++;
-  //
-  //       final notif = NotificationResponse.fromJson(data);
-  //
-  //       if (notif.id == 0 || notif.title.isEmpty) return;
-  //
-  //       if (_notifications.any((n) => n.id == notif.id)) {
-  //         return;
-  //       }
-  //
-  //       final isRead = _readIds.contains(notif.id);
-  //
-  //       // Play sounds for unread notifications
-  //       if (!isRead) {
-  //         _playNotificationSound();
-  //       }
-  //
-  //       _notifications.insert(0, notif.copyWith(isRead: isRead));
-  //       notifyListeners();
-  //     },
-  //     onError: (error) async {
-  //       await Future.delayed(const Duration(seconds: 5));
-  //       reconnect(userType: userType);
-  //     },
-  //     onDone: () async {
-  //       await Future.delayed(const Duration(seconds: 5));
-  //       reconnect(userType: userType);
-  //     },
-  //     cancelOnError: false,
-  //   );
-  //
-  //   // Stop previous subscription
-  //   // _sseSubscription?.cancel();
-  //   //
-  //   // print("🔌 Starting SSE for $userCode");
-  //   //
-  //   // _sseSubscription = _api
-  //   //     .listenNotifications(userCode: userCode, userType: userType)
-  //   //     .listen(
-  //   //       (event) {
-  //   //         // event = Map<String, dynamic>
-  //   //         final data = event["data"];
-  //   //         if (data == null) {
-  //   //           print("⚠️ SSE event missing data field");
-  //   //           return;
-  //   //         }
-  //   //
-  //   //         totalIncomingNotifications++;
-  //   //         print("📩 SSE Notification #$totalIncomingNotifications → $data");
-  //   //
-  //   //         final notif = NotificationModel.fromJson(data);
-  //   //
-  //   //         // Skip empty or invalid notifications
-  //   //         if (notif.id == 0 || notif.title.isEmpty) return;
-  //   //
-  //   //         // Deduplicate
-  //   //         if (_notifications.any((n) => n.id == notif.id)) {
-  //   //           print("⚠️ Duplicate notification ID ${notif.id} ignored");
-  //   //           return;
-  //   //         }
-  //   //
-  //   //         final isRead = _readIds.contains(notif.id);
-  //   //
-  //   //         // Insert newest on top
-  //   //         _notifications.insert(0, notif.copyWith(isRead: isRead));
-  //   //
-  //   //         notifyListeners();
-  //   //       },
-  //   //       onError: (error) async {
-  //   //         print("❌ SSE error: $error");
-  //   //         await Future.delayed(const Duration(seconds: 5));
-  //   //         reconnect(userType: userType);
-  //   //       },
-  //   //       onDone: () async {
-  //   //         print("⚠️ SSE closed. Reconnecting...");
-  //   //         await Future.delayed(const Duration(seconds: 5));
-  //   //         reconnect(userType: userType);
-  //   //       },
-  //   //       cancelOnError: false,
-  //   //     );
-  // }
+  Future<void> markAsRead({required NotificationResponse notif}) async {
+    final index = _notifications.indexWhere((n) => n.id == notif.id);
+    if (index == -1 || _notifications[index].isRead) return;
+
+    _notifications[index] = _notifications[index].copyWith(isRead: true);
+    _readIds.add(notif.id);
+
+    // ⬇️ INSTANT BADGE UPDATE
+    if (_serverUnreadCount > 0) {
+      _serverUnreadCount--;
+    }
+
+    notifyListeners();
+
+    try {
+      await _api.markNotificationAsRead(notificationId: notif.id);
+    } catch (e) {
+      debugPrint("❌ Failed to sync read status: $e");
+    }
+  }
+
+  // -----------------------------------------------------------
+  // LIVE SSE (REAL-TIME)
+  // -----------------------------------------------------------
   void listenLiveNotifications() async {
-    await _sseSubscription?.cancel();
+    // 🛑 Prevent multiple listeners
+    if (_sseSubscription != null) return;
+
+    debugPrint("📡 Starting SSE listener");
 
     _sseSubscription = _api.listenNotifications().listen(
       (event) {
-        final data = event["data"];
+        final data = event['data'];
         if (data == null) return;
 
         final notif = NotificationResponse.fromJson(data);
-        if (notif.id == 0 || notif.title.isEmpty) return;
 
+        // 🛑 Prevent duplicates
         if (_notifications.any((n) => n.id == notif.id)) return;
 
-        final isRead = _readIds.contains(notif.id);
+        debugPrint("📡 SSE received → notif id: ${notif.id}");
 
-        if (!isRead) _playNotificationSound();
+        _playNotificationSound();
 
-        _notifications.insert(0, notif.copyWith(isRead: isRead));
+        // ➕ INSERT AS UNREAD
+        _notifications.insert(0, notif.copyWith(isRead: false));
+
+        // 🔔 REAL-TIME BADGE INCREMENT
+        _serverUnreadCount++;
+
+        debugPrint("🔔 Badge updated → $_serverUnreadCount");
+
         notifyListeners();
       },
-      onError: (_) async {
-        await Future.delayed(const Duration(seconds: 5));
-        listenLiveNotifications(); // reconnect
+      onError: (e) {
+        debugPrint("❌ SSE error: $e");
+        _resetAndReconnect();
       },
-      onDone: () async {
-        await Future.delayed(const Duration(seconds: 5));
-        listenLiveNotifications(); // reconnect
+      onDone: () {
+        debugPrint("⚠️ SSE closed");
+        _resetAndReconnect();
       },
     );
   }
 
-  // -----------------------------------------------------------
-  // RECONNECT
-  // -----------------------------------------------------------
-  Future<void> reconnect() async {
-    final prefs = await SharedPreferences.getInstance();
-    final code = prefs.getString("driver_code") ?? "";
+  Future<void> _resetAndReconnect() async {
+    await _sseSubscription?.cancel();
+    _sseSubscription = null;
 
-    if (code.isNotEmpty) {
-      listenLiveNotifications();
-    }
+    await Future.delayed(const Duration(seconds: 5));
+    listenLiveNotifications();
   }
 
   // -----------------------------------------------------------
-  // STOP LISTENING
+  // CLEANUP
   // -----------------------------------------------------------
   void stopListening() {
     _sseSubscription?.cancel();
     _sseSubscription = null;
   }
 
-  // -----------------------------------------------------------
-  // NOTIFICATION SOUND
-  // -----------------------------------------------------------
   void _playNotificationSound() async {
     try {
       await _audioPlayer.play(
-        AssetSource(
-          'sounds/notification.mp3',
-        ), // place your mp3 in assets/sounds/
+        AssetSource('sounds/notification.mp3'),
         volume: 1.0,
       );
-    } catch (e) {
-      print('🔊 Failed to play notification sounds: $e');
-    }
+    } catch (_) {}
   }
 
   @override
